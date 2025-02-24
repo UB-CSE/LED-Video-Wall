@@ -1,7 +1,8 @@
 #include "canvas.h"
 
-// Constructor: Loads an image from file
-Element::Element(const std::string &path, int elementId, cv::Point loc)
+// Constructor with size control
+Element::Element(const std::string &path, int elementId, cv::Point loc,
+                 const cv::Size &targetSize)
     : filePath(path), location(loc), id(elementId) {
 
   // Read Image
@@ -10,31 +11,32 @@ Element::Element(const std::string &path, int elementId, cv::Point loc)
   if (pixelMatrix.empty()) {
     std::cerr << "Error: Could not load image at " << filePath << std::endl;
   } else {
+    if (targetSize.width > 0 && targetSize.height > 0) {
+      cv::resize(pixelMatrix, pixelMatrix, targetSize, 0, 0, cv::INTER_AREA);
+    }
     dim = pixelMatrix.size();
   }
 }
 
-// Override of abstract class method. Must be present - Clears the element's
-// pixel matrix by setting to black
+// Original constructor for backward compatibility
+Element::Element(const std::string &path, int elementId, cv::Point loc)
+    : Element(path, elementId, loc, cv::Size(0, 0)) {}
+
+// Override of abstract class method
 void Element::clear() { pixelMatrix = cv::Mat::zeros(dim, pixelMatrix.type()); }
 
-// Constructor: Initializes the virtual canvas with just the size
+// VirtualCanvas implementation
 VirtualCanvas::VirtualCanvas(const cv::Size &size)
     : AbstractCanvas(size), elementCount(0) {}
 
-// Override of abstract class method. Must be present - Clears the element's
-// pixel matrix by setting to black
 void VirtualCanvas::clear() { pixelMatrix = cv::Mat::zeros(dim, CV_8UC3); }
 
-// Adds an element to the canvas at its defined location set in the element
-// itself
 void VirtualCanvas::addElementToCanvas(const Element &element) {
   cv::Point loc = element.getLocation();
   cv::Mat elemMat = element.getPixelMatrix();
   cv::Size elemSize = element.getDimensions();
 
-  // Overwite a region of interest with the image - FIX IN FUTURE TO ACCOUNT FOR
-  // BOUNDARIES
+  // Overwrite a region of interest with the image
   elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
 
   // Store the element in the list
@@ -53,7 +55,7 @@ void VirtualCanvas::removeElementFromCanvas(const Element &element) {
     }
   }
 
-  // Re-add
+  // Re-add remaining elements
   for (const Element &elem : elementList) {
     addElementToCanvas(elem);
   }
