@@ -1,0 +1,32 @@
+# Matrix specifications define the types of LED matrices available
+matrix-specs:
+  ws2812b-8x32:
+    power_limit_amps: 10.0
+    width-height: [32, 8]
+  ws2812b-16x16:
+    power_limit_amps: 5.0
+    width-height: [16, 16]
+# Physical matrix placements in the display
+matrices:
+  matrix1:
+    spec: ws2812b-8x32
+    pos: [0, 0]
+    rot: "0deg"
+  matrix2:
+    spec: ws2812b-8x32
+    pos: [0, 8]
+    rot: "0deg"
+  matrix3:
+    spec: ws2812b-16x16
+    pos: [32, 0]
+    rot: "90deg"
+# Client (microcontroller) configurations
+clients:
+  "AA:BB:CC:DD:EE:FF":
+    matrix-connections:
+      - pin: 12
+        matrices: ["matrix1", "matrix2"]
+  "11:22:33:44:55:66":
+    matrix-connections:
+      - pin: 13
+        matrices: ["matrix3"]

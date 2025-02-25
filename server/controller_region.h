@@ -79,21 +79,21 @@ public:
   // Get packed data for affected controllers when an element is added/modified
   std::vector<std::pair<int, std::vector<uint8_t>>>
   getAffectedRegions(const Element &element, const cv::Mat &canvas) {
-
     std::vector<std::pair<int, std::vector<uint8_t>>> updates;
     cv::Rect elementRect(element.getLocation(), element.getDimensions());
 
     // Check each region for intersection with the element
     for (const auto &region : regions) {
-      if (elementRect.contains(region.getBoundingBox()) ||
-          region.getBoundingBox().contains(elementRect)) {
-
+      if ((elementRect & region.getBoundingBox()).area() > 0) {
         updates.emplace_back(region.getId(), region.getPackedPixels(canvas));
       }
     }
 
     return updates;
   }
+
+  // Get all regions (needed for debugging visualization)
+  const std::vector<ControllerRegion> &getRegions() const { return regions; }
 };
 
 #endif

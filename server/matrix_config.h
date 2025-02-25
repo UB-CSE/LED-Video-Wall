@@ -7,7 +7,6 @@
 #include <unordered_map>
 #include <yaml-cpp/yaml.h>
 
-// Forward declarations
 class MatrixSpec;
 class Matrix;
 class Client;
@@ -33,7 +32,7 @@ public:
 // Represents a physical LED matrix with position and rotation
 class Matrix {
 public:
-  enum class Rotation { UP, DOWN, LEFT, RIGHT };
+  enum class Rotation { R0, R90, R180, R270 };
 
   std::string name;
   MatrixSpec spec;
@@ -42,13 +41,15 @@ public:
 
   // Convert rotation string from config to enum
   static Rotation parseRotation(const std::string &rot) {
-    if (rot == "up")
-      return Rotation::UP;
-    if (rot == "down")
-      return Rotation::DOWN;
-    if (rot == "left")
-      return Rotation::LEFT;
-    return Rotation::RIGHT;
+    if (rot == "0" || rot == "0deg")
+      return Rotation::R0;
+    if (rot == "90" || rot == "90deg")
+      return Rotation::R90;
+    if (rot == "180" || rot == "180deg")
+      return Rotation::R180;
+    if (rot == "270" || rot == "270deg")
+      return Rotation::R270;
+    throw std::invalid_argument("Invalid rotation value: " + rot);
   }
 
   // Get all pixel positions for this matrix based on its position and rotation
@@ -60,16 +61,16 @@ public:
       for (int x = 0; x < spec.width; x++) {
         cv::Point pixel;
         switch (rotation) {
-        case Rotation::UP:
+        case Rotation::R0:
           pixel = cv::Point(x, y);
           break;
-        case Rotation::DOWN:
+        case Rotation::R180:
           pixel = cv::Point(spec.width - 1 - x, spec.height - 1 - y);
           break;
-        case Rotation::LEFT:
+        case Rotation::R270:
           pixel = cv::Point(y, spec.width - 1 - x);
           break;
-        case Rotation::RIGHT:
+        case Rotation::R90:
           pixel = cv::Point(spec.height - 1 - y, x);
           break;
         }
