@@ -18,9 +18,9 @@ private:
 
   // Convert OpenCV Mat to JPEG binary data
   std::vector<uchar> matToJpeg(const cv::Mat &image) {
-    // Scale up the image for better visibility (2x)
+    // Scale up the image for better visibility (5x)
     cv::Mat scaled;
-    cv::resize(image, scaled, cv::Size(), 2.0, 2.0, cv::INTER_NEAREST);
+    cv::resize(image, scaled, cv::Size(), 5.0, 5.0, cv::INTER_NEAREST);
 
     // Convert to JPEG
     std::vector<uchar> buf;
