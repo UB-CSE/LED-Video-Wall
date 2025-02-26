@@ -17,9 +17,20 @@ include_directories(${YAML_CPP_INCLUDE_DIR})
 # Require GUI support 
 find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui)
 
-# Create library target
+# Create client library 
+add_library(client_lib
+    client.cpp
+    client.hpp
+    config-parser.cpp
+    config-parser.hpp
+)
+
+# Create canvas library
 add_library(canvas_lib
     canvas.cpp
+    canvas.h
+    controller_region.h
+    web_viewer.h
 )
 
 # Link libraries
@@ -36,4 +47,5 @@ add_executable(canvas_test
 # Link executable with our library
 target_link_libraries(canvas_test
     canvas_lib
+    client_lib
 )

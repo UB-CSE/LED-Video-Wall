@@ -11,26 +11,22 @@ matrices:
   matrix1:
     spec: ws2812b-8x32
     pos: [0, 0]
-    rot: "0"
+    rot: "up"
   matrix2:
     spec: ws2812b-8x32
     pos: [0, 8]
-    rot: "0"
+    rot: "up"
   matrix3:
-    spec: ws2812b-8x32
-    pos: [0, 32]
-    rot: "0"
-  matrix4:
     spec: ws2812b-16x16
     pos: [32, 0]
-    rot: "0"
+    rot: "up"
 # Client (microcontroller) configurations
 clients:
-  "AA:BB:CC:DD:EE:FF":
+  "AA-BB-CC-11-22-33":
     matrix-connections:
       - pin: 12
-        matrices: ["matrix1", "matrix2"]
-  "11:22:33:44:55:66":
+        matrices: ["matrix1"]
+  "FF-FE-FA-44-55-66":
     matrix-connections:
       - pin: 13
-        matrices: ["matrix3", "matrix4"]
+        matrices: ["matrix3"]

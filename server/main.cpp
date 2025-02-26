@@ -1,5 +1,5 @@
 #include "canvas.h"
-#include "matrix_config.h"
+#include "controller_region.h"
 #include "web_viewer.h"
 #include <chrono>
 #include <cstdio>
@@ -58,8 +58,9 @@ int main(int argc, char *argv[]) {
   VirtualCanvas vCanvas(cv::Size(maxPoint.x, maxPoint.y));
   printf("Created canvas with size %dx%d\n", maxPoint.x, maxPoint.y);
 
-  // Create controller mapper from configuration
-  auto mapper = config.buildMapper(vCanvas.getDimensions());
+  // Create controller mapper from configuration file
+  auto mapper =
+      std::make_shared<ControllerMapper>(vCanvas.getDimensions(), argv[1]);
   printf("Controller mapper initialized with %zu regions\n",
          mapper->getRegions().size());
 
