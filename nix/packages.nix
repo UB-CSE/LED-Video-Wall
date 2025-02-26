@@ -1,9 +1,9 @@
 { pkgs }:
 let
-  opencvGtk = pkgs.opencv.override {
-    enableGtk2 = true;
-    enableGtk3 = true;
-  };
+  # opencvGtk = pkgs.opencv.override {
+  #   enableGtk2 = true;
+  #   enableGtk3 = true;
+  # };
 
   serverBuild = pkgs.stdenv.mkDerivation {
     name = "led-wall-server";
@@ -16,7 +16,7 @@ let
     ];
 
     buildInputs = with pkgs; [
-      opencvGtk
+      opencv
       gtk2
       gtk3
       yaml-cpp
@@ -57,7 +57,6 @@ let
     src = ../client;
 
     nativeBuildInputs = with pkgs; [
-      arduino-cli-wrapped
       python3
       curl
     ];
