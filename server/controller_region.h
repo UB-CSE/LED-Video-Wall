@@ -5,7 +5,8 @@
 #include <unordered_map>
 #include <vector>
 
-// Represents a region controlled by a single microcontroller
+// Represents a region controlled by a single microcontroller (e.g. all the
+// led matrix panels that are associated)
 class ControllerRegion {
 private:
   int controllerId;
@@ -30,6 +31,7 @@ public:
   }
 
   // Get packed pixel data for this region from the canvas
+  // we'll probably need to rewrite..
   std::vector<uint8_t> getPackedPixels(const cv::Mat &canvas) const {
     std::vector<uint8_t> packedData;
     packedData.reserve(pixels.size() * 3); // RGB for each pixel
@@ -63,20 +65,9 @@ public:
     regions.emplace_back(controllerId, pixels);
   }
 
-  // Define a region using a mask image (non-zero pixels define the region)
-  void addRegionFromMask(int controllerId, const cv::Mat &mask) {
-    std::vector<cv::Point> pixels;
-    for (int y = 0; y < mask.rows; y++) {
-      for (int x = 0; x < mask.cols; x++) {
-        if (mask.at<uint8_t>(y, x) > 0) {
-          pixels.emplace_back(x, y);
-        }
-      }
-    }
-    addRegion(controllerId, pixels);
-  }
-
   // Get packed data for affected controllers when an element is added/modified
+  // This just checks the bounds the element and sees which microcontroller
+  // regions need to be updated.
   std::vector<std::pair<int, std::vector<uint8_t>>>
   getAffectedRegions(const Element &element, const cv::Mat &canvas) {
     std::vector<std::pair<int, std::vector<uint8_t>>> updates;
