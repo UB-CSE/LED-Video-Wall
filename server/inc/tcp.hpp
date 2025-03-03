@@ -1,6 +1,8 @@
 #ifndef TCP_H
 #define TCP_H
 
+#include "client.hpp"
+
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -12,7 +14,6 @@
 #include <netdb.h>
 #include <unistd.h> // for close
 #include <vector>
-#include "client.hpp"
 
 class LEDTCPServer {
 public:

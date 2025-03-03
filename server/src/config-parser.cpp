@@ -1,4 +1,5 @@
 #include "client.hpp"
+
 #include <cstdint>
 #include <optional>
 #include <yaml-cpp/exceptions.h>

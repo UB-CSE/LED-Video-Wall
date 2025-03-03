@@ -1,3 +1,10 @@
+#include "tcp.hpp"
+#include "canvas.h"
+#include "client.hpp"
+#include "config-parser.hpp"
+
+#include <opencv2/opencv.hpp>
+
 #include <cstdio>
 #include <exception>
 #include <iostream>
@@ -8,12 +15,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h> // for close
-#include "tcp.hpp"
-#include "client.hpp"
-#include "config-parser.hpp"
 #include <vector>
-#include "canvas.h"
-#include <opencv2/opencv.hpp>
 
 void canvas_debug(VirtualCanvas& vCanvas);
 

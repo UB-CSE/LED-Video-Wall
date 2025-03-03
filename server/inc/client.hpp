@@ -1,11 +1,12 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
+#include <opencv2/opencv.hpp>
+
 #include <string>
 #include <vector>
 #include <cstdint>
 #include <optional>
-#include <opencv2/opencv.hpp>
 
 enum rotation { UP, DOWN, LEFT, RIGHT };
 

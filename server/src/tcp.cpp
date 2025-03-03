@@ -1,5 +1,7 @@
 #include "tcp.hpp"
 #include "client.hpp"
+#include "protocol.hpp"
+
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -13,7 +15,6 @@
 #include <unistd.h>
 #include <cstring>
 #include <map>
-#include "protocol.hpp"
 
 const int MAX_WAITING_CLIENTS = 256;
 
