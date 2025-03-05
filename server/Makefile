@@ -1,27 +1,28 @@
-# Config
+# Config File Locations
+SRC_DIRS:=src
+INC_DIRS:=inc
+OBJ_DIR:=obj
+# File Locations Variables
+SRCS:=$(shell find $(SRC_DIR) -name '*.cpp')
+OBJS:=$(foreach src, $(SRCS), $(OBJ_DIR)/$(src).o)
+INC_DIRS:=$(shell find $(INC_DIRS) -type d)
+
+# Config Compiler
 CXX:=g++
 CPPFLAGS:=
 CXXFLAGS:=-O0 -g -Wall -std=c++17
-INCFLAGS = -Iinclude -I/usr/include/opencv4 -I/usr/local/include
+INCFLAGS = $(addprefix -I,$(INC_DIRS)) -I/usr/include/opencv4
 LDFLAGS:=-lyaml-cpp `pkg-config --libs opencv4`
-SOURCES:=main tcp client config-parser canvas/canvas protocol
-OBJ_DIR:=obj
-
-# Variables
-CXX_FILES:=$(foreach src, $(SOURCES), $(src).cpp)
-OBJ_FILES:=$(foreach src, $(SOURCES), $(OBJ_DIR)/$(src).o)
 
 # Build
 all: led-wall-server
 
-led-wall-server: $(OBJ_FILES)
+led-wall-server: $(OBJS)
 	$(CXX) $(INCFLAGS) $^ -o $@ $(LDFLAGS)
 
-$(OBJ_FILES): $(OBJ_DIR)/%.o: %.cpp obj
+$(OBJ_DIR)/%.cpp.o: %.cpp obj
+	mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
 
-obj:
-	mkdir obj
-
 clean:
-	rm $(OBJ_DIR)/*
+	rm $(OBJS)

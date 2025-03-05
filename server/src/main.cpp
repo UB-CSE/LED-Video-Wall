@@ -12,7 +12,7 @@
 #include "client.hpp"
 #include "config-parser.hpp"
 #include <vector>
-#include "canvas/canvas.h"
+#include "canvas.h"
 #include <opencv2/opencv.hpp>
 
 void canvas_debug(VirtualCanvas& vCanvas);
@@ -54,6 +54,6 @@ int main() {
 
 void canvas_debug(VirtualCanvas& vCanvas) {
     //Create elements (filepath, id, location)
-    Element elem1("canvas/hello-rainbow.png", 1, cv::Point(0, 0));
+    Element elem1("images/img5x5_1.jpg", 1, cv::Point(0, 0));
     vCanvas.addElementToCanvas(elem1);
 }
