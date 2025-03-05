@@ -2,6 +2,7 @@
 #define CONFIG_PARSER_HPP
 
 #include "client.hpp"
+#include "msg.hpp"
 
 #include <string>
 #include <vector>

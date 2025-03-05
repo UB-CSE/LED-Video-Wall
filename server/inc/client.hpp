@@ -1,6 +1,8 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
+#include "msg.hpp"
+
 #include <opencv2/opencv.hpp>
 
 #include <string>
@@ -28,6 +30,7 @@ public:
     uint32_t width;
     uint32_t height;
     uint64_t total_leds;
+    num_chan_t num_chan;
 
     LEDMatrixSpec(std::string id,
                   float power_limit_amps,
@@ -42,12 +45,15 @@ public:
     std::string id;
     LEDMatrixSpec* spec;
     CanvasPos pos;
+    msg_size_t msg_size;
+    MSGBUF_Send_set_leds* msg;
     uint32_t packed_pixel_array_size;
-    unsigned char* packed_pixel_array;
 
     LEDMatrix(std::string id,
               LEDMatrixSpec* spec,
-              CanvasPos pos);
+              CanvasPos pos,
+              msg_size_t msg_size,
+              MSGBUF_Send_set_leds* msg);
 
     std::string to_string();
 };

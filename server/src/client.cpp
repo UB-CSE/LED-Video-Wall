@@ -1,5 +1,6 @@
 #include "client.hpp"
 #include "tcp.hpp"
+#include "msg.hpp"
 
 #include <cstdint>
 #include <regex>
@@ -39,10 +40,19 @@ std::string LEDMatrixSpec::to_string() {
     return ss.str();
 }
 
-LEDMatrix::LEDMatrix(std::string id, LEDMatrixSpec *spec, CanvasPos pos)
-    : id(id), spec(spec), pos(pos) {
+LEDMatrix::LEDMatrix(std::string id,
+                     LEDMatrixSpec *spec,
+                     CanvasPos pos,
+                     msg_size_t msg_size,
+                     MSGBUF_Send_set_leds* msg)
+    : id(id),
+      spec(spec),
+      pos(pos),
+      msg_size(msg_size),
+      msg(msg)
+{
+    
     this->packed_pixel_array_size = spec->total_leds * NUM_CHANNELS;
-    this->packed_pixel_array = static_cast<unsigned char*>(malloc(packed_pixel_array_size));
 }
 
 std::string LEDMatrix::to_string() {

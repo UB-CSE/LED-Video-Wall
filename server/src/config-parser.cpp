@@ -1,4 +1,5 @@
 #include "client.hpp"
+#include "msg.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -104,7 +105,11 @@ std::vector<Client*> parse_config_throws(std::string file) {
                                   pos_node[1].as<int>(),
                                   rot);
         LEDMatrixSpec* mat_spec = matrix_specs[spec_id];
-        LEDMatrix* mat = new LEDMatrix(id, mat_spec, pos);
+        uint32_t msg_buf_size =
+            MSGBUF_Send_set_leds::msg_size(mat_spec->total_leds, 1, 3);
+        MSGBUF_Send_set_leds* msg =
+            MSGBUF_Send_set_leds::make(mat_spec->total_leds, 1, 3);
+        LEDMatrix* mat = new LEDMatrix(id, mat_spec, pos, msg_buf_size, msg);
         matrices[id] = mat;
     }
 

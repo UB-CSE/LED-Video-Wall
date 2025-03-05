@@ -95,34 +95,32 @@ void tcp_set_leds(int client_socket, const cv::Mat &cvmat, LEDMatrix* ledmat, ui
 
     cv::Mat sub_cvmat = cvmat(cv::Rect(x, y, width, height));
 
-    uint32_t msg_size = 8 + ledmat->packed_pixel_array_size;
-    uint16_t op_code = 1;
     const uint8_t* data = sub_cvmat.data;
-    uint8_t send_buf[msg_size];
-    memcpy(send_buf + 0, &msg_size, 4);
-    memcpy(send_buf + 4, &op_code, 2);
-    send_buf[6] = pin;
-    send_buf[7] = bit_depth;
-    for (uint32_t i = 0; (i < ledmat->packed_pixel_array_size / 3); ++i) {
+
+    msg_size_t msg_size = ledmat->msg_size;
+    MSGBUF_Send_set_leds* msg_buf = ledmat->msg;
+    msg_buf->gpio_pin = pin;
+    msg_buf->bit_depth = bit_depth;
+    uint8_t* pixels = msg_buf->pixel_data;
+
+    for (uint32_t i = 0; (i < ledmat->spec->total_leds); ++i) {
         uint32_t a = i * 3;
         if ((i / width) % 2 != 0) {
-            send_buf[8 + a] = data[a];
-            send_buf[8 + a + 1] = data[a + 1];
-            send_buf[8 + a + 2] = data[a + 2];
+            pixels[a] = data[a];
+            pixels[a + 1] = data[a + 1];
+            pixels[a + 2] = data[a + 2];
             std::cout << "a: " << a << " ";
         } else {
             uint32_t irem = i % width;
             uint32_t b = (((width - 1) - irem) + (i - irem)) * 3;
             std::cout << "b: " << b << " ";
-            send_buf[8 + a] = data[b];
-            send_buf[8 + a + 1] = data[b + 1];
-            send_buf[8 + a + 2] = data[b + 2];
+            pixels[a] = data[b];
+            pixels[a + 1] = data[b + 1];
+            pixels[a + 2] = data[b + 2];
         }
     }
-    // uint32_t msg_size = ledmat->packed_pixel_array_size;
-    // uint32_t out_size;
-    // uint8_t* send_buf = encode_set_leds(pin, bit_depth, data, msg_size, &out_size);
-    int sent = send(client_socket, send_buf, msg_size, 0);
+
+    int sent = send(client_socket, msg_buf, msg_size, 0);
     std::cout << "socket: " << client_socket << "\n";
     if (sent == -1) {
         std::cout << "Error sending set_leds: " << strerror(errno) << "\n";
