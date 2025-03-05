@@ -4,11 +4,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    arduino-nix.url = "github:bouk/arduino-nix";
-    arduino-index = {
-      url = "github:bouk/arduino-indexes";
-      flake = false;
-    };
   };
 
   outputs =
@@ -16,17 +11,13 @@
       self,
       nixpkgs,
       flake-utils,
-      arduino-nix,
-      arduino-index,
       ...
     }:
-    let
-      overlays = import ./nix/overlays.nix { inherit arduino-nix arduino-index; };
-    in
+
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = import nixpkgs { inherit system overlays; };
+        pkgs = import nixpkgs { inherit system; };
       in
       {
         nixConfig.substituters = [ ];

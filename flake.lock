@@ -1,36 +1,5 @@
 {
   "nodes": {
-    "arduino-index": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1740096092,
-        "narHash": "sha256-L8SKUHghBKD76Q1+O+gYT/8h5e3bwHKyhPBu4161Wmg=",
-        "owner": "bouk",
-        "repo": "arduino-indexes",
-        "rev": "58f421c5c31fe934d8571ee0e53b4ee5fc1bd992",
-        "type": "github"
-      },
-      "original": {
-        "owner": "bouk",
-        "repo": "arduino-indexes",
-        "type": "github"
-      }
-    },
-    "arduino-nix": {
-      "locked": {
-        "lastModified": 1735332078,
-        "narHash": "sha256-PGZVUTg8BQKL1QgTr3Fcia8RBYYqsbHbx9lIunqdmxQ=",
-        "owner": "bouk",
-        "repo": "arduino-nix",
-        "rev": "dd6c6f4de7d8d8bb460508de911c120dfc35b709",
-        "type": "github"
-      },
-      "original": {
-        "owner": "bouk",
-        "repo": "arduino-nix",
-        "type": "github"
-      }
-    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -67,8 +36,6 @@
     },
     "root": {
       "inputs": {
-        "arduino-index": "arduino-index",
-        "arduino-nix": "arduino-nix",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"
       }

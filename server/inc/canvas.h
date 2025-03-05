@@ -7,57 +7,59 @@
 
 class AbstractCanvas {
 protected:
-    cv::Mat pixelMatrix;
-    cv::Size dim;
+  cv::Mat pixelMatrix;
+  cv::Size dim;
 
 public:
-    AbstractCanvas() {}
-    AbstractCanvas(const cv::Size& size) : dim(size) {
-        pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
-    }
-    virtual ~AbstractCanvas() {}
+  AbstractCanvas() {}
+  AbstractCanvas(const cv::Size &size) : dim(size) {
+    pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
+  }
+  virtual ~AbstractCanvas() {}
 
-    cv::Mat getPixelMatrix() const { return pixelMatrix; }
-    cv::Size getDimensions() const { return dim; }
+  cv::Mat getPixelMatrix() const { return pixelMatrix; }
+  cv::Size getDimensions() const { return dim; }
 
-    virtual void clear() = 0;  // Pure virtual function
+  virtual void clear() = 0; // Pure virtual function
 };
 
-
-
 class Element : public AbstractCanvas {
-    private:
-        std::string filePath;
-        cv::Point location;
-        int id;
-    
-    public:
-        Element(const std::string& path, int elementId, cv::Point loc = cv::Point(0, 0));
-    
-        std::string getFilePath() const { return filePath; }
-        cv::Point getLocation() const { return location; }
-        int getId() const { return id; }
-    
-        void setLocation(const cv::Point& loc) { location = loc; }
-        virtual void clear() override;
-    };
+private:
+  std::string filePath;
+  cv::Point location;
+  int id;
+  friend Element renderTextToElement(const std::string &, const std::string &,
+                                     int, cv::Scalar, int, cv::Point);
 
+public:
+  // create element from image path
+  Element(const std::string &path, int elementId,
+          cv::Point loc = cv::Point(0, 0));
+  // create element directly from a cv::Mat
+  Element(const cv::Mat &mat, int elementId, cv::Point loc = cv::Point(0, 0));
+
+  std::string getFilePath() const { return filePath; }
+  cv::Point getLocation() const { return location; }
+  int getId() const { return id; }
+
+  void setLocation(const cv::Point &loc) { location = loc; }
+  virtual void clear() override;
+};
 
 class VirtualCanvas : public AbstractCanvas {
-    private:
-        int elementCount;
-        std::vector<Element> elementList;
-    
-    public:
-        VirtualCanvas(const cv::Size& size);
-        virtual void clear() override;
-        
-        void addElementToCanvas(const Element& element);
-        void removeElementFromCanvas(const Element& element);
-        
-        int getElementCount() const { return elementCount; }
-        const std::vector<Element>& getElementList() const { return elementList; }
-    };
-        
+private:
+  int elementCount;
+  std::vector<Element> elementList;
+
+public:
+  VirtualCanvas(const cv::Size &size);
+  virtual void clear() override;
+
+  void addElementToCanvas(const Element &element);
+  void removeElementFromCanvas(const Element &element);
+
+  int getElementCount() const { return elementCount; }
+  const std::vector<Element> &getElementList() const { return elementList; }
+};
 
 #endif

@@ -10,9 +10,10 @@ INC_DIRS:=$(shell find $(INC_DIRS) -type d)
 # Config Compiler
 CXX:=g++
 CPPFLAGS:=
-CXXFLAGS:=-O0 -g -Wall -std=c++17
-INCFLAGS = $(addprefix -I,$(INC_DIRS)) `pkg-config --cflags opencv4`
-LDFLAGS:=-lyaml-cpp `pkg-config --libs opencv4`
+CXXFLAGS:= -g -Wall -std=c++17
+INCFLAGS = $(addprefix -I,$(INC_DIRS)) `pkg-config --cflags opencv4` `pkg-config --cflags freetype2`
+
+LDFLAGS:=-lyaml-cpp `pkg-config --libs opencv4` -lfreetype
 
 # Build
 all: led-wall-server
