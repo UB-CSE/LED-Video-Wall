@@ -11,7 +11,7 @@ INC_DIRS:=$(shell find $(INC_DIRS) -type d)
 CXX:=g++
 CPPFLAGS:=
 CXXFLAGS:=-O0 -g -Wall -std=c++17
-INCFLAGS = $(addprefix -I,$(INC_DIRS)) -I/usr/include/opencv4
+INCFLAGS = $(addprefix -I,$(INC_DIRS)) `pkg-config --cflags opencv4`
 LDFLAGS:=-lyaml-cpp `pkg-config --libs opencv4`
 
 # Build
