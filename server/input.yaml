@@ -6,5 +6,5 @@ elements:
   "elem1":
     id: 1
     type: "image"
-    filepath: "images/hello-rainbow.png"
-    location: [0,0]
+    filepath: "images/Alan_32x32_color_corrected.png"
+    location: [16,0]

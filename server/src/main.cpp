@@ -33,6 +33,10 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
 
+    for (Client* c : clients_exp.first) {
+        std::cout << c->to_string() << "\n";
+    }
+
     std::cout << "Size: " << clients_exp.second << "\n";
     VirtualCanvas vCanvas(clients_exp.second);
 
@@ -47,11 +51,7 @@ int main(int argc, char* argv[]) {
     }
     vCanvas.addElementVecToCanvas(elementsVec);
 
-    for (Client* c : clients_exp.first) {
-        std::cout << c->to_string() << "\n";
-    }
-
-    Element elem1("images/img5x5_1.jpg", 1, cv::Point(0, 0));
+    Element elem1("images/img5x5_1.jpg", 74829, cv::Point(0, 0));
     vCanvas.addElementToCanvas(elem1);
 
     std::optional<LEDTCPServer> server_opt = create_server(INADDR_ANY, 7070, 7074);
@@ -62,33 +62,37 @@ int main(int argc, char* argv[]) {
 
     server.wait_all_join(clients_exp.first);
 
+    for (Client* c : clients_exp.first) {
+        c->set_leds_all_matrices(vCanvas.getPixelMatrix());
+    }
+
     int x = 0;
     int y = 0;
     int dx = 1;
     int dy = 1;
     while(1) {
         for (Client* c : clients_exp.first) {
-            vCanvas.removeElementFromCanvas(elem1);
-            if (x >= 11) {
-                dx = -1;
-            } else if (x <= 0) {
-                dx = 1;
-            }
-            if (y >= 26) {
-                dy = -1;
-            } else if (y <= 0) {
-                dy = 1;
-            }
-            x += dx;
-            y += dy;
-            elem1.setLocation(cv::Point(x, y));
-            vCanvas.addElementToCanvas(elem1);
             c->set_leds_all_matrices(vCanvas.getPixelMatrix());
         }
+        vCanvas.removeElementFromCanvas(elem1);
+        if (x >= 11) {
+            dx = -1;
+        } else if (x <= 0) {
+            dx = 1;
+        }
+        if (y >= 26) {
+            dy = -1;
+        } else if (y <= 0) {
+            dy = 1;
+        }
+        x += dx;
+        y += dy;
+        elem1.setLocation(cv::Point(x, y));
+        vCanvas.addElementToCanvas(elem1);
         // usleep(33333); // ~30 fps
         // usleep(100000); // 10 fps
-        usleep(200000); // 5 fps
-        // usleep(250000); // 4 fps
+        // usleep(200000); // 5 fps
+        usleep(250000); // 4 fps
     }
 
     return 0;
