@@ -1,3 +1,4 @@
+// clang-format off
 #include "canvas.h"
 #include <algorithm>
 
@@ -15,6 +16,18 @@ Element::Element(const std::string& path, int elementId, cv::Point loc): filePat
     if (pixelMatrix.empty()) {
         std::cerr << "Error: Could not load image at " << filePath << std::endl;
     } else {
+        dim = pixelMatrix.size();
+    }
+}
+
+
+Element::Element(const cv::Mat matrix, int elementId, cv::Point loc): location(loc), id(elementId){
+    // verify matrix not empty
+    if (matrix.empty()) {
+        std::cerr << "Error: Invalid matrix passed into Element constructor. " << std::endl;
+    } else {
+        // set internal data
+        pixelMatrix = matrix; 
         dim = pixelMatrix.size();
     }
 }

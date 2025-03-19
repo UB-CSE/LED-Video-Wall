@@ -1,2 +1,4 @@
 led-wall-server
 obj
+.cache/
+compile_commands.json
