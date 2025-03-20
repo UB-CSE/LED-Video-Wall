@@ -35,8 +35,7 @@ void VirtualCanvas::clear() {
     pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
 }
 
-//Adds an element to the canvas at its defined location set in the element itself
-void VirtualCanvas::addElementToCanvas(const Element& element) {
+void VirtualCanvas::writeElementToCanvas(const Element &element) {
     cv::Point loc = element.getLocation();
     cv::Mat elemMat = element.getPixelMatrix();
     cv::Size elemSize = element.getDimensions();
@@ -55,6 +54,11 @@ void VirtualCanvas::addElementToCanvas(const Element& element) {
     
     elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
     elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
+}
+
+//Adds an element to the canvas at its defined location set in the element itself
+void VirtualCanvas::addElementToCanvas(const Element& element) {
+    writeElementToCanvas(element);
 
     //Store the element in the list
     elementList.push_back(element);
@@ -87,6 +91,6 @@ void VirtualCanvas::removeElementFromCanvas(const Element& element) {
 
     //Re-add
     for (const Element& elem : elementList) {
-        addElementToCanvas(elem);
+        writeElementToCanvas(elem);
     }
 }
