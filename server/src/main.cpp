@@ -66,25 +66,27 @@ int main(int argc, char* argv[]) {
     int y = 0;
     int dx = 1;
     int dy = 1;
+    int max_x = clients_exp.second.width;
+    int max_y = clients_exp.second.height;
     while(1) {
+        vCanvas.removeElementFromCanvas(elem1);
         for (Client* c : clients_exp.first) {
-            vCanvas.removeElementFromCanvas(elem1);
-            if (x >= 11) {
-                dx = -1;
-            } else if (x <= 0) {
-                dx = 1;
-            }
-            if (y >= 26) {
-                dy = -1;
-            } else if (y <= 0) {
-                dy = 1;
-            }
-            x += dx;
-            y += dy;
-            elem1.setLocation(cv::Point(x, y));
-            vCanvas.addElementToCanvas(elem1);
             c->set_leds_all_matrices(vCanvas.getPixelMatrix());
         }
+        if (x >= max_x - 5) {
+            dx = -1;
+        } else if (x <= 0) {
+            dx = 1;
+        }
+        if (y >= max_y - 5) {
+            dy = -1;
+        } else if (y <= 0) {
+            dy = 1;
+        }
+        x += dx;
+        y += dy;
+        elem1.setLocation(cv::Point(x, y));
+        vCanvas.addElementToCanvas(elem1);
         // usleep(33333); // ~30 fps
         // usleep(100000); // 10 fps
         usleep(200000); // 5 fps
