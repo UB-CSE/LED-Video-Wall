@@ -1,6 +1,7 @@
 #ifndef CLIENT_HPP
 #define CLIENT_HPP
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <cstdint>
@@ -68,16 +69,12 @@ public:
 class Client {
 public:
     uint64_t mac_addr;
-    int socket;
     std::vector<MatricesConnection> mat_connections;
 
     Client(uint64_t mac_addr,
-           int socket,
            std::vector<MatricesConnection> mat_connections);
 
     std::string to_string();
-
-    void set_leds_all_matrices(const cv::Mat &cvmat);
 };
 
 #endif

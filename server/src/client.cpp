@@ -67,10 +67,8 @@ std::string MatricesConnection::to_string() {
 }
 
 Client::Client(uint64_t mac_addr,
-               int socket,
                std::vector<MatricesConnection> mat_connections):
     mac_addr(mac_addr),
-    socket(socket),
     mat_connections(mat_connections)
 {}
 
@@ -78,20 +76,10 @@ std::string Client::to_string() {
     std::stringstream ss;
     ss << "Client[";
     ss << "mac-addr: " << std::hex << this->mac_addr << ", ";
-    ss << "socket: " << std::to_string(this->socket) << ", ";
     ss << "mat_connections: (";
     for (MatricesConnection conn : this->mat_connections) {
         ss << conn.to_string() << ", ";
     }
     ss << ")]";
     return ss.str();
-}
-
-void Client::set_leds_all_matrices(const cv::Mat &cvmat) {
-    for (MatricesConnection conn : this->mat_connections) {
-        uint8_t pin = conn.pin;
-        for (LEDMatrix* mat : conn.matrices) {
-            tcp_set_leds(this->socket, cvmat, mat, pin, BIT_DEPTH);
-        }
-    }
 }

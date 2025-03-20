@@ -15,6 +15,7 @@
 #include "canvas.h"
 #include "input-parser.hpp"
 #include <opencv2/opencv.hpp>
+#include "controller.hpp"
 
 int main(int argc, char* argv[]) {
     std::string inputFilePath;
@@ -54,13 +55,13 @@ int main(int argc, char* argv[]) {
     Element elem1("images/img5x5_1.jpg", 1, cv::Point(0, 0));
     vCanvas.addElementToCanvas(elem1);
 
-    std::optional<LEDTCPServer> server_opt = create_server(INADDR_ANY, 7070, 7074);
+    std::optional<LEDTCPServer> server_opt =
+        create_server(INADDR_ANY, 7070, 7074, clients_exp.first);
     if (!server_opt.has_value()) {
         exit(-1);
     }
     LEDTCPServer server = server_opt.value();
-
-    server.wait_all_join(clients_exp.first);
+    Controller cont(vCanvas, clients_exp.first, server);
 
     int x = 0;
     int y = 0;
@@ -69,10 +70,9 @@ int main(int argc, char* argv[]) {
     int max_x = clients_exp.second.width;
     int max_y = clients_exp.second.height;
     while(1) {
-        vCanvas.removeElementFromCanvas(elem1);
-        for (Client* c : clients_exp.first) {
-            c->set_leds_all_matrices(vCanvas.getPixelMatrix());
-        }
+        std::cout << "loop\n";
+        cont.canvas.removeElementFromCanvas(elem1);
+        cont.set_leds_all();
         if (x >= max_x - 5) {
             dx = -1;
         } else if (x <= 0) {
@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
         x += dx;
         y += dy;
         elem1.setLocation(cv::Point(x, y));
-        vCanvas.addElementToCanvas(elem1);
+        cont.canvas.addElementToCanvas(elem1);
         // usleep(33333); // ~30 fps
         // usleep(100000); // 10 fps
         usleep(200000); // 5 fps
