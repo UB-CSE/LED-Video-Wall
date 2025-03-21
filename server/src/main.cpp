@@ -61,6 +61,7 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
     LEDTCPServer server = server_opt.value();
+    server.start();
     Controller cont(vCanvas, clients_exp.first, server);
 
     int x = 0;
@@ -87,9 +88,11 @@ int main(int argc, char* argv[]) {
         y += dy;
         elem1.setLocation(cv::Point(x, y));
         cont.canvas.addElementToCanvas(elem1);
+        // usleep(25000); // 40 fps
         // usleep(33333); // ~30 fps
-        // usleep(100000); // 10 fps
-        usleep(200000); // 5 fps
+        // usleep(50000); // 20 fps
+        usleep(100000); // 10 fps
+        // usleep(200000); // 5 fps
         // usleep(250000); // 4 fps
     }
 

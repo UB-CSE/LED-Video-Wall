@@ -1,5 +1,6 @@
 #include "tcp.hpp"
 #include "client.hpp"
+#include <asm-generic/errno.h>
 #include <asm-generic/socket.h>
 #include <cstdint>
 #include <cstdio>
@@ -15,36 +16,64 @@
 #include <cstring>
 #include <map>
 #include <thread>
+#include <utility>
+#include <poll.h>
 #include "opencv2/core.hpp"
 #include "protocol.hpp"
 
 const int MAX_WAITING_CLIENTS = 256;
 
-void handle_conns(int socket, ClientConnInfo* conn_info) {
+void handle_conns(int socket, LEDTCPServer* server) {
 
     listen(socket, MAX_WAITING_CLIENTS);
 
     std::map<uint64_t, const Client*> mac_to_client;
 
-    // TODO: bad use of conn_info
-    for (const Client* c : conn_info->disconnected) {
+    std::vector<const Client*> clients;
+    server->conn_info->getAllDisconnected(clients);
+    for (auto c : clients) {
         mac_to_client[c->mac_addr] = c;
     }
 
     while (1) {
-        int client_socket = accept(socket, NULL, NULL);
-        uint8_t check_in_buf[32];
-        recv(client_socket, check_in_buf, 12, 0);
-        CheckInMessage* msg = decode_check_in(check_in_buf);
+        int client_socket = accept4(socket, NULL, NULL, SOCK_NONBLOCK);
+        CheckInMessage msg;
+        MessageHeader* header = &msg.header;
+        *header = server->tcp_recv_header(client_socket);
+        if (msg.header.op_code != OP_CHECK_IN || msg.header.size != sizeof(CheckInMessage)) {
+            std::cerr << "Expected check-in message, got invalid op-code or message size.\n";
+            close(client_socket);
+            break;
+        }
+        server->tcp_recv(client_socket,
+                         &(msg.mac_address),
+                         sizeof(msg) - sizeof(MessageHeader));
         uint64_t mac_addr;
-        memcpy(&mac_addr, msg->mac_address, 6);
+        std::cout << &(msg.mac_address) << "," << &msg + sizeof(MessageHeader) << "," << &msg << "," << sizeof(MessageHeader) << "\n";
+        memcpy(&mac_addr, &(msg.mac_address), 6);
 
         // if c is the value representing the end of the iterator, it is not present
         std::cout << "Got message from " << mac_addr << "\n";
-        if (!(mac_to_client.find(mac_addr) == mac_to_client.end())) {
+        auto it = mac_to_client.find(mac_addr);
+        if (!(it == mac_to_client.end())) {
+            const Client* c = it->second;
+
+            // If the client reconnects before its old socket has disconnected,
+            // close the old socket and mark the client as disconnected.
+            auto socket_opt = server->conn_info->getSocket(c);
+            if (socket_opt.has_value()) {
+                int socket = socket_opt.value();
+                server->conn_info->setDisconnected(c);
+                close(socket);
+            }
+
             std::cout << "Accepted client\n";
-            const Client *c = mac_to_client.at(mac_addr);
             std::cout << "socket: " << client_socket << "\n";
+
+            // struct timeval timeout;
+            // timeout.tv_sec = 2;
+            // timeout.tv_usec = 0;
+            // setsockopt(client_socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 
             uint8_t num_pins = c->mat_connections.size();
             std::vector<PinInfo> pin_info;
@@ -63,10 +92,13 @@ void handle_conns(int socket, ClientConnInfo* conn_info) {
             const PinInfo* inf = pin_info.data();
             uint32_t out_size;
             uint8_t* msg = encode_set_config(3, 10, num_pins, inf, &out_size);
+            struct pollfd pfd = {client_socket, POLLOUT, -1};
+            poll(&pfd, 1, -1);
             send(client_socket, msg, out_size, 0);
             std::cout << "Sent set_config to " << mac_addr << "\n";
-            conn_info->setConnected(c, client_socket);
+            server->conn_info->setConnected(c, client_socket);
         } else {
+            std::cerr << "Did not recognize MAC address!\n";
             close(client_socket);
         }
     }
@@ -116,13 +148,17 @@ LEDTCPServer::LEDTCPServer(uint32_t addr,
                            uint16_t port,
                            int socket,
                            std::vector<Client*> clients,
-                           void(*handle_conns)(int socket, ClientConnInfo* conn_info))
+                           void(*handle_conns)(int socket, LEDTCPServer* server))
     : addr(addr),
       port(port),
       socket(socket),
       conn_info(new ClientConnInfo(clients)),
-      conn_handling(*(new std::thread(handle_conns, socket, conn_info)))
+      conn_handling(NULL)
 {}
+
+void LEDTCPServer::start() {
+    this->conn_handling = new std::thread(handle_conns, socket, this);
+}
 
 ClientConnInfo::ClientConnInfo(std::vector<Client *> clients)
     : mut(),
@@ -142,6 +178,34 @@ void ClientConnInfo::setConnected(const Client *c, int socket) {
     }
     this->mut.unlock();
 }
+
+std::optional<int> ClientConnInfo::getSocket(const Client *c) {
+    this->mut.lock();
+    auto conn = this->connected.find(c);
+    this->mut.unlock();
+    if (conn != this->connected.end()) {
+        return conn->second;
+    } else {
+        return std::nullopt;
+    }
+}
+
+void ClientConnInfo::getAllConnected(std::vector<std::pair<const Client*, int>>& v) {
+    this->mut.lock();
+    for (auto it : this->connected) {
+        v.push_back(std::make_pair(it.first, it.second));
+    }
+    this->mut.unlock();
+}
+
+void ClientConnInfo::getAllDisconnected(std::vector<const Client*>& v) {
+    this->mut.lock();
+    for (auto c : this->disconnected) {
+        v.push_back(c);
+    }
+    this->mut.unlock();
+}
+
 void ClientConnInfo::setDisconnected(const Client* c) {
     this->mut.lock();
     if (this->disconnected.find(c) == this->disconnected.end()) {
@@ -150,13 +214,60 @@ void ClientConnInfo::setDisconnected(const Client* c) {
     }
     this->mut.unlock();
 }
+
 bool ClientConnInfo::isConnected(const Client *c) {
     this->mut.lock();
     return this->connected.find(c) != this->connected.end();
     this->mut.unlock();
 }
 
-void tcp_set_leds(int client_socket, const cv::Mat &cvmat, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
+void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
+    int sent = send(socket, data, size, 0);
+    if (sent != size) {
+        std::cout << "Error sending set_leds: " << strerror(errno) << "\n";
+        if (errno == ECONNRESET) {
+            auto socket_opt = this->conn_info->getSocket(c);
+            if (socket_opt.has_value()) {
+                close(socket_opt.value());
+            }
+            this->conn_info->setDisconnected(c);
+        }
+    }
+}
+
+MessageHeader LEDTCPServer::tcp_recv_header(int socket) {
+    MessageHeader header;
+    struct pollfd pfd = {socket, POLLIN, 0};
+    int total = 0;
+    while (total < sizeof(MessageHeader)) {
+        poll(&pfd, 1, -1);
+        int recved = recv(socket, &header, sizeof(header), 0);
+        if (recved < 0) {
+            std::cerr << "Error receiving header: " << strerror(errno) << "\n";
+        } else {
+            total += recved;
+        }
+    }
+    return header;
+}
+
+void LEDTCPServer::tcp_recv(int socket, void* data, int size) {
+    struct pollfd pfd = {socket, POLLIN, 0};
+    poll(&pfd, 1, -1);
+    int total = 0;
+    while (total < size) {
+        std::cout << "test";
+        poll(&pfd, 1, -1);
+        int recved = recv(socket, data, size, 0);
+        if (recved < 0) {
+            std::cerr << "Error receiving: " << strerror(errno) << "\n";
+        } else {
+            total += recved;
+        }
+    }
+}
+
+void LEDTCPServer::set_leds(const Client* c, int client_socket, const cv::Mat &cvmat, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
     uint32_t width = ledmat->spec->width;
     uint32_t height = ledmat->spec->height;
     uint32_t x = ledmat->pos.x;
@@ -198,9 +309,6 @@ void tcp_set_leds(int client_socket, const cv::Mat &cvmat, LEDMatrix* ledmat, ui
         }
     }
     // uint32_t msg_size = ledmat->packed_pixel_array_size;
-    int sent = send(client_socket, msg_buf, msg_size, 0);
+    this->tcp_send(c, client_socket, msg_buf, msg_size);
     free_message_buffer(msg_buf);
-    if (sent == -1) {
-        std::cout << "Error sending set_leds: " << strerror(errno) << "\n";
-    }
 }
