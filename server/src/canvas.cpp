@@ -4,7 +4,6 @@
 //Constructor: Loads an image from file
 Element::Element(const std::string& path, int elementId, cv::Point loc): filePath(path), location(loc), id(elementId){
 
-    //Read Image
     pixelMatrix = cv::imread(filePath, cv::IMREAD_COLOR);
 
     if (pixelMatrix.empty()) {
@@ -51,7 +50,10 @@ void VirtualCanvas::addElementToCanvas(const Element& element) {
     cv::Mat elemMat = element.getPixelMatrix();
     cv::Size elemSize = element.getDimensions();
 
-
+    //Store the element in the list
+    elementList.push_back(element);
+    elementCount++;
+    
     /*
     Overwite a region of interest with the image. If the image does not fit on the canvas,
     we derive a new size and crop the element to it before transferring it to the canvas.
@@ -65,10 +67,7 @@ void VirtualCanvas::addElementToCanvas(const Element& element) {
     
     elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
     elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
-
-    //Store the element in the list
-    elementList.push_back(element);
-    elementCount++;
+   
 }
 
 
@@ -101,6 +100,9 @@ void VirtualCanvas::addPayloadToCanvas(std::map <std::string, std::vector<std::v
 
     }//IF THERE ARE CAROUSELS
     else if (elementsPayload["carousel"].size() != 0){
+
+
+
 
     }
     else{

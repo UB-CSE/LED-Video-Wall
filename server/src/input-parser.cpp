@@ -42,14 +42,14 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
             std::string type = value["type"].as<std::string>();
             int id = value["id"].as<int>();
 
+            //Ensuring required data is all present for adding to the canvas
+            if (!value["filepath"] || !value["location"]) {
+                std::cerr << "Missing filepath or location for element: " << key << std::endl;
+                abort();
+            }
+
             //IMAGES
             if (type == "image") {
-
-
-                if (!value["filepath"] || !value["location"]) {
-                    std::cerr << "Missing filepath or location for element: " << key << std::endl;
-                    abort();
-                }
 
                 std::string filepath = value["filepath"].as<std::string>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
@@ -71,12 +71,27 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
             }
 
 
-            
+            //CAROUSEL
             else if(type == "carousel"){
 
+                std::vector<std::string> filepaths = value["filepaths"].as<std::vector<std::string>>();
+                std::vector<int> locVec = value["location"].as<std::vector<int>>();
 
+                //Checks to ensure location vector is of the expected form + init openCV point
+                if ((locVec.size() != 2) || (locVec.at(0) < 0) || (locVec.at(1) < 0)) {
+                    std::cerr << "Location for element " << key << " malformed." << std::endl;
+                    abort();
+                }
+                cv::Point loc(locVec.at(0), locVec.at(1));
 
+                //Create an element for every filepath in the vector and contain them in a vector
+                std::vector<Element> carouselArray;
+                for(const auto& path : filepaths){
+                    Element elem(path, id, loc);
+                    carouselArray.push_back(elem);
+                }
 
+                elementPayload["carousel"].push_back(carouselArray);
 
             }
             else {
