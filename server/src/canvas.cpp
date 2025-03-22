@@ -24,9 +24,6 @@ void Element::clear() {
     pixelMatrix = cv::Mat::zeros(dim, pixelMatrix.type());
 }
 
-
-
-
 //Constructor: Initializes the virtual canvas with just the size
 VirtualCanvas::VirtualCanvas(const cv::Size& size) : AbstractCanvas(size), elementCount(0) {}
 
@@ -37,6 +34,24 @@ void VirtualCanvas::clear() {
 
 //Adds an element to the canvas at its defined location set in the element itself
 void VirtualCanvas::addElementToCanvas(const Element& element) {
+
+    std::vector<Element> objects = getElementList();
+    int elementID = element.getId();
+
+
+    //This searches the elementList to check if the element being added already exists. If that is true, Throw error and return.
+    auto it = std::find_if(objects.begin(), objects.end(),
+                           [elementID](const Element& obj) {
+                               return obj.getId() == elementID;
+                           });
+
+    if (it != objects.end()){
+        std::cout << "Double loading element ID# " << elementID << std::endl;
+        return;
+    }
+
+
+
     cv::Point loc = element.getLocation();
     cv::Mat elemMat = element.getPixelMatrix();
     cv::Size elemSize = element.getDimensions();
