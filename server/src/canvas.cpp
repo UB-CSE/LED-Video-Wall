@@ -63,6 +63,11 @@ void VirtualCanvas::pushToCanvas(){
     }
 }
 
+
+
+//Edit this to take vector of elements
+
+
 //Adds an element to the canvas at its defined location set in the element itself
 void VirtualCanvas::addElementToCanvas(const Element& element) {
 
@@ -142,11 +147,11 @@ void VirtualCanvas::addPayloadToCanvas(std::map <std::string, std::vector<std::v
     
 }
 
-void VirtualCanvas::removeElementFromCanvas(const Element& element) {
+void VirtualCanvas::removeElementFromCanvas(int elementId) {
     clear();
 
     for (size_t i = 0; i < elementList.size(); i++) {
-        if (elementList[i].front().getId() == element.getId()) {
+        if (elementList[i].front().getId() == elementId) {
             elementList.erase(elementList.begin() + i);
             elementCount--;
             break;
