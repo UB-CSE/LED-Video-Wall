@@ -1,5 +1,6 @@
 #include "canvas.h"
 #include <algorithm>
+#include <iostream>
 
 //Constructor: Loads an image from file
 Element::Element(const std::string& path, int elementId, cv::Point loc): filePath(path), location(loc), id(elementId){
@@ -26,7 +27,13 @@ void VirtualCanvas::clear() {
     pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
 }
 
-//Push changes to canvas
+/*
+Push changes to canvas-
+
+This clears the virtual canvas, sorts the elementlist, then displays the head element of every vector
+in the element list.
+
+*/
 void VirtualCanvas::pushToCanvas(){
 
 
@@ -65,14 +72,19 @@ void VirtualCanvas::pushToCanvas(){
 
 
 
-//Edit this to take vector of elements
+/*
+Adds an element to the canvas at its defined location set in the element itself
 
+Note that "element" in this context is a generic vector of elements.
 
-//Adds an element to the canvas at its defined location set in the element itself
-void VirtualCanvas::addElementToCanvas(const Element& element) {
+Static images are vectors of size one, each containing one element.
+Carousels are vectors containing the number of constituent elements.
+
+*/
+void VirtualCanvas::addElementToCanvas(const std::vector<Element>& element) {
 
     std::vector<std::vector<Element>> objects = getElementList();
-    int elementID = element.getId();
+    int elementID = element.front().getId();
 
     /*
     This searches the elementList to check if the element being added already exists. If that is true, Throw error and return.
@@ -94,8 +106,7 @@ void VirtualCanvas::addElementToCanvas(const Element& element) {
     }
 
     //Store the element in the list
-    std::vector<Element> wrappedElement = {element};
-    elementList.push_back(wrappedElement);
+    elementList.push_back(element);
     elementCount++;
 
     pushToCanvas();
@@ -103,43 +114,29 @@ void VirtualCanvas::addElementToCanvas(const Element& element) {
 }
 
 
-//Adds an entire map of elements to the canvas. It sorts elements by ID first s.t higher IDs are like weights, their images go on top
+/*
+Processes elementPayload map and moves relevant elements to the elementList vector held by the virtual canvas
+
+*/
 void VirtualCanvas::addPayloadToCanvas(std::map <std::string, std::vector<std::vector<Element>>>& elementsPayload){
     clear();
 
-    //IF THERE ARE IMAGES
-    if(elementsPayload["images"].size() != 0){
-
-        /*
-        Flattens the element vector vector key of "images" into a one dimensional element vector. Then proceeds as before
-        https://stackoverflow.com/questions/17294629/merging-flattening-sub-vectors-into-a-single-vector-c-converting-2d-to-1d
-        */
-
-        std::vector<Element> elementsVec;
-        // Optionally, preallocate if you know the total size.
-        for (const auto& vec : elementsPayload["images"]) {
-            elementsVec.insert(elementsVec.end(), vec.begin(), vec.end());
-        }
-
-        std::sort(elementsVec.begin(), elementsVec.end(), [](const Element &a, const Element &b) {
-            return a.getId() < b.getId();
-        });
     
-        for(const auto& element : elementsVec){
-            VirtualCanvas::addElementToCanvas(element);
+    //IF THERE ARE IMAGES
+    if(!elementsPayload["images"].empty()){
+
+        for (const auto& vec : elementsPayload["images"]) {
+            VirtualCanvas::addElementToCanvas(vec);
         }
-
-
-    }//IF THERE ARE CAROUSELS
-    else if (elementsPayload["carousel"].size() != 0){
-
-
-
-
-
 
     }
-    else{
+    
+    //IF THERE ARE CAROUSELS
+    if (!elementsPayload["carousel"].empty()){
+
+        for (const auto& vec : elementsPayload["carousel"]) {
+            VirtualCanvas::addElementToCanvas(vec);
+        }
 
 
     }

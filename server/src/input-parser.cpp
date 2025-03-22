@@ -74,6 +74,7 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
             //CAROUSEL
             else if(type == "carousel"){
 
+
                 //Ensuring required data is all present for adding to the canvas
                 if (!value["filepaths"] || !value["location"]) {
                     std::cerr << "Missing filepaths or location for element: " << key << std::endl;

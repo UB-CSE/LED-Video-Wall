@@ -54,7 +54,7 @@ class VirtualCanvas : public AbstractCanvas {
         VirtualCanvas(const cv::Size& size);
         virtual void clear() override;
         
-        void addElementToCanvas(const Element& element);
+        void addElementToCanvas(const std::vector<Element>& element);
         void addPayloadToCanvas(std::map <std::string, std::vector<std::vector<Element>>>& elementsPayload);
         void removeElementFromCanvas(int elementId);
         void pushToCanvas();
