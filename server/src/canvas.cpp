@@ -127,7 +127,7 @@ void VirtualCanvas::addElementToCanvas(const std::vector<Element>& element) {
     });
     if (it != objects.end()){
         std::cout << "Double loading element ID# " << elementID << std::endl;
-        return;
+        abort();
     }
 
     //Store the element in the list
