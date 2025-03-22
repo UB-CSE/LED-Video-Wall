@@ -48,7 +48,7 @@ class Element : public AbstractCanvas {
 class VirtualCanvas : public AbstractCanvas {
     private:
         int elementCount;
-        std::vector<Element> elementList;
+        std::vector<std::vector<Element>> elementList;
     
     public:
         VirtualCanvas(const cv::Size& size);
@@ -57,9 +57,10 @@ class VirtualCanvas : public AbstractCanvas {
         void addElementToCanvas(const Element& element);
         void addPayloadToCanvas(std::map <std::string, std::vector<std::vector<Element>>>& elementsPayload);
         void removeElementFromCanvas(const Element& element);
+        void pushToCanvas();
         
         int getElementCount() const { return elementCount; }
-        const std::vector<Element>& getElementList() const { return elementList; }
+        const std::vector<std::vector<Element>>& getElementList() const { return elementList; }
     };
         
 

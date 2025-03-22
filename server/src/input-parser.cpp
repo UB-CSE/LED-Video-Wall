@@ -42,14 +42,14 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
             std::string type = value["type"].as<std::string>();
             int id = value["id"].as<int>();
 
-            //Ensuring required data is all present for adding to the canvas
-            if (!value["filepath"] || !value["location"]) {
-                std::cerr << "Missing filepath or location for element: " << key << std::endl;
-                abort();
-            }
 
             //IMAGES
             if (type == "image") {
+                //Ensuring required data is all present for adding to the canvas
+                if (!value["filepath"] || !value["location"]) {
+                    std::cerr << "Missing filepath or location for element: " << key << std::endl;
+                    abort();
+                }
 
                 std::string filepath = value["filepath"].as<std::string>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
@@ -73,6 +73,12 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
 
             //CAROUSEL
             else if(type == "carousel"){
+
+                //Ensuring required data is all present for adding to the canvas
+                if (!value["filepaths"] || !value["location"]) {
+                    std::cerr << "Missing filepaths or location for element: " << key << std::endl;
+                    abort();
+                }
 
                 std::vector<std::string> filepaths = value["filepaths"].as<std::vector<std::string>>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
