@@ -27,6 +27,9 @@ void VirtualCanvas::clear() {
     pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
 }
 
+
+
+
 /*
 Push changes to canvas-
 
@@ -70,6 +73,28 @@ void VirtualCanvas::pushToCanvas(){
     }
 }
 
+/*
+Update
+
+This method looks at all the element vectors in the elementlist held by the virtual canvas. For each
+that has more than one member, it moves the head to the tail. Then the method pushes changes to the
+canvas. 
+
+The purpose of this is to allow for carousel and potentially videos. pushToCanvas pushes the front
+elements of every element vector in element list to the canvas. As such, if we cycle the
+individual vectors, we get the next frame.
+*/
+
+void VirtualCanvas::updateCanvas(){
+
+    for(auto& vec : elementList){
+        auto it = vec.begin();
+        std::rotate(it, it + 1, vec.end());
+    }
+
+    pushToCanvas();
+
+}
 
 
 /*

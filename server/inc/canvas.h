@@ -58,6 +58,7 @@ class VirtualCanvas : public AbstractCanvas {
         void addPayloadToCanvas(std::map <std::string, std::vector<std::vector<Element>>>& elementsPayload);
         void removeElementFromCanvas(int elementId);
         void pushToCanvas();
+        void updateCanvas();
         
         int getElementCount() const { return elementCount; }
         const std::vector<std::vector<Element>>& getElementList() const { return elementList; }

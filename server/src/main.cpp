@@ -64,10 +64,25 @@ int main() {
 
 
     /*
-    Additional functions
+    updateCanvas - 
+
+    Updates all multiframe elements by one time step (carousels/videos/etc). Carousels can
+    be removed just like any other element with removeElementFromCanvas. 
+
+    To show a carousel, make a loop that calls update and show every x seconds.
     */
 
-    //Removes a specific element. Pass it the element id.
+
+    //Here I have prepared a carousel with 3 images. The first is displayed during config load already
+    vCanvas.updateCanvas();
+    cv::imshow("Display Cats", vCanvas.getPixelMatrix());
+    cv::waitKey(0);
+    vCanvas.updateCanvas();
+    cv::imshow("Display Cats", vCanvas.getPixelMatrix());
+    cv::waitKey(0);
+
+
+    //This is how you removes a specific element. Pass it the element id.
     vCanvas.removeElementFromCanvas(1);
     cv::imshow("Display Cats", vCanvas.getPixelMatrix());
     cv::waitKey(0);
