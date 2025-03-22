@@ -66,10 +66,11 @@ int main() {
     /*
     updateCanvas - 
 
-    Updates all multiframe elements by one time step (carousels/videos/etc). Carousels can
-    be removed just like any other element with removeElementFromCanvas. 
+    Updates all multiframe elements by one time step (carousels/videos/etc). 
+    This also loops all the elements so you can update infinitely.
+    Carousels can be removed just like any other element with removeElementFromCanvas. 
 
-    To show a carousel, make a loop that calls update and show every x seconds.
+    To show a carousel, make a loop that calls update and show every x seconds. 
     */
 
 
