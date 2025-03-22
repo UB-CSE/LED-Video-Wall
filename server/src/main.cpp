@@ -66,8 +66,8 @@ int main() {
 
 void canvas_debug(VirtualCanvas& vCanvas, std::string inputFilePath) {
 
-    std::vector<Element> elementsVec = parseInput(inputFilePath);
-    vCanvas.addElementVecToCanvas(elementsVec);
+    std::map <std::string, std::vector<std::vector<Element>>> elementsPayload = parseInput(inputFilePath);
+    vCanvas.addPayloadToCanvas(elementsPayload);
 
     cv::imshow("Display Cats", vCanvas.getPixelMatrix());
     cv::waitKey(0);

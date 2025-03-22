@@ -5,17 +5,35 @@
 #include <vector>
 
 
-std::vector<Element> parseInput(const std::string inputFile) {
-    std::vector<Element> elementsVec;
+/*
+New output format: Map
 
-    try {
+images -> element vector vector : std::vector<std::vector<Element>>
+carousel -> element vector vector : std::vector<std::vector<Element>>
+videos -> element vector vector : std::vector<std::vector<Element>>
+
+*/
+
+
+std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::string inputFile) {
+
+
+    std::map <std::string, std::vector<std::vector<Element>>> elementPayload;
+    std::vector<std::vector<Element>> imageArray, carouselArray;
+
+    elementPayload.insert({"images", imageArray});
+    elementPayload.insert({"carousel", carouselArray});
+
+    try { //Check if there are elements at all
         YAML::Node config = YAML::LoadFile(inputFile);
         YAML::Node elements = config["elements"];
 
         if (!elements) {
             std::cerr << "No elements found in config." << std::endl;
-            return elementsVec;
+            return elementPayload;
         }
+
+        //Begin parsing of the elements
 
         for (YAML::const_iterator it = elements.begin(); it != elements.end(); ++it) {
             std::string key = it->first.as<std::string>();
@@ -24,7 +42,10 @@ std::vector<Element> parseInput(const std::string inputFile) {
             std::string type = value["type"].as<std::string>();
             int id = value["id"].as<int>();
 
+            //IMAGES
             if (type == "image") {
+
+
                 if (!value["filepath"] || !value["location"]) {
                     std::cerr << "Missing filepath or location for element: " << key << std::endl;
                     abort();
@@ -42,7 +63,21 @@ std::vector<Element> parseInput(const std::string inputFile) {
 
                 //ELEMENT CREATION HERE
                 Element elem(filepath, id, loc);
-                elementsVec.push_back(elem);
+
+
+                //Payload is images -> vec of elements. We wrap individual elements in a vec and push it tp the vector.
+                std::vector<Element> wrappedElem = {elem};
+                elementPayload["images"].push_back(wrappedElem);
+            }
+
+
+            
+            else if(type == "carousel"){
+
+
+
+
+
             }
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
@@ -53,5 +88,5 @@ std::vector<Element> parseInput(const std::string inputFile) {
         abort();
     }
 
-    return elementsVec;
+    return elementPayload;
 }

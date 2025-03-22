@@ -14,3 +14,4 @@ elements:
     type: "image"
     filepath: "images/img2.jpg"
     location: [1600, 100]
+

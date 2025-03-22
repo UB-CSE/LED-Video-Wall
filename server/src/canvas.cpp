@@ -1,11 +1,6 @@
 #include "canvas.h"
 #include <algorithm>
 
-
-
-
-
-
 //Constructor: Loads an image from file
 Element::Element(const std::string& path, int elementId, cv::Point loc): filePath(path), location(loc), id(elementId){
 
@@ -76,17 +71,44 @@ void VirtualCanvas::addElementToCanvas(const Element& element) {
     elementCount++;
 }
 
-//Adds an entire map of elements to the canvas. It sorts elements by ID first s.t higher IDs are like weights, their images go on top
-void VirtualCanvas::addElementVecToCanvas(std::vector<Element>& elementsVec){
-    clear();
-    
-    std::sort(elementsVec.begin(), elementsVec.end(), [](const Element &a, const Element &b) {
-        return a.getId() < b.getId();
-    });
 
-    for(const auto& element : elementsVec){
-        VirtualCanvas::addElementToCanvas(element);
+//Adds an entire map of elements to the canvas. It sorts elements by ID first s.t higher IDs are like weights, their images go on top
+void VirtualCanvas::addPayloadToCanvas(std::map <std::string, std::vector<std::vector<Element>>>& elementsPayload){
+    clear();
+
+    //IF THERE ARE IMAGES
+    if(elementsPayload["images"].size() != 0){
+
+        /*
+        Flattens the element vector vector key of "images" into a one dimensional element vector. Then proceeds as before
+        https://stackoverflow.com/questions/17294629/merging-flattening-sub-vectors-into-a-single-vector-c-converting-2d-to-1d
+        */
+
+        std::vector<Element> elementsVec;
+        // Optionally, preallocate if you know the total size.
+        for (const auto& vec : elementsPayload["images"]) {
+            elementsVec.insert(elementsVec.end(), vec.begin(), vec.end());
+        }
+
+        std::sort(elementsVec.begin(), elementsVec.end(), [](const Element &a, const Element &b) {
+            return a.getId() < b.getId();
+        });
+    
+        for(const auto& element : elementsVec){
+            VirtualCanvas::addElementToCanvas(element);
+        }
+
+
+    }//IF THERE ARE CAROUSELS
+    else if (elementsPayload["carousel"].size() != 0){
+
     }
+    else{
+
+
+    }
+    
+    
 }
 
 void VirtualCanvas::removeElementFromCanvas(const Element& element) {
