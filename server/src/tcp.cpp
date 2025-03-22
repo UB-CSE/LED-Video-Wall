@@ -70,11 +70,6 @@ void handle_conns(int socket, LEDTCPServer* server) {
             std::cout << "Accepted client\n";
             std::cout << "socket: " << client_socket << "\n";
 
-            // struct timeval timeout;
-            // timeout.tv_sec = 2;
-            // timeout.tv_usec = 0;
-            // setsockopt(client_socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-
             uint8_t num_pins = c->mat_connections.size();
             std::vector<PinInfo> pin_info;
             for (MatricesConnection conn : c->mat_connections) {
@@ -222,7 +217,7 @@ bool ClientConnInfo::isConnected(const Client *c) {
 }
 
 void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
-    int sent = send(socket, data, size, 0);
+    int sent = send(socket, data, size, MSG_NOSIGNAL);
     if (sent != size) {
         std::cout << "Error sending set_leds: " << strerror(errno) << "\n";
         if (errno == ECONNRESET) {
