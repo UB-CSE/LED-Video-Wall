@@ -71,8 +71,12 @@ int main(int argc, char* argv[]) {
     int dy = 1;
     int max_x = clients_exp.second.width;
     int max_y = clients_exp.second.height;
+    int i = 0;
     while(1) {
-        cont.canvas.updateCanvas();
+        i++;
+        if (i % 25 == 0) {
+            cont.canvas.updateCanvas();
+        }
         cont.set_leds_all();
         std::cout << "loop\n";
         cont.canvas.removeElementFromCanvas(elem1.getId());
@@ -94,10 +98,9 @@ int main(int argc, char* argv[]) {
         // usleep(25000); // 40 fps
         // usleep(33333); // ~30 fps
         // usleep(50000); // 20 fps
-        // usleep(100000); // 10 fps
+        usleep(100000); // 10 fps
         // usleep(200000); // 5 fps
         // usleep(250000); // 4 fps
-        sleep(1);
     }
 
     return 0;
