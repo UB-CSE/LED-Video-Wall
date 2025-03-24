@@ -48,7 +48,7 @@ void handle_conns(int socket, LEDTCPServer* server) {
         server->tcp_recv(client_socket,
                          &(msg.mac_address),
                          sizeof(msg) - sizeof(MessageHeader));
-        uint64_t mac_addr;
+        uint64_t mac_addr = 0;
         std::cout << &(msg.mac_address) << "," << &msg + sizeof(MessageHeader) << "," << &msg << "," << sizeof(MessageHeader) << "\n";
         memcpy(&mac_addr, &(msg.mac_address), 6);
 
