@@ -52,8 +52,9 @@ int main(int argc, char* argv[]) {
         std::cout << c->to_string() << "\n";
     }
 
-    Element elem1("images/img5x5_1.jpg", 1, cv::Point(0, 0));
-    vCanvas.addElementToCanvas(elem1);
+    Element elem1("images/img5x5_1.jpg", 1000, cv::Point(0, 0));
+    std::vector<Element> elemVec1 = {elem1};
+    vCanvas.addElementToCanvas(elemVec1);
 
     std::optional<LEDTCPServer> server_opt =
         create_server(INADDR_ANY, 7070, 7074, clients_exp.first);
@@ -71,9 +72,10 @@ int main(int argc, char* argv[]) {
     int max_x = clients_exp.second.width;
     int max_y = clients_exp.second.height;
     while(1) {
-        std::cout << "loop\n";
-        cont.canvas.removeElementFromCanvas(elem1);
+        cont.canvas.updateCanvas();
         cont.set_leds_all();
+        std::cout << "loop\n";
+        cont.canvas.removeElementFromCanvas(elem1.getId());
         if (x >= max_x - 5) {
             dx = -1;
         } else if (x <= 0) {
@@ -87,13 +89,15 @@ int main(int argc, char* argv[]) {
         x += dx;
         y += dy;
         elem1.setLocation(cv::Point(x, y));
-        cont.canvas.addElementToCanvas(elem1);
+        std::vector<Element> elemVec1 = {elem1};
+        cont.canvas.addElementToCanvas(elemVec1);
         // usleep(25000); // 40 fps
         // usleep(33333); // ~30 fps
         // usleep(50000); // 20 fps
-        usleep(100000); // 10 fps
+        // usleep(100000); // 10 fps
         // usleep(200000); // 5 fps
         // usleep(250000); // 4 fps
+        sleep(1);
     }
 
     return 0;
