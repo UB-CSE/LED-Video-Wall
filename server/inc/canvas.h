@@ -48,19 +48,20 @@ class Element : public AbstractCanvas {
 class VirtualCanvas : public AbstractCanvas {
     private:
         int elementCount;
-        std::vector<Element> elementList;
+        std::vector<std::vector<Element>> elementList;
     
     public:
         VirtualCanvas(const cv::Size& size);
         virtual void clear() override;
-
-        void writeElementToCanvas(const Element &element);
-        void addElementToCanvas(const Element& element);
-        void addElementVecToCanvas(std::vector<Element>& elementsVec);
-        void removeElementFromCanvas(const Element& element);
+        
+        void addElementToCanvas(const std::vector<Element>& element);
+        void addPayloadToCanvas(std::map <std::string, std::vector<std::vector<Element>>>& elementsPayload);
+        void removeElementFromCanvas(int elementId);
+        void pushToCanvas();
+        void updateCanvas();
         
         int getElementCount() const { return elementCount; }
-        const std::vector<Element>& getElementList() const { return elementList; }
+        const std::vector<std::vector<Element>>& getElementList() const { return elementList; }
     };
         
 

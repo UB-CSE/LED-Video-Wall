@@ -37,16 +37,16 @@ int main(int argc, char* argv[]) {
     std::cout << "Size: " << clients_exp.second << "\n";
     VirtualCanvas vCanvas(clients_exp.second);
 
-    std::vector<Element> elementsVec;
+    std::map <std::string, std::vector<std::vector<Element>>> elements;
     try {
-        elementsVec = parseInput(inputFilePath);
+        elements = parseInput(inputFilePath);
     } catch (std::exception& ex) {
         std::cerr << "Error Parsing image input file ("
                   << inputFilePath << "):"
                   << ex.what() << "\n";
         exit(-1);
     }
-    vCanvas.addElementVecToCanvas(elementsVec);
+    vCanvas.addPayloadToCanvas(elements);
 
     for (Client* c : clients_exp.first) {
         std::cout << c->to_string() << "\n";

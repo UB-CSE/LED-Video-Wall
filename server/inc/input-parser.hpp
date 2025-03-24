@@ -5,6 +5,6 @@
 #include <unordered_map>
 #include "canvas.h"
 
-std::vector<Element> parseInput(const std::string inputFile);
+std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::string inputFile);
 
 #endif
