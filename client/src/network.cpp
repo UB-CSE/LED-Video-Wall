@@ -11,7 +11,6 @@
 #include <cstdint>
 #include <esp_wifi.h>
 
-
 // There should be a separate header file, "wifi_credentials.hpp", that defines
 // preprocessor constants, WIFI_SSID and WIFI_PASSWORD, that are used by the
 // clients to connect to wifi.
@@ -41,11 +40,16 @@ uint32_t global_buffer_size = 0;
 void connect_wifi() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
+  Serial.print("MAC Address: ");
+  Serial.println(WiFi.macAddress());
+
   Serial.print("Connecting to WiFi");
+
   while (WiFi.status() != WL_CONNECTED) {
     vTaskDelay(pdMS_TO_TICKS(WIFI_RECONNECT_DELAY_MS));
     Serial.print(".");
   }
+
   Serial.println("\nConnected to WiFi");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
@@ -93,9 +97,12 @@ void send_checkin() {
 void parse_tcp_message() {
   uint8_t size_buffer[sizeof(uint32_t)];
   int bytes_read = socket.read(size_buffer, sizeof(size_buffer));
-
-  if (bytes_read < sizeof(uint32_t)) {
+  if (bytes_read != sizeof(uint32_t)) {
     Serial.println("Failed to read message size");
+    // TODO: it's possible to read only half the message size. if this were to
+    // occur, then it's posssible that the next time parse_tcp_message is
+    // called, the bytes are misaligned. we need another loop reading bytes in
+    // this case
     return;
   }
 
@@ -150,8 +157,18 @@ void parse_tcp_message() {
   while (total < remaining_bytes) {
     int current = socket.read(buffer_ptr + total, remaining_bytes - total);
     if (current <= 0) {
-      Serial.println("Socket read failed or disconnected");
-      return;
+      if (!socket.connected()) {
+        Serial.println("Socket disconnected");
+        return;
+      }
+
+      Serial.println("Socket read failed");
+
+      // Oftentimes socket.read will return 0 or -1, then after a few iterations
+      // begin reading data again from the same message. The root of this issue
+      // isn't clear, so we add a delay here to prevent hogging the CPU. Note
+      // that 10ms is sufficient for the task watchdog to not trigger.
+      vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     total += current;
