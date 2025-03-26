@@ -2,16 +2,17 @@
 #include "canvas.h"
 #include "opencv2/core/mat.hpp"
 #include "opencv2/imgcodecs.hpp"
+#include <optional>
 
-Element renderTextToElement(const std::string &text,
-                            const std::string &fontPath, int fontSize,
-                            cv::Scalar textColor, int elementId,
-                            cv::Point position) {
+std::optional<Element> renderTextToElement(const std::string &text,
+                                           const std::string &fontPath,
+                                           int fontSize, cv::Scalar textColor,
+                                           int elementId, cv::Point position) {
   // FreeType initialization
   FT_Library ft;
   if (FT_Init_FreeType(&ft)) {
     std::cerr << "Error: Could not initialize FreeType library" << std::endl;
-    return Element(cv::Mat(), -1);
+    return std::nullopt;
   }
 
   // load font
@@ -19,7 +20,7 @@ Element renderTextToElement(const std::string &text,
   if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
     std::cerr << "Error: Failed to load font" << std::endl;
     FT_Done_FreeType(ft);
-    return Element(cv::Mat(), -1);
+    return std::nullopt;
   }
 
   // improve font rendering by enabling hinting and using a slightly higher

@@ -58,7 +58,7 @@ void set_config(SetConfigMessage *msg) {
     led_strip_rmt_config_t rmt_config = {
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = 10 * 1000 * 1000,
-        // TODO: read more rmt + dma vs spi here:
+        // TODO: read more on rmt vs spi and also dma here:
         // https://components.espressif.com/components/espressif/led_strip/versions/3.0.0
         .flags = {.with_dma = false},
     };
