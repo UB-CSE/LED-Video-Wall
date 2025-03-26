@@ -4,6 +4,7 @@
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 #include <string>
+#include <optional>
 #include <vector>
 
 // forward declarations
@@ -74,13 +75,13 @@ std::vector<Element> parseInput(const std::string inputFile) {
                 }
                 cv::Point posPoint(locVec.at(0), locVec.at(1));
                 
-                Element newElement = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint); 
-                // TODO: implement error check
-                if (false) {
-                  std::cerr << "Error parsing config: text failed to render, is the TTF file correct?" << std::endl;
+                std::optional<Element> newElement = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint); 
+
+                if (newElement.has_value()) {
+                  std::cerr << "Error parsing config: text failed to render, is the TTF file path correct?" << std::endl;
                   abort();
                 }
-                elementsVec.push_back(newElement);
+                elementsVec.push_back(newElement.value());
             }
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
