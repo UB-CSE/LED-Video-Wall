@@ -1,16 +1,11 @@
 // clang-format off
 #include "canvas.h"
 #include <algorithm>
-
-
-
-
-
+#include <iostream>
 
 //Constructor: Loads an image from file
 Element::Element(const std::string& path, int elementId, cv::Point loc): filePath(path), location(loc), id(elementId){
 
-    //Read Image
     pixelMatrix = cv::imread(filePath, cv::IMREAD_COLOR);
 
     if (pixelMatrix.empty()) {
@@ -37,9 +32,6 @@ void Element::clear() {
     pixelMatrix = cv::Mat::zeros(dim, pixelMatrix.type());
 }
 
-
-
-
 //Constructor: Initializes the virtual canvas with just the size
 VirtualCanvas::VirtualCanvas(const cv::Size& size) : AbstractCanvas(size), elementCount(0) {}
 
@@ -48,58 +40,157 @@ void VirtualCanvas::clear() {
     pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
 }
 
-//Adds an element to the canvas at its defined location set in the element itself
-void VirtualCanvas::addElementToCanvas(const Element& element) {
-    cv::Point loc = element.getLocation();
-    cv::Mat elemMat = element.getPixelMatrix();
-    cv::Size elemSize = element.getDimensions();
 
+
+/*
+Push changes to canvas-
+
+This clears the virtual canvas, sorts the elementlist, then displays the head element of every vector
+in the element list.
+
+*/
+void VirtualCanvas::pushToCanvas(){
+
+
+    // REMEMBER TO EXPLAIN WHY WE ONLY SORT THE FRONT - EXPLAIN GUARENTEE OF SAME ID
+    std::sort(elementList.begin(), elementList.end(), [](const std::vector<Element> &a, const std::vector<Element> &b) {
+        return a.front().getId() < b.front().getId();
+    });
+
+
+    clear();
+    for (const std::vector<Element>& wrappedElem : elementList) {
+
+        const Element elem = wrappedElem.at(0);
+
+        cv::Point loc = elem.getLocation();
+        cv::Mat elemMat = elem.getPixelMatrix();
+        cv::Size elemSize = elem.getDimensions();
+
+
+         /*
+        Overwite a region of interest with the image. If the image does not fit on the canvas,
+        we derive a new size and crop the element to it before transferring it to the canvas.
+        */
+
+        if(loc.x + elemSize.width > dim.width){
+            elemSize.width = dim.width-loc.x;
+        }else if (loc.y + elemSize.height > dim.height){
+            elemSize.height = dim.height - loc.y;
+        }
+        
+        elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
+        elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
+        
+    }
+}
+
+/*
+Update
+
+This method looks at all the element vectors in the elementlist held by the virtual canvas. For each
+that has more than one member, it moves the head to the tail. Then the method pushes changes to the
+canvas. 
+
+The purpose of this is to allow for carousel and potentially videos. pushToCanvas pushes the front
+elements of every element vector in element list to the canvas. As such, if we cycle the
+individual vectors, we get the next frame.
+*/
+
+void VirtualCanvas::updateCanvas(){
+
+    for(auto& vec : elementList){
+        auto it = vec.begin();
+        std::rotate(it, it + 1, vec.end());
+    }
+
+    pushToCanvas();
+
+}
+
+
+/*
+Adds an element to the canvas at its defined location set in the element itself
+
+Note that "element" in this context is a generic vector of elements.
+
+Static images are vectors of size one, each containing one element.
+Carousels are vectors containing the number of constituent elements.
+
+*/
+void VirtualCanvas::addElementToCanvas(const std::vector<Element>& element) {
+
+    std::vector<std::vector<Element>> objects = getElementList();
+    int elementID = element.front().getId();
 
     /*
-    Overwite a region of interest with the image. If the image does not fit on the canvas,
-    we derive a new size and crop the element to it before transferring it to the canvas.
-    */
+    This searches the elementList to check if the element being added already exists. If that is true, Throw error and return.
 
-    if(loc.x + elemSize.width > dim.width){
-        elemSize.width = dim.width-loc.x;
-    }else if (loc.y + elemSize.height > dim.height){
-        elemSize.height = dim.height - loc.y;
-    }
+    NOTE: This small code block was chatgpted.
+
+    Its intended purpose is to traverse a vector of vector of elements and throw a fit if the element we are trying to add already has its
+    id present in the vector..
     
-    elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
-    elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
+    */
+    auto it = std::find_if(objects.begin(), objects.end(), [elementID](const std::vector<Element>& vec) {
+        return std::any_of(vec.begin(), vec.end(), [elementID](const Element& obj) {
+            return obj.getId() == elementID;
+        });
+    });
+    if (it != objects.end()){
+        std::cout << "Double loading element ID# " << elementID << std::endl;
+        abort();
+    }
 
     //Store the element in the list
     elementList.push_back(element);
     elementCount++;
+
+    pushToCanvas();
+   
 }
 
-//Adds an entire map of elements to the canvas. It sorts elements by ID first s.t higher IDs are like weights, their images go on top
-void VirtualCanvas::addElementVecToCanvas(std::vector<Element>& elementsVec){
+
+/*
+Processes elementPayload map and moves relevant elements to the elementList vector held by the virtual canvas
+
+*/
+void VirtualCanvas::addPayloadToCanvas(std::map <std::string, std::vector<std::vector<Element>>>& elementsPayload){
     clear();
-    
-    std::sort(elementsVec.begin(), elementsVec.end(), [](const Element &a, const Element &b) {
-        return a.getId() < b.getId();
-    });
 
-    for(const auto& element : elementsVec){
-        VirtualCanvas::addElementToCanvas(element);
+    
+    //IF THERE ARE IMAGES
+    if(!elementsPayload["images"].empty()){
+
+        for (const auto& vec : elementsPayload["images"]) {
+            VirtualCanvas::addElementToCanvas(vec);
+        }
+
     }
+    
+    //IF THERE ARE CAROUSELS
+    if (!elementsPayload["carousel"].empty()){
+
+        for (const auto& vec : elementsPayload["carousel"]) {
+            VirtualCanvas::addElementToCanvas(vec);
+        }
+
+
+    }
+    
+    
 }
 
-void VirtualCanvas::removeElementFromCanvas(const Element& element) {
+void VirtualCanvas::removeElementFromCanvas(int elementId) {
     clear();
 
     for (size_t i = 0; i < elementList.size(); i++) {
-        if (elementList[i].getId() == element.getId()) {
+        if (elementList[i].front().getId() == elementId) {
             elementList.erase(elementList.begin() + i);
             elementCount--;
             break;
         }
     }
 
-    //Re-add
-    for (const Element& elem : elementList) {
-        addElementToCanvas(elem);
-    }
+    pushToCanvas();
 }

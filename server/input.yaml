@@ -3,14 +3,14 @@
 elements:
   "elem1":
     id: 1
-    type: "image"
-    filepath: "images/hello-rainbow.png"
+    type: "carousel"
+    filepaths: ["images/hello-rainbow.png", "images/apple.png", "images/creeper.png", "images/flower.png"]
     location: [0, 0]
   "elem2":
-    id: 1
+    id: 2
     type: "text"
-    content: "WHATS UP GUYS!!1"
-    size: 24
+    content: "HI : )"
+    size: 12
     color: "#324242"
     font_path: "ttf/Roboto-Regular.ttf"
-    location: [0, 0]
+    location: [16, 0]

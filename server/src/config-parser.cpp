@@ -239,7 +239,7 @@ parse_clients(YAML::Node ynode_clients, std::map<std::string, LEDMatrix*> matric
             }
             mat_connections.push_back(conn);
         }
-        clients.push_back(new Client(mac_addr, -1, mat_connections));
+        clients.push_back(new Client(mac_addr, mat_connections));
     }
 
     return clients;

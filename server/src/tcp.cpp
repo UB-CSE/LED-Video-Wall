@@ -1,5 +1,6 @@
 #include "tcp.hpp"
 #include "client.hpp"
+#include <asm-generic/errno.h>
 #include <asm-generic/socket.h>
 #include <cstdint>
 #include <cstdio>
@@ -14,14 +15,94 @@
 #include <unistd.h>
 #include <cstring>
 #include <map>
+#include <thread>
+#include <utility>
+#include <poll.h>
 #include "opencv2/core.hpp"
 #include "protocol.hpp"
 
 const int MAX_WAITING_CLIENTS = 256;
 
+void handle_conns(int socket, LEDTCPServer* server) {
+
+    listen(socket, MAX_WAITING_CLIENTS);
+
+    std::map<uint64_t, const Client*> mac_to_client;
+
+    std::vector<const Client*> clients;
+    server->conn_info->getAllDisconnected(clients);
+    for (auto c : clients) {
+        mac_to_client[c->mac_addr] = c;
+    }
+
+    while (1) {
+        int client_socket = accept4(socket, NULL, NULL, SOCK_NONBLOCK);
+        CheckInMessage msg;
+        MessageHeader* header = &msg.header;
+        *header = server->tcp_recv_header(client_socket);
+        if (msg.header.op_code != OP_CHECK_IN || msg.header.size != sizeof(CheckInMessage)) {
+            std::cerr << "Expected check-in message, got invalid op-code or message size.\n";
+            close(client_socket);
+            break;
+        }
+        server->tcp_recv(client_socket,
+                         &(msg.mac_address),
+                         sizeof(msg) - sizeof(MessageHeader));
+        uint64_t mac_addr = 0;
+        std::cout << &(msg.mac_address) << "," << &msg + sizeof(MessageHeader) << "," << &msg << "," << sizeof(MessageHeader) << "\n";
+        memcpy(&mac_addr, &(msg.mac_address), 6);
+
+        // if c is the value representing the end of the iterator, it is not present
+        std::cout << "Got message from " << mac_addr << "\n";
+        auto it = mac_to_client.find(mac_addr);
+        if (!(it == mac_to_client.end())) {
+            const Client* c = it->second;
+
+            // If the client reconnects before its old socket has disconnected,
+            // close the old socket and mark the client as disconnected.
+            auto socket_opt = server->conn_info->getSocket(c);
+            if (socket_opt.has_value()) {
+                int socket = socket_opt.value();
+                server->conn_info->setDisconnected(c);
+                close(socket);
+            }
+
+            std::cout << "Accepted client\n";
+            std::cout << "socket: " << client_socket << "\n";
+
+            uint8_t num_pins = c->mat_connections.size();
+            std::vector<PinInfo> pin_info;
+            for (MatricesConnection conn : c->mat_connections) {
+                uint32_t max_leds = 0;
+                for (LEDMatrix* mat : conn.matrices) {
+                    max_leds += mat->spec->width * mat->spec->height;
+                }
+                pin_info.push_back((PinInfo){
+                        conn.pin,
+                        COLOR_ORDER_GRB,
+                        max_leds,
+                        LED_TYPE_WS2811
+                    });
+            }
+            const PinInfo* inf = pin_info.data();
+            uint32_t out_size;
+            uint8_t* msg = encode_set_config(3, 10, num_pins, inf, &out_size);
+            struct pollfd pfd = {client_socket, POLLOUT, -1};
+            poll(&pfd, 1, -1);
+            send(client_socket, msg, out_size, 0);
+            std::cout << "Sent set_config to " << mac_addr << "\n";
+            server->conn_info->setConnected(c, client_socket);
+        } else {
+            std::cerr << "Did not recognize MAC address!\n";
+            close(client_socket);
+        }
+    }
+}
+
 std::optional<LEDTCPServer> create_server(uint32_t addr,
                                           uint16_t start_port,
-                                          uint16_t end_port) {
+                                          uint16_t end_port,
+                                          std::vector<Client*> clients) {
     struct protoent* protocol_entry = getprotobyname("tcp");
     const int tcp_protocol_num = protocol_entry->p_proto;
     
@@ -55,68 +136,133 @@ std::optional<LEDTCPServer> create_server(uint32_t addr,
         }
     }
 
-    return LEDTCPServer(addr, port, server_socket);
+    return LEDTCPServer(addr, port, server_socket, clients, handle_conns);
 }
 
-LEDTCPServer::LEDTCPServer(uint32_t addr, uint16_t port, int socket)
+LEDTCPServer::LEDTCPServer(uint32_t addr,
+                           uint16_t port,
+                           int socket,
+                           std::vector<Client*> clients,
+                           void(*handle_conns)(int socket, LEDTCPServer* server))
     : addr(addr),
       port(port),
-      socket(socket)
+      socket(socket),
+      conn_info(new ClientConnInfo(clients)),
+      conn_handling(NULL)
 {}
 
-void LEDTCPServer::wait_all_join(const std::vector<Client*> clients) {
-    listen(this->socket, MAX_WAITING_CLIENTS);
+void LEDTCPServer::start() {
+    this->conn_handling = new std::thread(handle_conns, socket, this);
+}
 
-    std::map<uint64_t, Client*> mac_to_client;
-    for (Client* c : clients) {
-        mac_to_client[c->mac_addr] = c;
+ClientConnInfo::ClientConnInfo(std::vector<Client *> clients)
+    : mut(),
+      connected(),
+      disconnected()
+{
+    for (auto c : clients) {
+        disconnected.insert(c);
     }
+}
 
-    // keeps track of the clients that have the appropriate mac address
-    size_t accepted_clients = 0;
-    while (accepted_clients < clients.size()) {
-        int client_socket = accept(this->socket, NULL, NULL);
-        uint8_t check_in_buf[32];
-        recv(client_socket, check_in_buf, 12, 0);
-        CheckInMessage* msg = decode_check_in(check_in_buf);
-        uint64_t mac_addr;
-        memcpy(&mac_addr, msg->mac_address, 6);
+void ClientConnInfo::setConnected(const Client *c, int socket) {
+    this->mut.lock();
+    if (this->connected.find(c) == this->connected.end()) {
+        this->disconnected.erase(c);
+        this->connected[c] = socket;
+    }
+    this->mut.unlock();
+}
 
-        // if c is the value representing the end of the iterator, it is not present
-        std::cout << "Got message from " << mac_addr << "\n";
-        if (!(mac_to_client.find(mac_addr) == mac_to_client.end())) {
-            accepted_clients++;
-            std::cout << "Accepted client\n";
-            Client *c = mac_to_client.at(mac_addr);
-            std::cout << "socket: " << client_socket << "\n";
-            c->socket = client_socket;
+std::optional<int> ClientConnInfo::getSocket(const Client *c) {
+    this->mut.lock();
+    auto conn = this->connected.find(c);
+    this->mut.unlock();
+    if (conn != this->connected.end()) {
+        return conn->second;
+    } else {
+        return std::nullopt;
+    }
+}
 
-            uint8_t num_pins = c->mat_connections.size();
-            std::vector<PinInfo> pin_info;
-            for (MatricesConnection conn : c->mat_connections) {
-                uint32_t max_leds = 0;
-                for (LEDMatrix* mat : conn.matrices) {
-                    max_leds += mat->spec->width * mat->spec->height;
-                }
-                pin_info.push_back((PinInfo){
-                        conn.pin,
-                        COLOR_ORDER_GRB,
-                        max_leds,
-                        LED_TYPE_WS2811
-                    });
+void ClientConnInfo::getAllConnected(std::vector<std::pair<const Client*, int>>& v) {
+    this->mut.lock();
+    for (auto it : this->connected) {
+        v.push_back(std::make_pair(it.first, it.second));
+    }
+    this->mut.unlock();
+}
+
+void ClientConnInfo::getAllDisconnected(std::vector<const Client*>& v) {
+    this->mut.lock();
+    for (auto c : this->disconnected) {
+        v.push_back(c);
+    }
+    this->mut.unlock();
+}
+
+void ClientConnInfo::setDisconnected(const Client* c) {
+    this->mut.lock();
+    if (this->disconnected.find(c) == this->disconnected.end()) {
+        this->connected.erase(c);
+        this->disconnected.insert(c);
+    }
+    this->mut.unlock();
+}
+
+bool ClientConnInfo::isConnected(const Client *c) {
+    this->mut.lock();
+    return this->connected.find(c) != this->connected.end();
+    this->mut.unlock();
+}
+
+void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
+    int sent = send(socket, data, size, MSG_NOSIGNAL);
+    if (sent != size) {
+        std::cout << "Error sending set_leds: " << strerror(errno) << "\n";
+        if (errno == ECONNRESET) {
+            auto socket_opt = this->conn_info->getSocket(c);
+            if (socket_opt.has_value()) {
+                close(socket_opt.value());
             }
-            const PinInfo* inf = pin_info.data();
-            uint32_t out_size;
-            uint8_t* msg = encode_set_config(3, 10, num_pins, inf, &out_size);
-            send(client_socket, msg, out_size, 0);
-            std::cout << "Sent set_config to " << mac_addr << "\n";
-        } else {
-            close(client_socket);
+            this->conn_info->setDisconnected(c);
         }
     }
 }
 
-void tcp_set_leds(int client_socket, const cv::Mat &cvmat, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
+MessageHeader LEDTCPServer::tcp_recv_header(int socket) {
+    MessageHeader header;
+    struct pollfd pfd = {socket, POLLIN, 0};
+    int total = 0;
+    while (total < (int)sizeof(MessageHeader)) {
+        poll(&pfd, 1, -1);
+        int recved = recv(socket, (char*)&header + total, sizeof(header) - total, 0);
+        if (recved < 0) {
+            std::cerr << "Error receiving header: " << strerror(errno) << "\n";
+        } else {
+            total += recved;
+        }
+    }
+    return header;
+}
+
+void LEDTCPServer::tcp_recv(int socket, void* data, int size) {
+    struct pollfd pfd = {socket, POLLIN, 0};
+    poll(&pfd, 1, -1);
+    int total = 0;
+    while (total < size) {
+        std::cout << "test";
+        poll(&pfd, 1, -1);
+        int recved = recv(socket, (char*)data + total, size - total, 0);
+        if (recved < 0) {
+            std::cerr << "Error receiving: " << strerror(errno) << "\n";
+        } else {
+            total += recved;
+        }
+    }
+}
+
+void LEDTCPServer::set_leds(const Client* c, int client_socket, const cv::Mat &cvmat, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
     uint32_t width = ledmat->spec->width;
     uint32_t height = ledmat->spec->height;
     uint32_t x = ledmat->pos.x;
@@ -158,9 +304,6 @@ void tcp_set_leds(int client_socket, const cv::Mat &cvmat, LEDMatrix* ledmat, ui
         }
     }
     // uint32_t msg_size = ledmat->packed_pixel_array_size;
-    int sent = send(client_socket, msg_buf, msg_size, 0);
+    this->tcp_send(c, client_socket, msg_buf, msg_size);
     free_message_buffer(msg_buf);
-    if (sent == -1) {
-        std::cout << "Error sending set_leds: " << strerror(errno) << "\n";
-    }
 }
