@@ -1,10 +1,16 @@
 #Beyond just the id, the id is also a weight to determine which images have layering priority
-#As of right now, we only support "image". -- "text", and "video" is planned.
-
-
+#As of right now, we only support "image" and "text" -- "video" is planned.
 elements:
   "elem1":
     id: 1
     type: "carousel"
     filepaths: ["images/hello-rainbow.png", "images/apple.png", "images/creeper.png", "images/flower.png"]
     location: [0, 0]
+  "elem2":
+    id: 2
+    type: "text"
+    content: "HI : )"
+    size: 12
+    color: "#324242"
+    font_path: "ttf/Roboto-Regular.ttf"
+    location: [16, 0]

@@ -1,6 +1,7 @@
 #ifndef CANVAS_H
 #define CANVAS_H
 
+// clang-format off
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
@@ -35,6 +36,7 @@ class Element : public AbstractCanvas {
     
     public:
         Element(const std::string& path, int elementId, cv::Point loc = cv::Point(0, 0));
+        Element(const cv::Mat, int elementId, cv::Point loc = cv::Point(0, 0));
     
         std::string getFilePath() const { return filePath; }
         cv::Point getLocation() const { return location; }
