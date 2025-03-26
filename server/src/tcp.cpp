@@ -234,9 +234,9 @@ MessageHeader LEDTCPServer::tcp_recv_header(int socket) {
     MessageHeader header;
     struct pollfd pfd = {socket, POLLIN, 0};
     int total = 0;
-    while (total < sizeof(MessageHeader)) {
+    while (total < (int)sizeof(MessageHeader)) {
         poll(&pfd, 1, -1);
-        int recved = recv(socket, &header, sizeof(header), 0);
+        int recved = recv(socket, (char*)&header + total, sizeof(header) - total, 0);
         if (recved < 0) {
             std::cerr << "Error receiving header: " << strerror(errno) << "\n";
         } else {
@@ -253,7 +253,7 @@ void LEDTCPServer::tcp_recv(int socket, void* data, int size) {
     while (total < size) {
         std::cout << "test";
         poll(&pfd, 1, -1);
-        int recved = recv(socket, data, size, 0);
+        int recved = recv(socket, (char*)data + total, size - total, 0);
         if (recved < 0) {
             std::cerr << "Error receiving: " << strerror(errno) << "\n";
         } else {
