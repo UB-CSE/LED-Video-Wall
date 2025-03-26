@@ -54,17 +54,18 @@ void set_config(SetConfigMessage *msg) {
             },
     };
 
-    // TODO: read more on rmt vs spi and also dma here:
-    // https://components.espressif.com/components/espressif/led_strip/versions/3.0.0
-    led_strip_spi_config_t spi_config = {.clk_src = SPI_CLK_SRC_DEFAULT,
-                                         .spi_bus = SPI2_HOST,
-                                         .flags = {
-                                             .with_dma = true,
-                                         }};
+    // TODO: check if dma is supported
+    led_strip_rmt_config_t rmt_config = {
+        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz = 10 * 1000 * 1000,
+        // TODO: read more on rmt vs spi and also dma here:
+        // https://components.espressif.com/components/espressif/led_strip/versions/3.0.0
+        .flags = {.with_dma = false},
+    };
 
     led_strip_handle_t strip;
     esp_err_t ret =
-        led_strip_new_spi_device(&strip_config, &spi_config, &strip);
+        led_strip_new_rmt_device(&strip_config, &rmt_config, &strip);
     if (ret != ESP_OK) {
       Serial.printf("Error: Failed to create LED strip for pin %d\n", gpio_pin);
       clear_led_strips();
