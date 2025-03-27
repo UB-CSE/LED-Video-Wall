@@ -132,7 +132,7 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
                 
                 std::optional<Element> newElement = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint); 
 
-                if (newElement.has_value()) {
+                if (!newElement.has_value()) {
                   std::cerr << "Error parsing config: text failed to render, is the TTF file path correct?" << std::endl;
                   abort();
                 }
