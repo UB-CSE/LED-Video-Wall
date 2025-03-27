@@ -136,7 +136,7 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
                   std::cerr << "Error parsing config: text failed to render, is the TTF file path correct?" << std::endl;
                   abort();
                 }
-                std::vector<Element> wrappedElem = {newElement};
+                std::vector<Element> wrappedElem = {newElement.value()};
                 elementPayload["images"].push_back(wrappedElem);
             }
             else {
