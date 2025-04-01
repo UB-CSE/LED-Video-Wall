@@ -5,6 +5,7 @@
 #include "client.hpp"
 #include "tcp.hpp"
 #include <bits/types/struct_timespec.h>
+#include <cstdint>
 
 class DebugElem {
 public:
@@ -30,13 +31,15 @@ public:
     ClientConnInfo* client_conn_info;
     timespec time_per_tick;
     timespec time_per_frame;
+    uint64_t ticks_per_frame;
+    uint64_t tick;
     DebugElem debug_elem;
 
     Controller(VirtualCanvas& canvas,
                std::vector<Client*> clients,
                LEDTCPServer tcp_server,
-               timespec time_per_tick,
-               timespec time_per_frame);
+               int64_t ns_per_tick,
+               int64_t ns_per_frame);
 
     void tick_exec();
     void set_leds_all();

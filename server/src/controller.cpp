@@ -1,5 +1,7 @@
 #include "controller.hpp"
 #include "tcp.hpp"
+#include <cmath>
+#include <cstdint>
 #include <ctime>
 
 DebugElem::DebugElem(VirtualCanvas& canvas)
@@ -36,16 +38,22 @@ void DebugElem::step() {
 Controller::Controller(VirtualCanvas& canvas,
                        std::vector<Client*> clients,
                        LEDTCPServer tcp_server,
-                       timespec time_per_tick,
-                       timespec time_per_frame)
+                       int64_t ns_per_tick,
+                       int64_t ns_per_frame)
     : canvas(canvas),
       clients(clients),
       tcp_server(tcp_server),
       client_conn_info(tcp_server.conn_info),
-      time_per_tick(time_per_tick),
-      time_per_frame(time_per_frame),
+      tick(0),
       debug_elem(DebugElem(canvas))
 {
+    int64_t s_per_tick = ns_per_tick / 1'000'000'000;
+    ns_per_tick = ns_per_tick % 1'000'000'000;
+    int64_t s_per_frame = ns_per_frame / 1'000'000'000;
+    ns_per_frame = ns_per_frame % 1'000'000'000;
+    this->time_per_tick = {s_per_tick, ns_per_tick};
+    this->time_per_frame = {s_per_frame, ns_per_frame};
+    this->ticks_per_frame = ns_per_frame / ns_per_tick;
     std::vector<Element> elemVec = {debug_elem.elem};
     canvas.addElementToCanvas(elemVec);
 }
@@ -66,7 +74,10 @@ void Controller::tick_exec() {
     this->canvas.updateCanvas();
     this->debug_elem.step();
     tick_wait();
-    this->set_leds_all();
+    if (this->tick % this->ticks_per_frame == 0) {
+        this->set_leds_all();
+    }
+    this->tick++;
 }
 
 void Controller::set_leds_all() {
