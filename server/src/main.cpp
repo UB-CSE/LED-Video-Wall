@@ -52,10 +52,6 @@ int main(int argc, char* argv[]) {
         std::cout << c->to_string() << "\n";
     }
 
-    Element elem1("images/img5x5_1.jpg", 1000, cv::Point(0, 0));
-    std::vector<Element> elemVec1 = {elem1};
-    vCanvas.addElementToCanvas(elemVec1);
-
     std::optional<LEDTCPServer> server_opt =
         create_server(INADDR_ANY, 7070, 7074, clients_exp.first);
     if (!server_opt.has_value()) {
@@ -63,44 +59,14 @@ int main(int argc, char* argv[]) {
     }
     LEDTCPServer server = server_opt.value();
     server.start();
-    Controller cont(vCanvas, clients_exp.first, server);
 
-    int x = 0;
-    int y = 0;
-    int dx = 1;
-    int dy = 1;
-    int max_x = clients_exp.second.width;
-    int max_y = clients_exp.second.height;
-    int i = 0;
+    timespec t_per_tick = {0, 010'000'000}; // 100 tps
+    timespec t_per_frame = {0, 100'000'000}; // 10 fps
+
+    Controller cont(vCanvas, clients_exp.first, server, t_per_tick, t_per_frame);
+
     while(1) {
-        i++;
-        if (i % 25 == 0) {
-            cont.canvas.updateCanvas();
-        }
-        cont.set_leds_all();
-        std::cout << "loop\n";
-        cont.canvas.removeElementFromCanvas(elem1.getId());
-        if (x >= max_x - 5) {
-            dx = -1;
-        } else if (x <= 0) {
-            dx = 1;
-        }
-        if (y >= max_y - 5) {
-            dy = -1;
-        } else if (y <= 0) {
-            dy = 1;
-        }
-        x += dx;
-        y += dy;
-        elem1.setLocation(cv::Point(x, y));
-        std::vector<Element> elemVec1 = {elem1};
-        cont.canvas.addElementToCanvas(elemVec1);
-        // usleep(25000); // 40 fps
-        // usleep(33333); // ~30 fps
-        // usleep(50000); // 20 fps
-        usleep(100000); // 10 fps
-        // usleep(200000); // 5 fps
-        // usleep(250000); // 4 fps
+        cont.tick_exec();
     }
 
     return 0;
