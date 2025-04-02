@@ -18,6 +18,16 @@
 
 
 
+/*
+Notes - For new implementation
+
+Element constructer no longer loads pixelmatrix by default - to be handled by push to canvas
+
+
+
+
+*/
+
 
 
 
@@ -56,7 +66,7 @@ int main() {
     Load Config
     */
 
-    std::map <std::string, std::vector<std::vector<Element>>> elementsPayload = parseInput(inputFilePath);
+    Payload elementsPayload = parseInput(inputFilePath);
     
     vCanvas.addPayloadToCanvas(elementsPayload);
     cv::imshow("Display Cats", vCanvas.getPixelMatrix());
@@ -74,7 +84,11 @@ int main() {
     */
 
 
-    //Here I have prepared a carousel with 3 images. The first is displayed during config load already
+    
+    /*
+    Here I have prepared a carousel with 3 images. The first is displayed during config load already.
+    
+    */
     vCanvas.updateCanvas();
     cv::imshow("Display Cats", vCanvas.getPixelMatrix());
     cv::waitKey(0);

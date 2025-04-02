@@ -1,30 +1,44 @@
-#include "canvas.h"
+
+
+#include "input-parser.hpp"
+#include "canvas.h" 
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 #include <string>
 #include <vector>
+#include <tuple>
 
+#define MASTER_FRAMERATE 60
+
+
+
+int calcFramerate(int masterFramerate, int targetFPS){
+
+    return masterFramerate / targetFPS;
+}
 
 /*
-New output format: Map
+New output format: Payload
 
-images -> element vector vector : std::vector<std::vector<Element>>
-carousel -> element vector vector : std::vector<std::vector<Element>>
-videos -> element vector vector : std::vector<std::vector<Element>>
+images -> 
+
+    vector of (tuple( int calls per update, element vector))
+    
+
+
+carousel -> same
+videos -> same
 
 */
 
+Payload parseInput(const std::string& inputFile) {
+    Payload elementPayload;
 
-std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::string inputFile) {
 
+    elementPayload["images"] = {};
+    elementPayload["carousel"] = {};
 
-    std::map <std::string, std::vector<std::vector<Element>>> elementPayload;
-    std::vector<std::vector<Element>> imageArray, carouselArray;
-
-    elementPayload.insert({"images", imageArray});
-    elementPayload.insert({"carousel", carouselArray});
-
-    try { //Check if there are elements at all
+    try {
         YAML::Node config = YAML::LoadFile(inputFile);
         YAML::Node elements = config["elements"];
 
@@ -32,8 +46,6 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
             std::cerr << "No elements found in config." << std::endl;
             return elementPayload;
         }
-
-        //Begin parsing of the elements
 
         for (YAML::const_iterator it = elements.begin(); it != elements.end(); ++it) {
             std::string key = it->first.as<std::string>();
@@ -43,9 +55,13 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
             int id = value["id"].as<int>();
 
 
-            //IMAGES
+
+            /*
+            Image Types
+            
+            */
+
             if (type == "image") {
-                //Ensuring required data is all present for adding to the canvas
                 if (!value["filepath"] || !value["location"]) {
                     std::cerr << "Missing filepath or location for element: " << key << std::endl;
                     abort();
@@ -54,53 +70,56 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
                 std::string filepath = value["filepath"].as<std::string>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
 
-                //Checks to ensure location vector is of the expected form + init openCV point
-                if ((locVec.size() != 2) || (locVec.at(0) < 0) || (locVec.at(1) < 0)) {
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0) {
                     std::cerr << "Location for element " << key << " malformed." << std::endl;
                     abort();
                 }
-                cv::Point loc(locVec.at(0), locVec.at(1));
 
-                //ELEMENT CREATION HERE
+                cv::Point loc(locVec[0], locVec[1]);
                 Element elem(filepath, id, loc);
+                std::vector<Element> elemVec = {elem};
 
-
-                //Payload is images -> vec of elements. We wrap individual elements in a vec and push it tp the vector.
-                std::vector<Element> wrappedElem = {elem};
+                ElemTuple wrappedElem = std::make_tuple(-1, 0, elemVec);
                 elementPayload["images"].push_back(wrappedElem);
             }
 
+            /*
+            
+            Carousel Types
+            
+            */
 
-            //CAROUSEL
-            else if(type == "carousel"){
-
-
-                //Ensuring required data is all present for adding to the canvas
-                if (!value["filepaths"] || !value["location"]) {
-                    std::cerr << "Missing filepaths or location for element: " << key << std::endl;
+            else if (type == "carousel") {
+                if (!value["filepaths"] || !value["location"] || !value["framerate"]) {
+                    std::cerr << "Missing filepaths, framerate, or location for element: " << key << std::endl;
                     abort();
                 }
 
                 std::vector<std::string> filepaths = value["filepaths"].as<std::vector<std::string>>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
+                int framerate = value["framerate"].as<int>();
 
-                //Checks to ensure location vector is of the expected form + init openCV point
-                if ((locVec.size() != 2) || (locVec.at(0) < 0) || (locVec.at(1) < 0)) {
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0) {
                     std::cerr << "Location for element " << key << " malformed." << std::endl;
                     abort();
                 }
-                cv::Point loc(locVec.at(0), locVec.at(1));
 
-                //Create an element for every filepath in the vector and contain them in a vector
+                cv::Point loc(locVec[0], locVec[1]);
                 std::vector<Element> carouselArray;
-                for(const auto& path : filepaths){
+
+                for (const auto& path : filepaths) {
                     Element elem(path, id, loc);
                     carouselArray.push_back(elem);
                 }
 
-                elementPayload["carousel"].push_back(carouselArray);
+                ElemTuple wrappedCarousel = std::make_tuple(
+                    calcFramerate(MASTER_FRAMERATE, framerate), 0,
+                    carouselArray
+                );
 
+                elementPayload["carousel"].push_back(wrappedCarousel);
             }
+
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
             }

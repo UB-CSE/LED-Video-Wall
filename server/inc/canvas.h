@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include "input-parser.hpp"
 
 
 class AbstractCanvas {
@@ -32,6 +33,7 @@ class Element : public AbstractCanvas {
         std::string filePath;
         cv::Point location;
         int id;
+
     
     public:
         Element(const std::string& path, int elementId, cv::Point loc = cv::Point(0, 0));
@@ -48,21 +50,22 @@ class Element : public AbstractCanvas {
 class VirtualCanvas : public AbstractCanvas {
     private:
         int elementCount;
-        std::vector<std::vector<Element>> elementList;
+        std::vector<ElemTuple>elementList;
     
     public:
         VirtualCanvas(const cv::Size& size);
         virtual void clear() override;
         
-        void addElementToCanvas(const std::vector<Element>& element);
-        void addPayloadToCanvas(std::map <std::string, std::vector<std::vector<Element>>>& elementsPayload);
+        void addElementToCanvas(const ElemTuple & element);
+        void addPayloadToCanvas(Payload & elementsPayload);
         void removeElementFromCanvas(int elementId);
         void pushToCanvas();
         void updateCanvas();
         
         int getElementCount() const { return elementCount; }
-        const std::vector<std::vector<Element>>& getElementList() const { return elementList; }
+        const std::vector<ElemTuple>& getElementList() const { return elementList; }
     };
         
+    
 
 #endif
