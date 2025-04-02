@@ -22,7 +22,7 @@ New output format: Payload
 
 images -> 
 
-    vector of (tuple( int calls per update, element vector))
+    vector of (ElemVec))
     
 
 
@@ -76,11 +76,14 @@ Payload parseInput(const std::string& inputFile) {
                 }
 
                 cv::Point loc(locVec[0], locVec[1]);
-                Element elem(filepath, id, loc);
-                std::vector<Element> elemVec = {elem};
 
-                ElemTuple wrappedElem = std::make_tuple(-1, 0, elemVec);
-                elementPayload["images"].push_back(wrappedElem);
+                /*
+                ELEMENT CONSTRUCTION HERE
+                */
+                Element elem(filepath, id, loc, std::make_tuple(-1, 0));
+                ElemVec elemVec = std::vector{elem};
+
+                elementPayload["images"].push_back(elemVec);
             }
 
             /*
@@ -107,17 +110,18 @@ Payload parseInput(const std::string& inputFile) {
                 cv::Point loc(locVec[0], locVec[1]);
                 std::vector<Element> carouselArray;
 
+                /*
+                ELEMENT CONSTRUCTION HERE
+                */
+
                 for (const auto& path : filepaths) {
-                    Element elem(path, id, loc);
+                    Element elem(path, id, loc, std::make_tuple(calcFramerate(MASTER_FRAMERATE, framerate), 0));
                     carouselArray.push_back(elem);
                 }
 
-                ElemTuple wrappedCarousel = std::make_tuple(
-                    calcFramerate(MASTER_FRAMERATE, framerate), 0,
-                    carouselArray
-                );
+                
 
-                elementPayload["carousel"].push_back(wrappedCarousel);
+                elementPayload["carousel"].push_back(carouselArray);
             }
 
             else {

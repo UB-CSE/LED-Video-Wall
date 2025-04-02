@@ -88,13 +88,41 @@ int main() {
     /*
     Here I have prepared a carousel with 3 images. The first is displayed during config load already.
     
+
+    In the input file, I have designated the carousel to run at 30 fps. I currently have the master
+    update tick rate at 60 per second. Hence, the carousel will update once every two update calls.
     */
+
+    //No Change
     vCanvas.updateCanvas();
     cv::imshow("Display Cats", vCanvas.getPixelMatrix());
     cv::waitKey(0);
+
+    //Change!
     vCanvas.updateCanvas();
     cv::imshow("Display Cats", vCanvas.getPixelMatrix());
     cv::waitKey(0);
+
+    //No Change
+    vCanvas.updateCanvas();
+    cv::imshow("Display Cats", vCanvas.getPixelMatrix());
+    cv::waitKey(0);
+    
+    //Change!
+    vCanvas.updateCanvas();
+    cv::imshow("Display Cats", vCanvas.getPixelMatrix());
+    cv::waitKey(0);
+
+    //No Change
+    vCanvas.updateCanvas();
+    cv::imshow("Display Cats", vCanvas.getPixelMatrix());
+    cv::waitKey(0);
+    
+    //Change! - Loops back to first!
+    vCanvas.updateCanvas();
+    cv::imshow("Display Cats", vCanvas.getPixelMatrix());
+    cv::waitKey(0);
+    
 
 
     //This is how you removes a specific element. Pass it the element id.

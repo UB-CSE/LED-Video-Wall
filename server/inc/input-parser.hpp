@@ -10,8 +10,8 @@
 //Forward declaration instead of full include
 class Element;
 
-using ElemTuple = std::tuple<int, int, std::vector<Element>>;
-using Payload = std::map<std::string, std::vector<ElemTuple>>;
+using ElemVec = std::vector<Element>;
+using Payload = std::map<std::string, std::vector<ElemVec>>;
 
 Payload parseInput(const std::string& inputFile);
 

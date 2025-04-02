@@ -34,12 +34,17 @@ class Element : public AbstractCanvas {
         cv::Point location;
         int id;
 
+       
+
     
     public:
-        Element(const std::string& path, int elementId, cv::Point loc = cv::Point(0, 0));
+        std::tuple<int,int> frameRateData;
+        Element(const std::string& path, int elementId, cv::Point loc = cv::Point(0, 0), std::tuple<int, int> frameRateData = std::make_tuple(-1,0));
+
     
         std::string getFilePath() const { return filePath; }
         cv::Point getLocation() const { return location; }
+        std::tuple<int,int> getFrameRateData() {return frameRateData;}
         int getId() const { return id; }
     
         void setLocation(const cv::Point& loc) { location = loc; }
@@ -50,20 +55,20 @@ class Element : public AbstractCanvas {
 class VirtualCanvas : public AbstractCanvas {
     private:
         int elementCount;
-        std::vector<ElemTuple>elementList;
+        std::vector<ElemVec>elementList;
     
     public:
         VirtualCanvas(const cv::Size& size);
         virtual void clear() override;
         
-        void addElementToCanvas(const ElemTuple & element);
+        void addElementToCanvas(const ElemVec &element);
         void addPayloadToCanvas(Payload & elementsPayload);
         void removeElementFromCanvas(int elementId);
         void pushToCanvas();
         void updateCanvas();
         
         int getElementCount() const { return elementCount; }
-        const std::vector<ElemTuple>& getElementList() const { return elementList; }
+        const std::vector<ElemVec>& getElementList() const { return elementList; }
     };
         
     

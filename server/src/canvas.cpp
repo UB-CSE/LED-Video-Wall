@@ -1,11 +1,12 @@
+#include "input-parser.hpp"   
 #include "canvas.h"            
-#include "input-parser.hpp"    
+ 
 #include <algorithm>
 #include <iostream>
 
 
 //Constructor: Loads an image from file
-Element::Element(const std::string& path, int elementId, cv::Point loc): filePath(path), location(loc), id(elementId){
+Element::Element(const std::string& path, int elementId, cv::Point loc, std::tuple<int, int> frameData): filePath(path), location(loc), id(elementId), frameRateData(frameData){
 
     pixelMatrix = cv::imread(filePath, cv::IMREAD_COLOR);
 
@@ -42,34 +43,36 @@ in the element list.
 void VirtualCanvas::pushToCanvas(){
 
 
-    // Sort by ID of the first element in each tuple's vector
-    std::sort(elementList.begin(), elementList.end(), [](const ElemTuple& a, const ElemTuple& b) {
-        const std::vector<Element>& vecA = std::get<2>(a);
-        const std::vector<Element>& vecB = std::get<2>(b);
-        return vecA.front().getId() < vecB.front().getId();
+    // REMEMBER TO EXPLAIN WHY WE ONLY SORT THE FRONT - EXPLAIN GUARENTEE OF SAME ID
+    std::sort(elementList.begin(), elementList.end(), [](const std::vector<Element> &a, const std::vector<Element> &b) {
+        return a.front().getId() < b.front().getId();
     });
 
+
     clear();
+    for (const std::vector<Element>& wrappedElem : elementList) {
 
-    for (const ElemTuple& tuple : elementList) {
-        const std::vector<Element>& vec = std::get<2>(tuple);
+        const Element elem = wrappedElem.at(0);
 
-
-        const Element& elem = vec.at(0);
         cv::Point loc = elem.getLocation();
         cv::Mat elemMat = elem.getPixelMatrix();
         cv::Size elemSize = elem.getDimensions();
 
-        //Crop to fit if it surpasses canvas dimensions
-        if (loc.x + elemSize.width > dim.width) {
-            elemSize.width = dim.width - loc.x;
-        }
-        if (loc.y + elemSize.height > dim.height) {
+
+         /*
+        Overwite a region of interest with the image. If the image does not fit on the canvas,
+        we derive a new size and crop the element to it before transferring it to the canvas.
+        */
+
+        if(loc.x + elemSize.width > dim.width){
+            elemSize.width = dim.width-loc.x;
+        }else if (loc.y + elemSize.height > dim.height){
             elemSize.height = dim.height - loc.y;
         }
-
+        
         elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
         elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
+        
     }
 }
 
@@ -87,18 +90,26 @@ individual vectors, we get the next frame.
 
 void VirtualCanvas::updateCanvas(){
 
-    for(ElemTuple & tup : elementList){
 
-        int callsPerUpdate = std::get<0>(tup);
-        if(callsPerUpdate == -1){break;}
-        int curUpdate = std::get<1>(tup);
+    for(ElemVec & vec : elementList){
+
+        auto[callsPerUpdate, curUpdate] = vec.at(0).getFrameRateData();
+        printf("\n ID %d with %d and %d \n", vec.at(0).getId(),callsPerUpdate, curUpdate);
+
+        if(callsPerUpdate == -1){continue;}
+
+        
 
         if(callsPerUpdate == curUpdate){
-            auto it = std::get<2>(tup).begin();
-            std::rotate(it, it + 1,std::get<2>(tup).end());
+            printf("\nUpdating with req call per update = %d and cur %d\n", callsPerUpdate, curUpdate);
+            std::get<1>(vec.at(0).frameRateData) = 0;
+            auto it = vec.begin();
+            std::rotate(it, it + 1,vec.end());
         }
 
-        std::get<1>(tup) = (curUpdate + 1) % callsPerUpdate;
+
+        //This updates the current counter
+        std::get<1>(vec.at(0).frameRateData) += 1;
        
     }
 
@@ -118,10 +129,10 @@ Static images have vectors of size one, each containing one element.
 Carousels have vectors containing the number of constituent elements.
 
 */
-void VirtualCanvas::addElementToCanvas(const ElemTuple& element) {
+void VirtualCanvas::addElementToCanvas(const ElemVec& element) {
 
-    std::vector<ElemTuple> objects = getElementList();
-    int elementID = std::get<2>(element).front().getId();
+    std::vector<ElemVec> objects = getElementList();
+    int elementID = element.front().getId();
 
     /*
     This searches the elementList to check if the element being added already exists. If that is true, Throw error and return.
@@ -132,8 +143,8 @@ void VirtualCanvas::addElementToCanvas(const ElemTuple& element) {
     id present in the vector..
     
     */
-   auto it = std::find_if(objects.begin(), objects.end(), [elementID](const ElemTuple& tup) {
-        const std::vector<Element>& vec = std::get<2>(tup);
+   
+    auto it = std::find_if(objects.begin(), objects.end(), [elementID](const std::vector<Element>& vec) {
         return std::any_of(vec.begin(), vec.end(), [elementID](const Element& obj) {
             return obj.getId() == elementID;
         });
@@ -141,7 +152,7 @@ void VirtualCanvas::addElementToCanvas(const ElemTuple& element) {
     if (it != objects.end()){
         std::cout << "\nDouble loading element ID# \n" << elementID << std::endl;
         return;
-    }
+    } 
 
 
     //Store the element tuple in the list
@@ -164,8 +175,8 @@ void VirtualCanvas::addPayloadToCanvas(Payload& elementsPayload){
     //IF THERE ARE IMAGES
     if(!elementsPayload["images"].empty()){
 
-        for (ElemTuple tup : elementsPayload["images"]) {
-            VirtualCanvas::addElementToCanvas(tup);
+        for (ElemVec vec : elementsPayload["images"]) {
+            VirtualCanvas::addElementToCanvas(vec);
         }
 
     }
@@ -173,8 +184,8 @@ void VirtualCanvas::addPayloadToCanvas(Payload& elementsPayload){
     //IF THERE ARE CAROUSELS
     if (!elementsPayload["carousel"].empty()){
 
-        for (ElemTuple tup : elementsPayload["carousel"]) {
-            VirtualCanvas::addElementToCanvas(tup);
+        for (ElemVec vec : elementsPayload["carousel"]) {
+            VirtualCanvas::addElementToCanvas(vec);
         }
 
 
@@ -186,8 +197,7 @@ void VirtualCanvas::removeElementFromCanvas(int elementId) {
     clear();
 
     for (size_t i = 0; i < elementList.size(); i++) {
-        ElemTuple& tuple = elementList[i];
-        std::vector<Element> vec = std::get<2>(tuple);
+        ElemVec& vec = elementList[i];
 
         if (!vec.empty() && vec.front().getId() == elementId) {
             elementList.erase(elementList.begin() + i);
