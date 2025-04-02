@@ -37,7 +37,7 @@ void VirtualCanvas::clear() {
 Push changes to canvas-
 
 This clears the virtual canvas, sorts the elementlist, then displays the head element of every vector
-in the element list.
+in the element list on the virtual canvas.
 
 */
 void VirtualCanvas::pushToCanvas(){
@@ -52,7 +52,7 @@ void VirtualCanvas::pushToCanvas(){
     clear();
     for (const std::vector<Element>& wrappedElem : elementList) {
 
-        const Element elem = wrappedElem.at(0);
+        const Element elem = wrappedElem.front();
 
         cv::Point loc = elem.getLocation();
         cv::Mat elemMat = elem.getPixelMatrix();
@@ -80,36 +80,40 @@ void VirtualCanvas::pushToCanvas(){
 Update
 
 This method looks at all the element vectors in the elementlist held by the virtual canvas. For each
-that has more than one member, it moves the head to the tail. Then the method pushes changes to the
-canvas. 
+that has more than one member, it moves the head to the tail. Then the method pushes the changes to the
+virtual canvas. 
 
 The purpose of this is to allow for carousel and potentially videos. pushToCanvas pushes the front
 elements of every element vector in element list to the canvas. As such, if we cycle the
 individual vectors, we get the next frame.
+
+Framerate is controlled by incrementing a counter and comparing it to a threshold. Both are held within
+the element itself. 
 */
 
 void VirtualCanvas::updateCanvas(){
 
-
     for(ElemVec & vec : elementList){
 
-        auto[callsPerUpdate, curUpdate] = vec.at(0).getFrameRateData();
-        printf("\n ID %d with %d and %d \n", vec.at(0).getId(),callsPerUpdate, curUpdate);
+        //This skips over checking single image element vectors (single images)
+        if(vec.size() > 1){
+            auto[callsPerUpdate, curUpdate] = vec.front().getFrameRateData();
 
-        if(callsPerUpdate == -1){continue;}
+            
+            if(callsPerUpdate == -1){fprintf(stderr, "\nThere is a non-image element ID %d with callsPerUpdate of -1!", vec.front().getId()); continue;}
 
-        
+            
+            //This updates the current counter
+            std::get<1>(vec.front().frameRateData) += 1;
 
-        if(callsPerUpdate == curUpdate){
-            printf("\nUpdating with req call per update = %d and cur %d\n", callsPerUpdate, curUpdate);
-            std::get<1>(vec.at(0).frameRateData) = 0;
-            auto it = vec.begin();
-            std::rotate(it, it + 1,vec.end());
+            //Threshold Check for when to update. The -1 is to account for 0 indexing.
+            if(callsPerUpdate-1 == curUpdate){
+    
+                std::get<1>(vec.front().frameRateData) = 0;
+                auto it = vec.begin();
+                std::rotate(it, it + 1,vec.end());
+            }
         }
-
-
-        //This updates the current counter
-        std::get<1>(vec.at(0).frameRateData) += 1;
        
     }
 
@@ -121,9 +125,7 @@ void VirtualCanvas::updateCanvas(){
 /*
 Adds an element to the canvas at its defined location set in the element itself
 
-Note that "element" in this context is a generic vector of tupled elements. These
-tuples are (int updates, Element element) where updates is the number of update calls 
-before updating.
+Note that "element" in this context is a generic vector of elements.
 
 Static images have vectors of size one, each containing one element.
 Carousels have vectors containing the number of constituent elements.
@@ -136,8 +138,6 @@ void VirtualCanvas::addElementToCanvas(const ElemVec& element) {
 
     /*
     This searches the elementList to check if the element being added already exists. If that is true, Throw error and return.
-
-    NOTE: This small code block was chatgpted.
 
     Its intended purpose is to traverse a vector of vector of elements and throw a fit if the element we are trying to add already has its
     id present in the vector..
@@ -166,7 +166,6 @@ void VirtualCanvas::addElementToCanvas(const ElemVec& element) {
 
 /*
 Processes elementPayload map and moves relevant elements to the elementList vector held by the virtual canvas
-
 */
 void VirtualCanvas::addPayloadToCanvas(Payload& elementsPayload){
     clear();

@@ -23,8 +23,6 @@ New output format: Payload
 images -> 
 
     vector of (ElemVec))
-    
-
 
 carousel -> same
 videos -> same
@@ -79,6 +77,10 @@ Payload parseInput(const std::string& inputFile) {
 
                 /*
                 ELEMENT CONSTRUCTION HERE
+
+                The tuple is the framerate data field. All elements have it. The first number is the calculated
+                callsPerUpdate and the second should always be init to 0. That is the internal counter.
+                
                 */
                 Element elem(filepath, id, loc, std::make_tuple(-1, 0));
                 ElemVec elemVec = std::vector{elem};

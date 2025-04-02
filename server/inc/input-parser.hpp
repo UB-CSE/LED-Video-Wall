@@ -7,7 +7,6 @@
 #include <map>
 #include <opencv2/opencv.hpp>
 
-//Forward declaration instead of full include
 class Element;
 
 using ElemVec = std::vector<Element>;
