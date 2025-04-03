@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
     server.start();
 
     uint64 ns_per_tick = 010'000'000; // 100 tps
-    uint64 ns_per_frame = 100'000'000; // 10 fps
+    uint64 ns_per_frame = 200'000'000; // 5 fps
 
     Controller cont(vCanvas, clients_exp.first, server, ns_per_tick, ns_per_frame);
 

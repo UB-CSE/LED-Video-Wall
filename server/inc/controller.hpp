@@ -29,8 +29,8 @@ public:
     std::vector<Client*> clients;
     LEDTCPServer tcp_server;
     ClientConnInfo* client_conn_info;
-    timespec time_per_tick;
-    timespec time_per_frame;
+    int64_t ns_per_tick;
+    int64_t ns_per_frame;
     uint64_t ticks_per_frame;
     uint64_t tick;
     DebugElem debug_elem;
@@ -41,6 +41,7 @@ public:
                int64_t ns_per_tick,
                int64_t ns_per_frame);
 
+    bool is_frame_tick();
     void tick_exec();
     void set_leds_all();
 

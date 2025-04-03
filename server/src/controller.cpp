@@ -1,5 +1,6 @@
 #include "controller.hpp"
 #include "tcp.hpp"
+#include <bits/types/struct_timespec.h>
 #include <cmath>
 #include <cstdint>
 #include <ctime>
@@ -15,24 +16,22 @@ DebugElem::DebugElem(VirtualCanvas& canvas)
 
 void DebugElem::step() {
     i++;
-    if (i % 10 == 0) {
-        canvas.removeElementFromCanvas(this->elem.getId());
-        if (x >= max_x - 5) {
-            dx = -1;
-        } else if (x <= 0) {
-            dx = 1;
-        }
-        if (y >= max_y - 5) {
-            dy = -1;
-        } else if (y <= 0) {
-            dy = 1;
-        }
-        x += dx;
-        y += dy;
-        elem.setLocation(cv::Point(x, y));
-        std::vector<Element> elemVec = {this->elem};
-        this->canvas.addElementToCanvas(elemVec);
+    canvas.removeElementFromCanvas(this->elem.getId());
+    if (x >= max_x - 5) {
+        dx = -1;
+    } else if (x <= 0) {
+        dx = 1;
     }
+    if (y >= max_y - 5) {
+        dy = -1;
+    } else if (y <= 0) {
+        dy = 1;
+    }
+    x += dx;
+    y += dy;
+    elem.setLocation(cv::Point(x, y));
+    std::vector<Element> elemVec = {this->elem};
+    this->canvas.addElementToCanvas(elemVec);
 }
 
 Controller::Controller(VirtualCanvas& canvas,
@@ -44,37 +43,42 @@ Controller::Controller(VirtualCanvas& canvas,
       clients(clients),
       tcp_server(tcp_server),
       client_conn_info(tcp_server.conn_info),
+      ns_per_tick(ns_per_tick),
+      ns_per_frame(ns_per_frame),
       tick(0),
       debug_elem(DebugElem(canvas))
 {
-    int64_t s_per_tick = ns_per_tick / 1'000'000'000;
-    ns_per_tick = ns_per_tick % 1'000'000'000;
-    int64_t s_per_frame = ns_per_frame / 1'000'000'000;
-    ns_per_frame = ns_per_frame % 1'000'000'000;
-    this->time_per_tick = {s_per_tick, ns_per_tick};
-    this->time_per_frame = {s_per_frame, ns_per_frame};
     this->ticks_per_frame = ns_per_frame / ns_per_tick;
     std::vector<Element> elemVec = {debug_elem.elem};
     canvas.addElementToCanvas(elemVec);
 }
 
 void Controller::tick_wait() {
+    struct timespec cur_time;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &cur_time);
+    int64_t max_sec_as_ns = INT64_MAX / 1'000'000'000;
+    int64_t ns_cur_time = (cur_time.tv_sec % max_sec_as_ns) * 1'000'000'000 + cur_time.tv_nsec;
+    int64_t ns_wait = ns_cur_time % this->ns_per_tick;
     struct timespec wait_remaining;
-    struct timespec wait_for;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &wait_for);
-    wait_for.tv_sec = wait_for.tv_sec - this->time_per_tick.tv_sec;
-    wait_for.tv_nsec = wait_for.tv_nsec - this->time_per_tick.tv_nsec;
-    do {
-        nanosleep(&wait_for, &wait_remaining);
-    } while (wait_remaining.tv_sec != 0 && wait_remaining.tv_nsec != 0);
+    struct timespec wait = {ns_wait / 1'000'000'000, ns_wait % 1'000'000'000};
+    nanosleep(&wait, &wait_remaining);
+}
+
+bool Controller::is_frame_tick() {
+    return (this->tick % this->ticks_per_frame) == 0;
 }
 
 void Controller::tick_exec() {
     // Todo: send redraw command to all clients.
-    this->canvas.updateCanvas();
-    this->debug_elem.step();
+    if (this->tick % (this->ticks_per_frame * 10) == 0) {
+        this->canvas.updateCanvas();
+    }
+    if (this->is_frame_tick()) {
+        this->debug_elem.step();
+    }
     tick_wait();
-    if (this->tick % this->ticks_per_frame == 0) {
+    if (this->is_frame_tick()) {
+        std::cout << "set_leds_all\n";
         this->set_leds_all();
     }
     this->tick++;
