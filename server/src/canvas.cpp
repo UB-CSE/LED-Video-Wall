@@ -5,7 +5,7 @@
 #include <iostream>
 
 
-//Constructor: Loads an image from file
+//Constructor: Loads element from filepath
 Element::Element(const std::string& path, int elementId, cv::Point loc, std::tuple<int, int> frameData): filePath(path), location(loc), id(elementId), frameRateData(frameData){
 
     pixelMatrix = cv::imread(filePath, cv::IMREAD_COLOR);
@@ -16,6 +16,18 @@ Element::Element(const std::string& path, int elementId, cv::Point loc, std::tup
         dim = pixelMatrix.size();
     }
 }
+
+
+//Second Constructor: Loads element from matrix
+Element::Element(const cv::Mat matrix, int elementId, cv::Point loc, std::tuple<int, int> frameData): location(loc), id(elementId), frameRateData(frameData){
+    if (matrix.empty()) {
+        std::cerr << "Error: Invalid matrix passed into Element constructor. " << std::endl;
+    } else {
+        pixelMatrix = matrix; 
+        dim = pixelMatrix.size();
+    }
+}
+
 
 //Override of abstract class method. Must be present - Clears the element's pixel matrix by setting to black
 void Element::clear() {

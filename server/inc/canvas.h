@@ -40,7 +40,7 @@ class Element : public AbstractCanvas {
     public:
         std::tuple<int,int> frameRateData;
         Element(const std::string& path, int elementId, cv::Point loc = cv::Point(0, 0), std::tuple<int, int> frameRateData = std::make_tuple(-1,0));
-
+        Element(const cv::Mat, int elementId, cv::Point loc = cv::Point(0, 0), std::tuple<int, int> frameRateData = std::make_tuple(-1,0));
     
         std::string getFilePath() const { return filePath; }
         cv::Point getLocation() const { return location; }

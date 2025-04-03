@@ -24,11 +24,15 @@ CXXFLAGS := -O0 -g -Wall -std=c++17
 INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
            -I$(OPENCV_INCLUDE_DIR) \
            -I$(YAML_CPP_INCLUDE_DIR) \
+		   -I/usr/include/freetype2 \
            `pkg-config --cflags opencv4`
 
 
 LDFLAGS = -L$(YAML_CPP_LIB_DIR) -lyaml-cpp \
-          -L$(OPENCV_LIB_DIR) `pkg-config --libs opencv4`
+          -L$(OPENCV_LIB_DIR) \
+		  -L/usr/local/lib/ \
+		   -lfreetype \
+		  `pkg-config --libs opencv4`
 
 all: led-wall-server
 

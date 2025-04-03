@@ -27,6 +27,14 @@
              Welcome to Harvey's Virtual Canvas and Element tutorial
 =====================================================================================
 
+Notes:
+
+When merging the Text functionality back in, it should be drag and drop.
+
+
+
+
+
 
 
 =====================================================================================

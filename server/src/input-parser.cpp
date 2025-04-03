@@ -1,17 +1,23 @@
 
 
 #include "input-parser.hpp"
-#include "canvas.h" 
+#include "canvas.h"
+#include "text-render.hpp"
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 #include <string>
 #include <vector>
 #include <tuple>
 
+
 #define MASTER_FRAMERATE 60
 
 
+//Forward declaration
+cv::Scalar hexColorToScalar(const std::string &hexColor);
 
+
+//Calculates callsPerUpdate for elements
 int calcFramerate(int masterFramerate, int targetFPS){
 
     return masterFramerate / targetFPS;
@@ -80,7 +86,7 @@ Payload parseInput(const std::string& inputFile) {
 
                 The tuple is the framerate data field. All elements have it. The first number is the calculated
                 callsPerUpdate and the second should always be init to 0. That is the internal counter.
-                
+
                 */
                 Element elem(filepath, id, loc, std::make_tuple(-1, 0));
                 ElemVec elemVec = std::vector{elem};
@@ -126,10 +132,47 @@ Payload parseInput(const std::string& inputFile) {
                 elementPayload["carousel"].push_back(carouselArray);
             }
 
+            /*
+            TEXT TYPE
+            */
+            else if (type == "text") {
+                // check for necessary values
+                if (!value["content"] || !value["font_path"] || !value["location"] || !value["color"] || !value["size"]) 
+                {
+                  std::cerr << "Missing required values for element: " << key << std::endl;
+                  abort();
+                }
+                std::string filepath = value["font_path"].as<std::string>();
+                std::string content = value["content"].as<std::string>();
+                
+                int fontSize = value["size"].as<int>();
+                
+                // parse hex color to cv::Scalar
+                std::string hexColor = value["color"].as<std::string>();
+                cv::Scalar fontColor = hexColorToScalar(hexColor);
+                
+                // convert location from same format to cv::Point as used by renderTextToElement
+                std::vector<int> locVec = value["location"].as<std::vector<int>>();
+                if ((locVec.size() != 2) || (locVec.at(0) < 0) || (locVec.at(1) < 0)) {
+                  std::cerr << "Location for element " << key << " malformed." << std::endl;
+                  abort();
+                }
+                cv::Point posPoint(locVec.at(0), locVec.at(1));
+                
+                std::optional<Element> newElement = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint); 
+
+                if (!newElement.has_value()) {
+                  std::cerr << "Error parsing config: text failed to render, is the TTF file path correct?" << std::endl;
+                  abort();
+                }
+                std::vector<Element> wrappedElem = {newElement.value()};
+                elementPayload["images"].push_back(wrappedElem);
+            }
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
             }
         }
+
     } catch (const YAML::Exception& e) {
         std::cerr << "Error parsing config: " << e.what() << std::endl;
         abort();
@@ -137,3 +180,17 @@ Payload parseInput(const std::string& inputFile) {
 
     return elementPayload;
 }
+
+
+cv::Scalar hexColorToScalar(const std::string &hexColor) {
+    if (hexColor.length() != 7 || hexColor[0] != '#') {
+      // invalid, we'll just return black and warn (thanks nick).
+      std::cerr << "Error parsing config: Hex color \"" << hexColor << "\" invalid." << std::endl;
+      return cv::Scalar(0, 0, 0);
+    }
+  
+    int r, g, b;
+    sscanf(hexColor.c_str(), "#%02x%02x%02x", &r, &g, &b);
+  
+    return cv::Scalar(b, g, r);
+  }
