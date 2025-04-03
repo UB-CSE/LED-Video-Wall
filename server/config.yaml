@@ -1,5 +1,8 @@
 ignore-bounds-checks: true
 
+ns-per-tick: 010000000
+ns-per-frame: 200000000
+
 matrix-specs:
   "ws2812b:32x8":
     power_limit_amps: 2.5
