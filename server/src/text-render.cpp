@@ -134,7 +134,7 @@ std::optional<Element> renderTextToElement(const std::string &text,
   // create our output element and convert
   cv::Mat rgbImg;
   cv::cvtColor(img, rgbImg, cv::COLOR_BGRA2BGR);
-  Element textElement(rgbImg, elementId, position);
+  Element textElement(rgbImg, elementId, position, std::make_tuple(-1, 0));
 
   return textElement;
 }

@@ -70,9 +70,7 @@ bool Controller::is_frame_tick() {
 
 void Controller::tick_exec() {
     // Todo: send redraw command to all clients.
-    if (this->tick % (this->ticks_per_frame * 10) == 0) {
-        this->canvas.updateCanvas();
-    }
+    this->canvas.updateCanvas();
     if (this->is_frame_tick()) {
         this->debug_elem.step();
     }

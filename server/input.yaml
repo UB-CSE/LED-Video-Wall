@@ -5,12 +5,20 @@ elements:
     id: 1
     type: "carousel"
     filepaths: ["images/hello-rainbow.png", "images/apple.png", "images/creeper.png", "images/flower.png"]
+    framerate: 1
     location: [0, 0]
   "elem2":
     id: 2
-    type: "text"
-    content: "HI : )"
-    size: 12
-    color: "#324242"
-    font_path: "ttf/Roboto-Regular.ttf"
+    type: "carousel"
+    filepaths: ["images/Alan_32x32.png", "images/Alan_32x32_color_corrected.png"]
+    framerate: 1
     location: [16, 0]
+  # "elem3":
+  #   id: 3
+  #   type: "text"
+  #   content: "HI : )"
+  #   size: 5
+  #   color: "#324242"
+  #   font_path: "ttf/Roboto-Regular.ttf"
+  #   location: [16, 0]
+  

@@ -1,7 +1,7 @@
 ignore-bounds-checks: true
 
-ns-per-tick: 010000000
-ns-per-frame: 200000000
+ns-per-tick: 4166667 # ~240 tps
+ns-per-frame: 100000000 # 10 fps
 
 matrix-specs:
   "ws2812b:32x8":

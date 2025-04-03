@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
 
     std::map <std::string, std::vector<std::vector<Element>>> elements;
     try {
-        elements = parseInput(inputFilePath);
+        elements = parseInput(inputFilePath, 1'000'000'000 / server_config.ns_per_tick);
     } catch (std::exception& ex) {
         std::cerr << "Error Parsing image input file ("
                   << inputFilePath << "):"
