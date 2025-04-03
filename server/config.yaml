@@ -17,19 +17,19 @@ matrices:
   mat3:
     spec: "ws2812b:32x8"
     pos: [16, 0]
-    rot: up
+    rot: down
   mat4:
     spec: "ws2812b:32x8"
     pos: [24, 0]
-    rot: up
+    rot: down
   mat5:
     spec: "ws2812b:32x8"
     pos: [32, 0]
-    rot: up
+    rot: down
   mat6:
     spec: "ws2812b:32x8"
     pos: [40, 0]
-    rot: up
+    rot: down
 
 clients:
   24-0A-C4-0D-AA-F8:
