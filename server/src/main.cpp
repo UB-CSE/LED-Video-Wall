@@ -46,32 +46,21 @@ int main() {
     cv::imshow("Display Cats", vCanvas.getPixelMatrix());
     cv::waitKey(0);
 
-    for(int i = 0; i < vCanvas.getElementList().size(); i++){
-        cv::Mat frame;
-        vCanvas.getElementList().at(i)->nextFrame(frame);
+    while (true) {
+        for (int i = 0; i < vCanvas.getElementList().size(); i++) {
+            cv::Mat frame;
+            vCanvas.getElementList().at(i)->nextFrame(frame);
+        }
+    
+        vCanvas.pushToCanvas();
+        cv::imshow("Display Cats", vCanvas.getPixelMatrix());
+    
+        if (cv::waitKey(33) >= 0) { //in milliseconds
+            break;
+        }
     }
-    vCanvas.pushToCanvas();
 
-    cv::imshow("Display Cats", vCanvas.getPixelMatrix());
-    cv::waitKey(0);
-
-    for(int i = 0; i < vCanvas.getElementList().size(); i++){
-        cv::Mat frame;
-        vCanvas.getElementList().at(i)->nextFrame(frame);
-    }
-    vCanvas.pushToCanvas();
-
-    cv::imshow("Display Cats", vCanvas.getPixelMatrix());
-    cv::waitKey(0);
-
-    for(int i = 0; i < vCanvas.getElementList().size(); i++){
-        cv::Mat frame;
-        vCanvas.getElementList().at(i)->nextFrame(frame);
-    }
-    vCanvas.pushToCanvas();
-
-    cv::imshow("Display Cats", vCanvas.getPixelMatrix());
-    cv::waitKey(0);
+    
 
 
 

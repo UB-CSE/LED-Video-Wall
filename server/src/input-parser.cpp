@@ -74,7 +74,7 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 callsPerUpdate and the second should always be init to 0. That is the internal counter.
 
                 */
-                Element * elem = new ImageElement(filepath, id, loc); //Remember to "delete elem" afterwards
+                Element * elem = new ImageElement(filepath, id, loc, -1); //Remember to "delete elem" afterwards
 
                 vCanvas.addElementToCanvas(elem);
             }
@@ -86,11 +86,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
             */
 
             else if (type == "carousel") {
-                if (!value["filepaths"] || !value["location"]) {
+                if (!value["filepaths"] || !value["location"] || !value["framerate"]) {
                     std::cerr << "Missing filepaths, framerate, or location for element: " << key << std::endl;
 
                 }
 
+                int frameRate = value["framerate"].as<int>();
                 std::vector<std::string> filepaths = value["filepaths"].as<std::vector<std::string>>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
                 cv::Point loc(locVec[0], locVec[1]);
@@ -102,7 +103,7 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
 
                 
 
-                Element * elem = new CarouselElement(filepaths, id, loc);
+                Element * elem = new CarouselElement(filepaths, id, loc, frameRate);
                 vCanvas.addElementToCanvas(elem);
             }
 
@@ -110,11 +111,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
             Video
             */
             else if (type == "video") {
-                if (!value["filepath"] || !value["location"]) {
+                if (!value["filepath"] || !value["location"] || !value["framerate"]) {
                     std::cerr << "Missing filepath or location for element: " << key << std::endl;
     
                 }
 
+                int frameRate = value["framerate"].as<int>();
                 std::string filepath = value["filepath"].as<std::string>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
 
@@ -125,7 +127,7 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
 
                 cv::Point loc(locVec[0], locVec[1]);
 
-                Element * elem = new VideoElement(filepath, id, loc);
+                Element * elem = new VideoElement(filepath, id, loc, frameRate);
 
                 vCanvas.addElementToCanvas(elem);
 

@@ -18,7 +18,15 @@ elements:
   "elem3":
     id: 3
     type: "carousel"
+    framerate: 20
     filepaths: ["images/img3.jpg", "images/img4.jpg", "images/img5.jpg"]
     location: [300, 300]
+
+  "elem4":
+    id: 4
+    type: "video"
+    framerate: 15
+    filepath: "images/testVid.mp4" 
+    location: [600, 400]
 
 

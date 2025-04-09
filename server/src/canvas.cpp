@@ -7,7 +7,7 @@
 
 
 //ImageElement implementation
-ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc): Element(id, loc) {
+ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {
     pixelMatrix = cv::imread(filepath, cv::IMREAD_COLOR);
     if (pixelMatrix.empty()) {
         throw std::runtime_error("Failed to load image: " + filepath);
@@ -31,7 +31,7 @@ Maintains a vector of images it is responsible for.
 Utilizes internal counter with modulo shenanigans to track which frame is in play
 
 */
-CarouselElement::CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc): Element(id, loc), current(0) {
+CarouselElement::CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc, int frameRate): Element(id, loc,frameRate), current(0) {
     for (const auto& path : filepaths) {
         cv::Mat img = cv::imread(path, cv::IMREAD_COLOR);
         if (img.empty())
@@ -58,7 +58,7 @@ void CarouselElement::reset() {
 
 //VideoElement implementation
 
-VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc): Element(id, loc) {
+VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {
     cap.open(filepath);
     if (!cap.isOpened())
         throw std::runtime_error("Failed to open video: " + filepath);
@@ -69,9 +69,18 @@ VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc): 
 }
 
 bool VideoElement::nextFrame(cv::Mat& frame) {
-    bool success = cap.read(pixelMatrix);
+    if (!cap.read(pixelMatrix)) {
+        //Rewind and try again
+        cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+        if (!cap.read(pixelMatrix)) {
+            frame = cv::Mat(); // fallback to empty to prevent crashes when ending
+            return false;
+        }
+    }
+
     frame = pixelMatrix;
-    return success;
+    return true;
+
 }
 
 void VideoElement::reset() {

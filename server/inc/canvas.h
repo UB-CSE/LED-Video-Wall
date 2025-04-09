@@ -15,6 +15,7 @@ class Element {
     private:
         int id;
         cv::Point location;
+        int frameRate;
         
     public:
 
@@ -26,8 +27,9 @@ class Element {
         virtual ~Element() {}
 
     protected:
+        
         cv::Mat pixelMatrix;
-        Element(int id, cv::Point loc) : id(id), location(loc) {}
+        Element(int id, cv::Point loc, int frameRate) : id(id), location(loc), frameRate(frameRate) {}
     };
     
 class ImageElement : public Element {
@@ -35,7 +37,7 @@ class ImageElement : public Element {
         bool provided;
     
     public:
-        ImageElement(const std::string& filepath, int id, cv::Point loc);
+        ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate);
         bool nextFrame(cv::Mat& frame) override;
         void reset() override;
     };
@@ -46,7 +48,7 @@ class CarouselElement : public Element {
         size_t current; //This is the internal counter for carousel objects to remember which frame they are on
     
     public:
-        CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc);
+        CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc, int frameRate);
         bool nextFrame(cv::Mat& frame) override;
         void reset() override;
     };
@@ -56,7 +58,7 @@ class VideoElement : public Element {
         cv::VideoCapture cap;
     
     public:
-        VideoElement(const std::string& filepath, int id, cv::Point loc);
+        VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate);
         bool nextFrame(cv::Mat& frame) override;
         void reset() override;
     };
