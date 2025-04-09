@@ -98,7 +98,7 @@ int main(int argc, char* argv[]) {
     /*
 
     =====================================================================================
-                                        READING
+                                    READING LOOP
     =====================================================================================
 
 
@@ -139,6 +139,7 @@ int main(int argc, char* argv[]) {
         
             MPI_Win_lock(MPI_LOCK_SHARED, CANVAS_PROCESSOR, 0, win);
         
+            //We cant MPI get the entire 2D submatrix since it needs to be contiguous. So we loop row by row here
             for (int r = 0; r < roi_rows; ++r) {
                 MPI_Aint displacement = ((start_y + r) * canvas_width + start_x) * channels;
         
@@ -171,7 +172,7 @@ int main(int argc, char* argv[]) {
    /*
 
     =====================================================================================
-                                     UPDATE
+                                     UPDATE LOOP
     =====================================================================================
 
     Canvas processor updates the vCanvas' pixel matrix asynchonously from everything else.
@@ -214,7 +215,7 @@ int main(int argc, char* argv[]) {
     
 
     
-
+    //We ought to destroy the elements in the elementptr list in vcanvas before we exit. But problem for another day
     
     MPI_Win_free(&win);
     MPI_Finalize();
