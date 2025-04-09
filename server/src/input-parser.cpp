@@ -14,18 +14,6 @@
 
 
 
-/*
-New output format: Payload
-
-images -> 
-
-    vector of (ElemVec))
-
-carousel -> same
-videos -> same
-
-*/
-
 void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
 
     try {
@@ -69,10 +57,7 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
 
                 /*
                 ELEMENT CONSTRUCTION HERE
-
-                The tuple is the framerate data field. All elements have it. The first number is the calculated
-                callsPerUpdate and the second should always be init to 0. That is the internal counter.
-
+                
                 */
                 Element * elem = new ImageElement(filepath, id, loc, -1); //Remember to "delete elem" afterwards
 

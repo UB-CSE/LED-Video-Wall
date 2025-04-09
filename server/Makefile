@@ -16,7 +16,7 @@ OBJS := $(foreach src, $(SRCS), $(OBJ_DIR)/$(src).o)
 LOCAL_INC_DIRS := $(shell find $(INC_DIRS) -type d)
 
 
-CXX := g++
+CXX := mpicxx
 CPPFLAGS :=
 CXXFLAGS := -O0 -g -Wall -std=c++17
 
@@ -24,6 +24,7 @@ CXXFLAGS := -O0 -g -Wall -std=c++17
 INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
            -I$(OPENCV_INCLUDE_DIR) \
            -I$(YAML_CPP_INCLUDE_DIR) \
+		   -I$(MPI_DIR) \
 		   -I/usr/include/freetype2 \
            `pkg-config --cflags opencv4`
 

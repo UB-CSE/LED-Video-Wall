@@ -63,14 +63,19 @@ class VideoElement : public Element {
         void reset() override;
     };
 
-class VirtualCanvas{
-    private:
+
+//Originally, elementCount and PixelMatrix and the rest were in private, but for my MPI implementation, i needed to access them directly to init vCanvas with a default constructer
+class VirtualCanvas{        
+    
+    public:
         int elementCount;
         cv::Mat pixelMatrix;
         cv::Size dim;
         std::vector<Element *> elementPtrList;
-    
-    public:
+
+        //Default Constructor
+        VirtualCanvas(){}
+
         VirtualCanvas(const cv::Size& size) : dim(size) {
             pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
         }
