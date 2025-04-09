@@ -17,6 +17,8 @@
 #include "input-parser.hpp"
 #include <opencv2/opencv.hpp>
 #include "controller.hpp"
+#include <thread>
+#include <chrono>
 
 int main(int argc, char* argv[]) {
     std::string inputFilePath;

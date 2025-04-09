@@ -15,7 +15,8 @@ SRCS := $(shell find $(SRC_DIRS) -name '*.cpp')
 OBJS := $(foreach src, $(SRCS), $(OBJ_DIR)/$(src).o)
 LOCAL_INC_DIRS := $(shell find $(INC_DIRS) -type d)
 
-CXX := g++
+
+CXX := mpicxx
 CPPFLAGS :=
 CXXFLAGS := -g -Wall -std=c++17
 
@@ -24,7 +25,8 @@ INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
            -I$(OPENCV_INCLUDE_DIR) \
            -I$(YAML_CPP_INCLUDE_DIR) \
            `pkg-config --cflags opencv4` \
-           `pkg-config --cflags freetype2`
+           `pkg-config --cflags freetype2` \
+	   `pkg-config --cflags mpich`
 
 LDFLAGS = -L$(YAML_CPP_LIB_DIR) -lyaml-cpp \
           -L$(OPENCV_LIB_DIR) `pkg-config --libs opencv4` \
