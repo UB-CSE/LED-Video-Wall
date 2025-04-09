@@ -8,6 +8,90 @@
 #include "input-parser.hpp"
 
 
+
+
+class Element {
+
+    private:
+        int id;
+        cv::Point location;
+        
+    public:
+
+        int getId() const { return id;};
+        cv::Point getLocation() const { return location;};
+
+        virtual bool nextFrame(cv::Mat& frame) = 0;
+        virtual void reset() = 0;
+        virtual ~Element() {}
+
+    protected:
+        cv::Mat pixelMatrix;
+        Element(int id, cv::Point loc) : id(id), location(loc) {}
+    };
+    
+class ImageElement : public Element {
+    private:
+        bool provided;
+    
+    public:
+        ImageElement(const std::string& filepath, int id, cv::Point loc);
+        bool nextFrame(cv::Mat& frame) override;
+        void reset() override;
+    };
+    
+class CarouselElement : public Element {
+    private:
+        std::vector<cv::Mat> pixelMatrices;
+        size_t current; //This is the internal counter for carousel objects to remember which frame they are on
+    
+    public:
+        CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc);
+        bool nextFrame(cv::Mat& frame) override;
+        void reset() override;
+    };
+    
+class VideoElement : public Element {
+    private:
+        cv::VideoCapture cap;
+    
+    public:
+        VideoElement(const std::string& filepath, int id, cv::Point loc);
+        bool nextFrame(cv::Mat& frame) override;
+        void reset() override;
+    };
+
+class VirtualCanvas{
+    private:
+        int elementCount;
+        cv::Mat pixelMatrix;
+        cv::Size dim;
+        std::vector<Element *> elementPtrList;
+    
+    public:
+        VirtualCanvas(const cv::Size& size) : dim(size) {
+            pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
+        }
+        
+        //Keeping getPixelMatrix's matrix return instead of what I'm doing for nextFrame in order to cut down on code merging time 
+        cv::Mat getPixelMatrix() const { return pixelMatrix; }
+
+        cv::Size getDimensions() const { return dim; }
+        int getElementCount() const { return elementCount; }
+        const std::vector<Element *>& getElementList() const { return elementPtrList; }
+        void clear() {pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);}
+    
+        void addElementToCanvas(Element* element);
+        void removeElementFromCanvas(int elementId);
+        void pushToCanvas();
+
+        
+        
+        
+    };
+
+
+/*
 class AbstractCanvas {
 protected:
     cv::Mat pixelMatrix;
@@ -52,24 +136,13 @@ class Element : public AbstractCanvas {
     };
 
 
-class VirtualCanvas : public AbstractCanvas {
-    private:
-        int elementCount;
-        std::vector<ElemVec>elementList;
-    
-    public:
-        VirtualCanvas(const cv::Size& size);
-        virtual void clear() override;
-        
-        void addElementToCanvas(const ElemVec &element);
-        void addPayloadToCanvas(Payload & elementsPayload);
-        void removeElementFromCanvas(int elementId);
-        void pushToCanvas();
-        void updateCanvas();
-        
-        int getElementCount() const { return elementCount; }
-        const std::vector<ElemVec>& getElementList() const { return elementList; }
-    };
+*/
+
+
+
+
+
+
         
     
 
