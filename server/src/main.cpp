@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
             std::cerr << "Error Parsing config file: " << ex.what() << "\n";
             exit(-1);
         }
-        ServerConfig server_config = server_config_opt.value();
+        server_config = server_config_opt.value();
         std::cout << server_config.ns_per_tick << "ns per tick\n";
         canvas_size[0] = server_config.canvas_size.width;
         canvas_size[1] = server_config.canvas_size.height;
@@ -124,8 +124,8 @@ int main(int argc, char* argv[]) {
             vCanvas.pushToCanvas();
             MPI_Win_unlock(CANVAS_PROCESSOR, win);
 
-            cv::imshow("Display Cats", vCanvas.getPixelMatrix());
-            cv::waitKey(1);
+            //cv::imshow("Display Cats", vCanvas.getPixelMatrix());
+            //cv::waitKey(1);
 
             std::this_thread::sleep_for(std::chrono::milliseconds(33));
         }
