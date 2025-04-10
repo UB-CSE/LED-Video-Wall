@@ -98,11 +98,10 @@ int main(int argc, char* argv[]) {
                         server_config.canvas_size,
                         server_config.clients,
                         server,
-                        server_config.ns_per_tick,
                         server_config.ns_per_frame);
 
         while(1) {
-            cont.tick_exec();
+            cont.frame_exec();
         }
     }
 

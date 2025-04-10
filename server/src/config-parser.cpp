@@ -18,17 +18,14 @@
 ServerConfig::ServerConfig()
     : clients(),
       canvas_size(),
-      ns_per_tick(),
       ns_per_frame()
 {}
 
 ServerConfig::ServerConfig(std::vector<Client*> clients,
                            cv::Size canvas_size,
-                           int64_t ns_per_tick,
                            int64_t ns_per_frame)
     : clients(clients),
       canvas_size(canvas_size),
-      ns_per_tick(ns_per_tick),
       ns_per_frame(ns_per_frame)
 {}
 
@@ -270,15 +267,9 @@ ServerConfig parse_config_throws(std::string file) {
     YAML::Node ynode_matrices = yaml_key_present_and_unique(config, "matrices");
     YAML::Node ynode_matrix_specs = yaml_key_present_and_unique(config, "matrix-specs");
     YAML::Node ynode_ignore_bounds_checks = config["ignore-bounds-checks"];
-    YAML::Node ynode_ns_per_tick = yaml_key_present_and_unique(config, "ns-per-tick");
     YAML::Node ynode_ns_per_frame = yaml_key_present_and_unique(config, "ns-per-frame");
 
-    // Parse ns per tick/frame
-    int64_t ns_per_tick = ynode_ns_per_tick.as<int64_t>();
-    if (ns_per_tick <= 0) {
-        throw YAML::RepresentationException(ynode_ns_per_tick.Mark(),
-                                            "'ns-per-tick' must be non-zero and positive!");
-    }
+    // Parse ns per frame
     int64_t ns_per_frame = ynode_ns_per_frame.as<int64_t>();
     if (ns_per_frame <= 0) {
         throw YAML::RepresentationException(ynode_ns_per_frame.Mark(),
@@ -304,5 +295,5 @@ ServerConfig parse_config_throws(std::string file) {
     std::vector<Client*> clients =
         parse_clients(ynode_clients, matrices.first);
 
-    return ServerConfig(clients, matrices.second, ns_per_tick, ns_per_frame);
+    return ServerConfig(clients, matrices.second, ns_per_frame);
 }

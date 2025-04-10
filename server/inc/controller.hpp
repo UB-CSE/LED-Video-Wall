@@ -31,25 +31,20 @@ public:
     std::vector<Client*> clients;
     LEDTCPServer tcp_server;
     ClientConnInfo* client_conn_info;
-    int64_t ns_per_tick;
     int64_t ns_per_frame;
-    uint64_t ticks_per_frame;
-    uint64_t tick;
     // DebugElem debug_elem;
 
     Controller(MPI_Win win,
                cv::Size canvas_size,
                std::vector<Client*> clients,
                LEDTCPServer tcp_server,
-               int64_t ns_per_tick,
                int64_t ns_per_frame);
 
-    bool is_frame_tick();
-    void tick_exec();
+    void frame_exec();
     void set_leds_all();
 
 private:
-    void tick_wait();
+    void frame_wait();
 };
 
 #endif

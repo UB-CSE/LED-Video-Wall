@@ -42,49 +42,38 @@ Controller::Controller(MPI_Win win,
                        cv::Size canvas_size,
                        std::vector<Client*> clients,
                        LEDTCPServer tcp_server,
-                       int64_t ns_per_tick,
                        int64_t ns_per_frame)
     : win(win),
       canvas_size(canvas_size),
       clients(clients),
       tcp_server(tcp_server),
       client_conn_info(tcp_server.conn_info),
-      ns_per_tick(ns_per_tick),
-      ns_per_frame(ns_per_frame),
-      tick(0)
+      ns_per_frame(ns_per_frame)
       // debug_elem(DebugElem(canvas))
 {
-    this->ticks_per_frame = ns_per_frame / ns_per_tick;
     // std::vector<Element> elemVec = {debug_elem.elem};
     // canvas.addElementToCanvas(elemVec);
 }
 
-void Controller::tick_wait() {
+void Controller::frame_wait() {
     struct timespec cur_time;
     clock_gettime(CLOCK_MONOTONIC_RAW, &cur_time);
     int64_t max_sec_as_ns = INT64_MAX / 1'000'000'000;
     int64_t ns_cur_time = (cur_time.tv_sec % max_sec_as_ns) * 1'000'000'000 + cur_time.tv_nsec;
-    int64_t ns_wait = ns_cur_time % this->ns_per_tick;
+    int64_t ns_wait = this->ns_per_frame - (ns_cur_time % this->ns_per_frame);
     struct timespec wait_remaining;
     struct timespec wait = {ns_wait / 1'000'000'000, ns_wait % 1'000'000'000};
     nanosleep(&wait, &wait_remaining);
 }
 
-bool Controller::is_frame_tick() {
-    return (this->tick % this->ticks_per_frame) == 0;
-}
-
-void Controller::tick_exec() {
+void Controller::frame_exec() {
     // Todo: send redraw command to all clients.
     // if (this->is_frame_tick()) {
     //     this->debug_elem.step();
     // }
-    tick_wait();
-    if (this->is_frame_tick()) {
-        std::cout << "set_leds_all\n";
-        this->set_leds_all();
-    }
-    this->tick++;
+    frame_wait();
+    std::cout << "set_leds_all\n";
+    this->set_leds_all();
 }
 
 void Controller::set_leds_all() {
