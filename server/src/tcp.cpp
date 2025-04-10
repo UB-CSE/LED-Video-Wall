@@ -21,6 +21,10 @@
 #include "opencv2/core.hpp"
 #include "protocol.hpp"
 
+#include <mpi.h>
+#define MASTER_PROCESSOR 0
+#define CANVAS_PROCESSOR 1
+
 const int MAX_WAITING_CLIENTS = 256;
 
 void handle_conns(int socket, LEDTCPServer* server) {
@@ -262,18 +266,49 @@ void LEDTCPServer::tcp_recv(int socket, void* data, int size) {
     }
 }
 
-void LEDTCPServer::set_leds(const Client* c, int client_socket, const cv::Mat &cvmat, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
+void LEDTCPServer::set_leds(const Client* c, int client_socket, MPI_Win win, cv::Size canvas_size, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
     uint32_t width = ledmat->spec->width;
     uint32_t height = ledmat->spec->height;
-    uint32_t x = ledmat->pos.x;
-    uint32_t y = ledmat->pos.y;
-    rotation rot = ledmat->pos.rot;
     // swap width and height if rotated +/-90 degrees
+    rotation rot = ledmat->pos.rot;
     if (rot == LEFT || rot == RIGHT) {
         uint32_t temp = width;
         height = width;
         height = temp;
     }
+    uint32_t x = ledmat->pos.x;
+    uint32_t y = ledmat->pos.y;
+
+    int canvas_width = canvas_size.width;
+    int canvas_height = canvas_size.height;
+    int roi_rows = height;
+    int roi_cols = width;
+    int start_y = y;
+    int start_x = x;
+    int channels = 3;
+    std::vector<uchar> local_buffer(canvas_width * canvas_height * channels);
+        
+    MPI_Win_lock(MPI_LOCK_SHARED, CANVAS_PROCESSOR, 0, win);
+        
+    //We cant MPI get the entire 2D submatrix since it needs to be contiguous. So we loop row by row here
+    for (int r = 0; r < roi_rows; ++r) {
+        MPI_Aint displacement = ((start_y + r) * canvas_width + start_x) * channels;
+        
+        //We use MPI GET and PUT instead of send and recv like in zola's class
+        MPI_Get(local_buffer.data() + r * roi_cols * channels,   //Destination buffer with ptr math
+                roi_cols * channels,                             //Total items to get
+                MPI_UNSIGNED_CHAR,
+                CANVAS_PROCESSOR,
+                displacement,                                    //Also known as offset
+                roi_cols * channels,
+                MPI_UNSIGNED_CHAR,
+                win);
+    }
+        
+    MPI_Win_unlock(CANVAS_PROCESSOR, win);
+
+    cv::Mat cvmat(roi_rows, roi_cols, CV_8UC3, local_buffer.data());
+
     cv::Mat sub_cvmat = cvmat(cv::Rect(x, y, width, height)).clone();
     if (rot == LEFT) {
         cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_CLOCKWISE);

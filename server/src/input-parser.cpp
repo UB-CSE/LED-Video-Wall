@@ -118,40 +118,6 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 vCanvas.addElementToCanvas(elem);
 
             }
-            // TEXT TYPE
-            else if (type == "text") {
-                // check for necessary values
-                if (!value["content"] || !value["font_path"] || !value["location"] || !value["color"] || !value["size"]) 
-                {
-                  std::cerr << "Missing required values for element: " << key << std::endl;
-                  abort();
-                }
-                std::string filepath = value["font_path"].as<std::string>();
-                std::string content = value["content"].as<std::string>();
-                
-                int fontSize = value["size"].as<int>();
-                
-                // parse hex color to cv::Scalar
-                std::string hexColor = value["color"].as<std::string>();
-                cv::Scalar fontColor = hexColorToScalar(hexColor);
-                
-                // convert location from same format to cv::Point as used by renderTextToElement
-                std::vector<int> locVec = value["location"].as<std::vector<int>>();
-                if ((locVec.size() != 2) || (locVec.at(0) < 0) || (locVec.at(1) < 0)) {
-                  std::cerr << "Location for element " << key << " malformed." << std::endl;
-                  abort();
-                }
-                cv::Point posPoint(locVec.at(0), locVec.at(1));
-                
-                std::optional<Element> newElement = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint); 
-
-                if (!newElement.has_value()) {
-                  std::cerr << "Error parsing config: text failed to render, is the TTF file path correct?" << std::endl;
-                  abort();
-                }
-                std::vector<Element> wrappedElem = {newElement.value()};
-                elementPayload["images"].push_back(wrappedElem);
-            }
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
             }

@@ -14,6 +14,8 @@ public:
     int64_t ns_per_tick;
     int64_t ns_per_frame;
 
+    ServerConfig();
+
     ServerConfig(std::vector<Client*> clients,
                  cv::Size canvas_size,
                  int64_t ns_per_tick,

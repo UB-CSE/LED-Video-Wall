@@ -16,6 +16,7 @@
 #include <thread>
 #include "client.hpp"
 #include "protocol.hpp"
+#include <mpi.h>
 
 class ClientConnInfo {
 public:
@@ -55,7 +56,8 @@ public:
 
     void set_leds(const Client* c,
                   int client_socket,
-                  const cv::Mat &cvmat,
+                  MPI_Win win,
+                  cv::Size canvas_size,
                   LEDMatrix* ledmat,
                   uint8_t pin,
                   uint8_t bit_depth);

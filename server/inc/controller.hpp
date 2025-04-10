@@ -7,25 +7,27 @@
 #include <bits/types/struct_timespec.h>
 #include <cstdint>
 
-class DebugElem {
-public:
-    VirtualCanvas& canvas;
-    Element elem;
-    int x;
-    int y;
-    int dx;
-    int dy;
-    int max_x;
-    int max_y;
-    int i;
+// class DebugElem {
+// public:
+//     VirtualCanvas& canvas;
+//     Element elem;
+//     int x;
+//     int y;
+//     int dx;
+//     int dy;
+//     int max_x;
+//     int max_y;
+//     int i;
 
-    DebugElem(VirtualCanvas& canvas);
-    void step();
-};
+//     DebugElem(VirtualCanvas& canvas);
+//     void step();
+// };
 
 class Controller {
 public:
-    VirtualCanvas& canvas;
+    MPI_Win win;
+    cv::Size canvas_size;
+    uchar* pixel_array;
     std::vector<Client*> clients;
     LEDTCPServer tcp_server;
     ClientConnInfo* client_conn_info;
@@ -33,9 +35,10 @@ public:
     int64_t ns_per_frame;
     uint64_t ticks_per_frame;
     uint64_t tick;
-    DebugElem debug_elem;
+    // DebugElem debug_elem;
 
-    Controller(VirtualCanvas& canvas,
+    Controller(MPI_Win win,
+               cv::Size canvas_size,
                std::vector<Client*> clients,
                LEDTCPServer tcp_server,
                int64_t ns_per_tick,
