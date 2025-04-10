@@ -26,7 +26,7 @@ INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
            -I$(YAML_CPP_INCLUDE_DIR) \
            `pkg-config --cflags opencv4` \
            `pkg-config --cflags freetype2` \
-	   `pkg-config --cflags mpich`
+	   `pkg-config --cflags mpi`
 
 LDFLAGS = -L$(YAML_CPP_LIB_DIR) -lyaml-cpp \
           -L$(OPENCV_LIB_DIR) `pkg-config --libs opencv4` \
