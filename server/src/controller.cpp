@@ -4,7 +4,10 @@
 #include <cmath>
 #include <cstdint>
 #include <ctime>
+
 #include <mpi.h>
+#define MASTER_PROCESSOR 0
+#define CANVAS_PROCESSOR 1
 
 // DebugElem::DebugElem(VirtualCanvas& canvas)
 //     : canvas(canvas),
@@ -90,6 +93,7 @@ void Controller::set_leds_all() {
     for (auto it : conns) {
         for (MatricesConnection conn : it.first->mat_connections) {
             uint8_t pin = conn.pin;
+            MPI_Win_lock(MPI_LOCK_SHARED, CANVAS_PROCESSOR, 0, win);
             for (LEDMatrix* mat : conn.matrices) {
                 this->tcp_server.set_leds(it.first,
                                           it.second,
@@ -99,6 +103,7 @@ void Controller::set_leds_all() {
                                           pin,
                                           8);
             }
+            MPI_Win_unlock(CANVAS_PROCESSOR, win);
         }
     }
 }

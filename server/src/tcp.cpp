@@ -286,14 +286,11 @@ void LEDTCPServer::set_leds(const Client* c, int client_socket, MPI_Win win, cv:
     int start_y = y;
     int start_x = x;
     int channels = 3;
-    std::vector<uchar> local_buffer(canvas_width * canvas_height * channels);
-        
-    MPI_Win_lock(MPI_LOCK_SHARED, CANVAS_PROCESSOR, 0, win);
-        
+    std::vector<uchar> local_buffer(roi_cols * roi_rows * channels);
+   
     //We cant MPI get the entire 2D submatrix since it needs to be contiguous. So we loop row by row here
     for (int r = 0; r < roi_rows; ++r) {
         MPI_Aint displacement = ((start_y + r) * canvas_width + start_x) * channels;
-        
         //We use MPI GET and PUT instead of send and recv like in zola's class
         MPI_Get(local_buffer.data() + r * roi_cols * channels,   //Destination buffer with ptr math
                 roi_cols * channels,                             //Total items to get
@@ -304,12 +301,10 @@ void LEDTCPServer::set_leds(const Client* c, int client_socket, MPI_Win win, cv:
                 MPI_UNSIGNED_CHAR,
                 win);
     }
-        
-    MPI_Win_unlock(CANVAS_PROCESSOR, win);
 
-    cv::Mat cvmat(roi_rows, roi_cols, CV_8UC3, local_buffer.data());
+    cv::Mat sub_cvmat(roi_rows, roi_cols, CV_8UC3, local_buffer.data());
 
-    cv::Mat sub_cvmat = cvmat(cv::Rect(x, y, width, height)).clone();
+    //cv::Mat sub_cvmat = cvmat(cv::Rect(x, y, width, height)).clone();
     if (rot == LEFT) {
         cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_CLOCKWISE);
     } else if (rot == RIGHT) {
