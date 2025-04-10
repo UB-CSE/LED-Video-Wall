@@ -46,7 +46,6 @@ int main(int argc, char* argv[]) {
             exit(-1);
         }
         server_config = server_config_opt.value();
-        std::cout << server_config.ns_per_tick << "ns per tick\n";
         canvas_size[0] = server_config.canvas_size.width;
         canvas_size[1] = server_config.canvas_size.height;
     }
@@ -95,8 +94,6 @@ int main(int argc, char* argv[]) {
         LEDTCPServer server = server_opt.value();
         server.start();
 
-        std::cerr << "test " << rank << "\n" << std::flush;
-        std::cout << server_config.ns_per_tick << "ns per tick\n";
         Controller cont(win,
                         server_config.canvas_size,
                         server_config.clients,
@@ -127,7 +124,7 @@ int main(int argc, char* argv[]) {
             //cv::imshow("Display Cats", vCanvas.getPixelMatrix());
             //cv::waitKey(1);
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(33));
+            std::this_thread::sleep_for(std::chrono::seconds(2));
         }
     }
 
