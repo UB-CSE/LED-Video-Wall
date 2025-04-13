@@ -26,6 +26,9 @@
 
 int main(int argc, char* argv[]) {
 
+    //Required for webcam streaming
+    setenv("RDMAV_FORK_SAFE", "1", 1);
+
     int rank, size;
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);

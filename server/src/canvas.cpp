@@ -60,7 +60,14 @@ void CarouselElement::reset() {
 //VideoElement implementation
 
 VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {
-    cap.open(filepath);
+    //If camera, uses default camera. This does not work on wsl because we dont have native webcam access.
+    if(filepath == "camera"){
+        cap.open(0);
+    }else if(filepath.find("rtsp://") != std::string::npos){
+        cap.open(filepath, cv::CAP_FFMPEG);
+    }else{
+        cap.open(filepath);
+    }
     if (!cap.isOpened())
         throw std::runtime_error("Failed to open video: " + filepath);
 
