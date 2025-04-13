@@ -1,24 +1,26 @@
 #Beyond just the id, the id is also a weight to determine which images have layering priority
-#As of right now, we only support "image" and "text" -- "video" is planned.
 elements:
   "elem1":
     id: 1
-    type: "carousel"
-    filepaths: ["images/hello-rainbow.png", "images/apple.png", "images/creeper.png", "images/flower.png"]
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
     framerate: 1
     location: [0, 0]
   "elem2":
     id: 2
-    type: "carousel"
-    filepaths: ["images/Alan_32x32.png", "images/Alan_32x32_color_corrected.png"]
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
     framerate: 1
-    location: [16, 0]
-  # "elem3":
-  #   id: 3
-  #   type: "text"
-  #   content: "HI : )"
-  #   size: 5
-  #   color: "#324242"
-  #   font_path: "ttf/Roboto-Regular.ttf"
-  #   location: [16, 0]
-  
+    location: [0, 32]
+  "elem3":
+    id: 3
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
+    framerate: 1
+    location: [32, 0]
+  "elem4":
+    id: 4
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
+    framerate: 1
+    location: [32, 32]
