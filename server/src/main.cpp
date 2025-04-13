@@ -107,14 +107,6 @@ int main(int argc, char* argv[]) {
 
     if (rank == CANVAS_PROCESSOR) {
         while (true) {
-            
-            //Loops through all the element pointers held by the virtual canvas and update each one separtely
-            //To implement variable framerates, we just call nextFrame on specific elements at different times
-            for (int i = 0; i < vCanvas.getElementList().size(); i++) {
-                cv::Mat frame;
-                vCanvas.getElementList().at(i)->nextFrame(frame);
-            }
-
             MPI_Win_lock(MPI_LOCK_EXCLUSIVE, CANVAS_PROCESSOR, 0, win);
             std::cout << "[CANVAS_PROCESSOR] Updating frame...\n";
             vCanvas.pushToCanvas();
