@@ -1,4 +1,5 @@
 #include "tcp.hpp"
+#include "canvas.h"
 #include "client.hpp"
 #include <asm-generic/errno.h>
 #include <asm-generic/socket.h>
@@ -20,10 +21,6 @@
 #include <poll.h>
 #include "opencv2/core.hpp"
 #include "protocol.hpp"
-
-#include <mpi.h>
-#define MASTER_PROCESSOR 0
-#define CANVAS_PROCESSOR 1
 
 const int MAX_WAITING_CLIENTS = 256;
 
@@ -266,7 +263,7 @@ void LEDTCPServer::tcp_recv(int socket, void* data, int size) {
     }
 }
 
-void LEDTCPServer::set_leds(const Client* c, int client_socket, MPI_Win win, cv::Size canvas_size, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
+void LEDTCPServer::set_leds(const Client* c, int client_socket, VirtualCanvas canvas, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
     uint32_t width = ledmat->spec->width;
     uint32_t height = ledmat->spec->height;
     // swap width and height if rotated +/-90 degrees
@@ -279,32 +276,7 @@ void LEDTCPServer::set_leds(const Client* c, int client_socket, MPI_Win win, cv:
     uint32_t x = ledmat->pos.x;
     uint32_t y = ledmat->pos.y;
 
-    int canvas_width = canvas_size.width;
-    int canvas_height = canvas_size.height;
-    int roi_rows = height;
-    int roi_cols = width;
-    int start_y = y;
-    int start_x = x;
-    int channels = 3;
-    std::vector<uchar> local_buffer(roi_cols * roi_rows * channels);
-   
-    //We cant MPI get the entire 2D submatrix since it needs to be contiguous. So we loop row by row here
-    for (int r = 0; r < roi_rows; ++r) {
-        MPI_Aint displacement = ((start_y + r) * canvas_width + start_x) * channels;
-        //We use MPI GET and PUT instead of send and recv like in zola's class
-        MPI_Get(local_buffer.data() + r * roi_cols * channels,   //Destination buffer with ptr math
-                roi_cols * channels,                             //Total items to get
-                MPI_UNSIGNED_CHAR,
-                CANVAS_PROCESSOR,
-                displacement,                                    //Also known as offset
-                roi_cols * channels,
-                MPI_UNSIGNED_CHAR,
-                win);
-    }
-
-    cv::Mat sub_cvmat(roi_rows, roi_cols, CV_8UC3, local_buffer.data());
-
-    //cv::Mat sub_cvmat = cvmat(cv::Rect(x, y, width, height)).clone();
+    cv::Mat sub_cvmat = canvas.getPixelMatrix()(cv::Rect(x, y, width, height)).clone();
     if (rot == LEFT) {
         cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_CLOCKWISE);
     } else if (rot == RIGHT) {

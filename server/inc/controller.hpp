@@ -5,37 +5,51 @@
 #include "client.hpp"
 #include "tcp.hpp"
 #include <bits/types/struct_timespec.h>
+#include <chrono>
 #include <cstdint>
+#include <optional>
 
-// class DebugElem {
-// public:
-//     VirtualCanvas& canvas;
-//     Element elem;
-//     int x;
-//     int y;
-//     int dx;
-//     int dy;
-//     int max_x;
-//     int max_y;
-//     int i;
+using ns_ts = std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
+using ns_dur = std::chrono::nanoseconds;
 
-//     DebugElem(VirtualCanvas& canvas);
-//     void step();
-// };
+class Controller;
+
+class Event {
+public:
+    ns_ts timestamp;
+    std::optional<ns_dur> period;
+    std::function<bool(Controller*)> action;
+
+    Event(ns_ts timestamp,
+          std::function<bool(Controller*)> action);
+
+    Event(ns_ts timestamp,
+          ns_dur period,
+          std::function<bool(Controller*)> action);
+};
+
+class EventQueue {
+private:
+    static bool eventCompare(const Event a, const Event b);
+public:
+    EventQueue();
+
+    std::multiset<Event, decltype(eventCompare)*> queue;
+
+    void addEvent(Event evnt);
+    std::optional<Event> tryPopEvent(ns_ts cutoff_time);
+};
 
 class Controller {
 public:
-    MPI_Win win;
-    cv::Size canvas_size;
-    uchar* pixel_array;
+    VirtualCanvas canvas;
     std::vector<Client*> clients;
     LEDTCPServer tcp_server;
     ClientConnInfo* client_conn_info;
+    EventQueue event_queue;
     int64_t ns_per_frame;
-    // DebugElem debug_elem;
 
-    Controller(MPI_Win win,
-               cv::Size canvas_size,
+    Controller(VirtualCanvas canvas,
                std::vector<Client*> clients,
                LEDTCPServer tcp_server,
                int64_t ns_per_frame);

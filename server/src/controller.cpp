@@ -1,58 +1,82 @@
 #include "controller.hpp"
 #include "tcp.hpp"
+#include "canvas.h"
 #include <bits/types/struct_timespec.h>
 #include <cmath>
 #include <cstdint>
 #include <ctime>
+#include <optional>
 
-#include <mpi.h>
-#define MASTER_PROCESSOR 0
-#define CANVAS_PROCESSOR 1
 
-// DebugElem::DebugElem(VirtualCanvas& canvas)
-//     : canvas(canvas),
-//       elem(Element("images/img5x5_1.jpg", 1000, cv::Point(0, 0))),
-//       x(0), y(0), dx(1), dy(1),
-//       max_x(canvas.getDimensions().width),
-//       max_y(canvas.getDimensions().height),
-//       i(0)
-// {}
+Event::Event(ns_ts timestamp,
+             std::function<bool(Controller*)> action)
+    : timestamp(timestamp), period(std::nullopt), action(action)
+{}
 
-// void DebugElem::step() {
-//     i++;
-//     canvas.removeElementFromCanvas(this->elem.getId());
-//     if (x >= max_x - 5) {
-//         dx = -1;
-//     } else if (x <= 0) {
-//         dx = 1;
-//     }
-//     if (y >= max_y - 5) {
-//         dy = -1;
-//     } else if (y <= 0) {
-//         dy = 1;
-//     }
-//     x += dx;
-//     y += dy;
-//     elem.setLocation(cv::Point(x, y));
-//     std::vector<Element> elemVec = {this->elem};
-//     this->canvas.addElementToCanvas(elemVec);
-// }
+Event::Event(ns_ts timestamp,
+             ns_dur period,
+             std::function<bool(Controller*)> action)
+    : timestamp(timestamp), period(period), action(action)
+{}
 
-Controller::Controller(MPI_Win win,
-                       cv::Size canvas_size,
+bool EventQueue::eventCompare(const Event a, const Event b) {
+    return a.timestamp < b.timestamp;
+}
+
+EventQueue::EventQueue()
+    : queue(eventCompare)
+{}
+
+void EventQueue::addEvent(Event evnt) {
+    this->queue.insert(evnt);
+}
+
+std::optional<Event> EventQueue::tryPopEvent(ns_ts cutoff_time) {
+    auto next_event_it = this->queue.begin();
+    if (next_event_it->timestamp < cutoff_time) {
+        Event next_event = *next_event_it;
+        ns_ts timestamp = next_event.timestamp;
+        auto action = next_event.action;
+        if (next_event.period.has_value()) {
+            ns_dur period = next_event.period.value();
+            this->addEvent(Event(timestamp + period, period, action));
+        }
+        return next_event;
+    } else {
+        return std::nullopt;
+    }
+}
+
+Controller::Controller(VirtualCanvas canvas,
                        std::vector<Client*> clients,
                        LEDTCPServer tcp_server,
                        int64_t ns_per_frame)
-    : win(win),
-      canvas_size(canvas_size),
+    : canvas(canvas),
       clients(clients),
       tcp_server(tcp_server),
       client_conn_info(tcp_server.conn_info),
+      event_queue(),
       ns_per_frame(ns_per_frame)
-      // debug_elem(DebugElem(canvas))
 {
-    // std::vector<Element> elemVec = {debug_elem.elem};
-    // canvas.addElementToCanvas(elemVec);
+    // Add events for all elements
+    auto cur_time = std::chrono::system_clock::now();
+    for (auto elem : canvas.elementPtrList) {
+        int frame_rate = elem->getFrameRate();
+        if (frame_rate > 0) {
+            ns_dur period = std::chrono::nanoseconds(1'000'000'000 / frame_rate);
+            auto nextFrame = [elem](Controller* cont) {
+                cv::Mat frame;
+                return elem->nextFrame(frame);
+            };
+            this->event_queue.addEvent(Event(cur_time + period, period, nextFrame));
+        } else {
+            auto show = [elem](Controller* cont) {
+                cv::Mat frame;
+                return elem->nextFrame(frame);
+            };
+            this->event_queue.addEvent(Event(cur_time, show));
+        }
+    }
 }
 
 void Controller::frame_wait() {
@@ -68,11 +92,16 @@ void Controller::frame_wait() {
 
 void Controller::frame_exec() {
     // Todo: send redraw command to all clients.
-    // if (this->is_frame_tick()) {
-    //     this->debug_elem.step();
-    // }
+
     frame_wait();
-    std::cout << "set_leds_all\n";
+    auto cur_time = std::chrono::system_clock::now();
+    std::optional<Event> event_opt = this->event_queue.tryPopEvent(cur_time);
+    while(event_opt.has_value()) {
+        Event event = event_opt.value();
+        event.action(this);
+        event_opt = this->event_queue.tryPopEvent(cur_time);
+    }
+    this->canvas.pushToCanvas();
     this->set_leds_all();
 }
 
@@ -82,17 +111,14 @@ void Controller::set_leds_all() {
     for (auto it : conns) {
         for (MatricesConnection conn : it.first->mat_connections) {
             uint8_t pin = conn.pin;
-            MPI_Win_lock(MPI_LOCK_SHARED, CANVAS_PROCESSOR, 0, win);
             for (LEDMatrix* mat : conn.matrices) {
                 this->tcp_server.set_leds(it.first,
                                           it.second,
-                                          this->win,
-                                          this->canvas_size,
+                                          this->canvas,
                                           mat,
                                           pin,
                                           8);
             }
-            MPI_Win_unlock(CANVAS_PROCESSOR, win);
         }
     }
 }

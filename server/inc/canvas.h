@@ -22,6 +22,7 @@ class Element {
 
         int getId() const { return id;};
         cv::Point getLocation() const { return location;};
+        int getFrameRate() {return frameRate;};
 
         virtual bool nextFrame(cv::Mat& frame) = 0;
         virtual void reset() = 0;
@@ -92,10 +93,6 @@ class VirtualCanvas{
         void addElementToCanvas(Element* element);
         void removeElementFromCanvas(int elementId);
         void pushToCanvas();
-
-        
-        
-        
     };
 
 
