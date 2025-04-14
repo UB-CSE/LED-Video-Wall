@@ -1,3 +1,4 @@
+#include "WiFiClient.h"
 #include "esp_log.h"
 #include <Arduino.h>
 #include <WiFi.h>
@@ -34,8 +35,6 @@ static const char *TAG = "Network";
 #define WIFI_PASSWORD ""
 #endif
 
-WiFiClient socket;
-
 uint8_t *global_buffer = nullptr;
 uint32_t global_buffer_size = 0;
 
@@ -53,11 +52,9 @@ void connect_wifi() {
 
   ESP_LOGI(TAG, "Connected to WiFi");
   ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP().toString().c_str());
-
-  send_checkin();
 }
 
-void send_checkin() {
+void send_checkin(WiFiClient socket) {
   ESP_LOGI(TAG, "Sending check-in message");
 
   // When attempting to connect to the server, there are multiple ports that it
@@ -95,7 +92,7 @@ void send_checkin() {
   }
 }
 
-void parse_tcp_message() {
+void parse_tcp_message(WiFiClient socket) {
   uint8_t size_buffer[sizeof(uint32_t)];
   int bytes_read = socket.read(size_buffer, sizeof(size_buffer));
   if (bytes_read != sizeof(uint32_t)) {
