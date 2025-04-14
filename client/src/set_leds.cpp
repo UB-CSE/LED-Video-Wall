@@ -1,13 +1,16 @@
+#include "esp_log.h"
 #include "led_strip.h"
 #include "protocol.hpp"
 #include "set_config.hpp"
 #include <Arduino.h>
 
-void set_leds(SetLedsMessage *msg) {
-  Serial.println("Handling set_leds");
+static const char *TAG = "SetLeds";
 
-  if (!msg) {
-    Serial.println("Error: Invalid set_leds message (null)");
+void set_leds(SetLedsMessage *msg) {
+  ESP_LOGI(TAG, "Handling set_leds");
+
+  if (msg == NULL) {
+    ESP_LOGW(TAG, "Invalid set_leds message (null)");
     return;
   }
 
@@ -15,15 +18,13 @@ void set_leds(SetLedsMessage *msg) {
 
   auto it = pin_to_handle.find(gpio_pin);
   if (it == pin_to_handle.end()) {
-    Serial.printf("Error: Received data for an unconfigured GPIO pin (%d).\n",
-                  gpio_pin);
+    ESP_LOGE(TAG, "Received data for an unconfigured GPIO pin %d.", gpio_pin);
     return;
   }
 
   led_strip_handle_t strip = it->second;
   if (!strip) {
-    Serial.printf("Error: LED strip handle not initialized for pin %d\n",
-                  gpio_pin);
+    ESP_LOGE(TAG, "LED strip handle not initialized for pin %d", gpio_pin);
     return;
   }
 

@@ -1,14 +1,22 @@
+#include "esp_log.h"
 #include "led_strip.h"
 #include "protocol.hpp"
 #include "redraw.hpp"
 #include "set_config.hpp"
 #include <Arduino.h>
 
+static const char *TAG = "Redraw";
+
 void redraw(RedrawMessage *msg) {
-  Serial.println("Handling redraw");
+  ESP_LOGI(TAG, "Handling redraw");
+
+  if (msg == NULL) {
+    ESP_LOGW(TAG, "Invalid redraw message (null)");
+    return;
+  }
 
   if (pin_to_handle.empty()) {
-    Serial.println("Error: No LED strips configured.");
+    ESP_LOGE(TAG, "No LED strips configured");
     return;
   }
 
@@ -16,5 +24,5 @@ void redraw(RedrawMessage *msg) {
     led_strip_refresh(entry.second);
   }
 
-  Serial.println("LEDs refreshed across all configured pins.");
+  ESP_LOGI(TAG, "LEDs refreshed across all configured pins.");
 }

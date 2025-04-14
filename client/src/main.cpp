@@ -1,7 +1,10 @@
+#include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "network.hpp"
 #include <Arduino.h>
+
+static const char *TAG = "Main";
 
 void setup() {
   Serial.begin(115200);
@@ -10,7 +13,7 @@ void setup() {
 
 void loop() {
   if (!socket.connected()) {
-    Serial.println("Reconnecting to server...");
+    ESP_LOGI(TAG, "Reconnecting to server...");
     send_checkin();
     vTaskDelay(pdMS_TO_TICKS(CHECK_IN_DELAY_MS));
     return;

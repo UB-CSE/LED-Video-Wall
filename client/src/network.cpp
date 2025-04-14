@@ -1,8 +1,8 @@
+#include "esp_log.h"
 #include "get_status.hpp"
 #include "network.hpp"
 #include "protocol.hpp"
 #include "redraw.hpp"
-#include "set_brightness.hpp"
 #include "set_config.hpp"
 #include "set_leds.hpp"
 #include <Arduino.h>
@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <esp_wifi.h>
+
+static const char *TAG = "Network";
 
 // There should be a separate header file, "wifi_credentials.hpp", that defines
 // preprocessor constants, WIFI_SSID and WIFI_PASSWORD, that are used by the
@@ -40,25 +42,22 @@ uint32_t global_buffer_size = 0;
 void connect_wifi() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  Serial.print("MAC Address: ");
-  Serial.println(WiFi.macAddress());
-
-  Serial.print("Connecting to WiFi");
+  ESP_LOGI(TAG, "MAC Address: %s", WiFi.macAddress().c_str());
+  ESP_LOGI(TAG, "Connecting to WiFi");
 
   while (WiFi.status() != WL_CONNECTED) {
     vTaskDelay(pdMS_TO_TICKS(WIFI_RECONNECT_DELAY_MS));
-    Serial.print(".");
+    ESP_LOGD(TAG, ".");
   }
 
-  Serial.println("\nConnected to WiFi");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  ESP_LOGI(TAG, "Connected to WiFi");
+  ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP().toString().c_str());
 
   send_checkin();
 }
 
 void send_checkin() {
-  Serial.println("Sending check-in message");
+  ESP_LOGI(TAG, "Sending check-in message");
 
   // When attempting to connect to the server, there are multiple ports that it
   // may have connected to. The preprocessor constants SERVER_PORT_START and
@@ -71,11 +70,12 @@ void send_checkin() {
     if (socket.connect(SERVER_IP, port)) {
       break;
     } else {
-      Serial.print("Tried and failed to connect to server port: ");
-      Serial.print(port);
-      Serial.println("; trying a different port.");
+      ESP_LOGD(TAG,
+               "Tried and failed to connect to server port: %hu; trying a "
+               "different port",
+               port);
       if (port == SERVER_PORT_END) {
-        Serial.println("Failed to connect to any server port");
+        ESP_LOGI(TAG, "Failed to connect to any server port");
         return;
       }
     }
@@ -87,10 +87,10 @@ void send_checkin() {
   uint8_t *buffer = encode_check_in(mac, &msg_size);
   if (buffer) {
     socket.write(buffer, msg_size);
-    Serial.println("Check-in message sent");
+    ESP_LOGI(TAG, "Check-in message sent");
     free_message_buffer(buffer);
   } else {
-    Serial.println("Failed to encode check-in message");
+    ESP_LOGW(TAG, "Failed to encode check-in message");
   }
 }
 
@@ -98,7 +98,7 @@ void parse_tcp_message() {
   uint8_t size_buffer[sizeof(uint32_t)];
   int bytes_read = socket.read(size_buffer, sizeof(size_buffer));
   if (bytes_read != sizeof(uint32_t)) {
-    Serial.println("Failed to read message size");
+    ESP_LOGW(TAG, "Failed to read message size");
     // TODO: it's possible to read only half the message size. if this were to
     // occur, then it's posssible that the next time parse_tcp_message is
     // called, the bytes are misaligned. we need another loop reading bytes in
@@ -108,8 +108,8 @@ void parse_tcp_message() {
 
   uint32_t message_size = get_message_size(size_buffer);
 
-  Serial.printf("Message size from header: %u bytes\n",
-                (unsigned int)message_size);
+  ESP_LOGD(TAG, "Message size from header: %u bytes",
+           (unsigned int)message_size);
 
   // The global buffer is resized to the maximum size message we can possibly
   // receive. Since we expect to receive that same size message multiple times,
@@ -128,7 +128,7 @@ void parse_tcp_message() {
       global_buffer = new_buffer;
       global_buffer_size = message_size;
     } else {
-      Serial.println("Failed to resize message buffer");
+      ESP_LOGW(TAG, "Failed to resize message buffer");
 
       // When realloc fails, it deallocs the buffer and returns a null pointer,
       // so we must reset the size to its initial state.
@@ -158,11 +158,11 @@ void parse_tcp_message() {
     int current = socket.read(buffer_ptr + total, remaining_bytes - total);
     if (current <= 0) {
       if (!socket.connected()) {
-        Serial.println("Socket disconnected");
+        ESP_LOGW(TAG, "Socket disconnected");
         return;
       }
 
-      Serial.println("Socket read failed");
+      ESP_LOGW(TAG, "Socket read failed");
 
       // Oftentimes socket.read will return 0 or -1, then after a few iterations
       // begin reading data again from the same message. The root of this issue
@@ -172,51 +172,32 @@ void parse_tcp_message() {
     }
 
     total += current;
-    Serial.printf("Read %d bytes, total read: %u/%u bytes\n", current,
-                  (unsigned int)total, (unsigned int)remaining_bytes);
+    ESP_LOGD(TAG, "Read %d bytes, total read: %u/%u bytes", current,
+             (unsigned int)total, (unsigned int)remaining_bytes);
   }
 
   uint16_t op_code = get_message_op_code(global_buffer);
-  Serial.printf("Received OpCode: 0x%04X\n", op_code);
+  ESP_LOGD(TAG, "Received OpCode: 0x%04X", op_code);
 
   switch (op_code) {
   case OP_SET_LEDS: {
-    SetLedsMessage *msg = decode_set_leds(global_buffer);
-    if (msg) {
-      set_leds(msg);
-    }
+    set_leds(decode_set_leds(global_buffer));
     break;
   }
   case OP_GET_STATUS: {
-    GetStatusMessage *msg = decode_get_status(global_buffer);
-    if (msg) {
-      get_status(msg);
-    }
-    break;
-  }
-  case OP_SET_BRIGHTNESS: {
-    SetBrightnessMessage *msg = decode_set_brightness(global_buffer);
-    if (msg) {
-      set_brightness(msg);
-    }
+    get_status(decode_get_status(global_buffer));
     break;
   }
   case OP_REDRAW: {
-    RedrawMessage *msg = decode_redraw(global_buffer);
-    if (msg) {
-      redraw(msg);
-    }
+    redraw(decode_redraw(global_buffer));
     break;
   }
   case OP_SET_CONFIG: {
-    SetConfigMessage *msg = decode_set_config(global_buffer);
-    if (msg) {
-      set_config(msg);
-    }
+    set_config(decode_set_config(global_buffer));
     break;
   }
   default:
-    Serial.printf("Unknown OpCode: 0x%02X\n", op_code);
+    ESP_LOGW(TAG, "Unknown OpCode: 0x%02X", op_code);
     break;
   }
 }
