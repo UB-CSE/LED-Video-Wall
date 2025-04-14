@@ -1,8 +1,9 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "network.hpp"
 #include <Arduino.h>
+
+#include "network.hpp"
 
 static const char *TAG = "Main";
 

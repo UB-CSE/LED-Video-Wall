@@ -1,15 +1,16 @@
-#include "commands/get_status.hpp"
-#include "commands/redraw.hpp"
-#include "commands/set_config.hpp"
-#include "commands/set_leds.hpp"
 #include "esp_log.h"
-#include "network.hpp"
-#include "protocol.hpp"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <cstddef>
 #include <cstdint>
 #include <esp_wifi.h>
+
+#include "commands/get_status.hpp"
+#include "commands/redraw.hpp"
+#include "commands/set_config.hpp"
+#include "commands/set_leds.hpp"
+#include "network.hpp"
+#include "protocol.hpp"
 
 static const char *TAG = "Network";
 

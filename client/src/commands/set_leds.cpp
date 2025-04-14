@@ -2,7 +2,6 @@
 #include "led_strip.h"
 #include "protocol.hpp"
 #include "set_config.hpp"
-#include <Arduino.h>
 
 static const char *TAG = "SetLeds";
 

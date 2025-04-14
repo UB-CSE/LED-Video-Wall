@@ -1,7 +1,6 @@
 #include "esp_log.h"
 #include "get_status.hpp"
 #include "protocol.hpp"
-#include <Arduino.h>
 
 static const char *TAG = "GetStatus";
 

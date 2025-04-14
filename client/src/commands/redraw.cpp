@@ -1,9 +1,9 @@
 #include "esp_log.h"
 #include "led_strip.h"
+
 #include "protocol.hpp"
 #include "redraw.hpp"
 #include "set_config.hpp"
-#include <Arduino.h>
 
 static const char *TAG = "Redraw";
 
