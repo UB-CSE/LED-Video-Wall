@@ -41,6 +41,7 @@ std::optional<Event> EventQueue::tryPopEvent(ns_ts cutoff_time) {
             ns_dur period = next_event.period.value();
             this->addEvent(Event(timestamp + period, period, action));
         }
+        this->queue.erase(next_event_it);
         return next_event;
     } else {
         return std::nullopt;
@@ -101,7 +102,6 @@ void Controller::frame_exec() {
         event.action(this);
         event_opt = this->event_queue.tryPopEvent(cur_time);
     }
-    this->canvas.pushToCanvas();
     this->set_leds_all();
 }
 
