@@ -1,10 +1,10 @@
+#include "commands/get_status.hpp"
+#include "commands/redraw.hpp"
+#include "commands/set_config.hpp"
+#include "commands/set_leds.hpp"
 #include "esp_log.h"
-#include "get_status.hpp"
 #include "network.hpp"
 #include "protocol.hpp"
-#include "redraw.hpp"
-#include "set_config.hpp"
-#include "set_leds.hpp"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <cstddef>
