@@ -170,14 +170,22 @@ void VirtualCanvas::pushToCanvas(){
         we derive a new size and crop the element to it before transferring it to the canvas.
         */
 
-        if(loc.x + elemSize.width > dim.width){
-            elemSize.width = dim.width-loc.x;
-        }else if (loc.y + elemSize.height > dim.height){
-            elemSize.height = dim.height - loc.y;
+        if((loc.x <= dim.width) && (loc.y <= dim.height)){
+
+            if(loc.x + elemSize.width > dim.width){
+                elemSize.width = dim.width-loc.x;
+            }else if (loc.y + elemSize.height > dim.height){
+                elemSize.height = dim.height - loc.y;
+            }
+            
+            elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
+            elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
+        }else{
+
+            printf("\n Element with ID: %d was placed out of bounds and has not been loaded", elemPtr->getId());
         }
-        
-        elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
-        elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
+
+       
         
     }
 }

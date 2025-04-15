@@ -1,4 +1,5 @@
 #Beyond just the id, the id is also a weight to determine which images have layering priority
+
 elements:
   "elem1":
     id: 1

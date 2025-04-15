@@ -22,57 +22,59 @@
 
 int main(int argc, char* argv[]) {
 
-    //Required for webcam streaming
-    setenv("RDMAV_FORK_SAFE", "1", 1);
+     //Required for webcam streaming
+     setenv("RDMAV_FORK_SAFE", "1", 1);
 
-    ServerConfig server_config;
-    std::optional<ServerConfig> server_config_opt;
-    try {
-        server_config_opt = parse_config_throws("config.yaml");
-    } catch (std::exception& ex) {
-        std::cerr << "Error Parsing config file: " << ex.what() << "\n";
-        exit(-1);
-    }
-    server_config = server_config_opt.value();
+     ServerConfig server_config;
+     std::optional<ServerConfig> server_config_opt;
+     try {
+         server_config_opt = parse_config_throws("config.yaml");
+     } catch (std::exception& ex) {
+         std::cerr << "Error Parsing config file: " << ex.what() << "\n";
+         exit(-1);
+     }
+     server_config = server_config_opt.value();
+ 
+     std::map <std::string, std::vector<std::vector<Element>>> elements;
+ 
+     VirtualCanvas vCanvas(server_config.canvas_size);
+     vCanvas.pixelMatrix = cv::Mat::zeros(vCanvas.dim, CV_8UC3);
+ 
+     std::string inputFilePath;
+     if (argc == 2) {
+         inputFilePath = std::string(argv[1]);
+     } else {
+         std::cerr << "Error, no image input file specified!" << "\n";
+         exit(-1);
+     }
+ 
+     try {
+         parseInput(vCanvas, inputFilePath);
+     } catch (std::exception& ex) {
+         std::cerr << "Error Parsing image input file ("
+                   << inputFilePath << "):"
+                   << ex.what() << "\n";
+         exit(-1);
+     }
+ 
+     std::optional<LEDTCPServer> server_opt =
+         create_server(INADDR_ANY, 7070, 7074, server_config.clients);
+     if (!server_opt.has_value()) {
+         exit(-1);
+     }
+     LEDTCPServer server = server_opt.value();
+     server.start();
+ 
+     Controller cont(vCanvas,
+                     server_config.clients,
+                     server,
+                     server_config.ns_per_frame);
+ 
+     while(1) {
+         cont.frame_exec();
+     }
 
-    std::map <std::string, std::vector<std::vector<Element>>> elements;
-
-    VirtualCanvas vCanvas(server_config.canvas_size);
-    vCanvas.pixelMatrix = cv::Mat::zeros(vCanvas.dim, CV_8UC3);
-
-    std::string inputFilePath;
-    if (argc == 2) {
-        inputFilePath = std::string(argv[1]);
-    } else {
-        std::cerr << "Error, no image input file specified!" << "\n";
-        exit(-1);
-    }
-
-    try {
-        parseInput(vCanvas, inputFilePath);
-    } catch (std::exception& ex) {
-        std::cerr << "Error Parsing image input file ("
-                  << inputFilePath << "):"
-                  << ex.what() << "\n";
-        exit(-1);
-    }
-
-    std::optional<LEDTCPServer> server_opt =
-        create_server(INADDR_ANY, 7070, 7074, server_config.clients);
-    if (!server_opt.has_value()) {
-        exit(-1);
-    }
-    LEDTCPServer server = server_opt.value();
-    server.start();
-
-    Controller cont(vCanvas,
-                    server_config.clients,
-                    server,
-                    server_config.ns_per_frame);
-
-    while(1) {
-        cont.frame_exec();
-    }
+  
 
     return 0;
 }
