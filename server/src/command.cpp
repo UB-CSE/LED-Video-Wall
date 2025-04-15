@@ -46,8 +46,8 @@ int processCommand(VirtualCanvas& vCanvas, std::string& line) {
 
     if (command == "move") {
         int id, x, y;
-        if (!(iss >> id >> x >> y)) {
-            std::cerr << "Invalid move command: expected 3 arguments\n- move <ElementID> <x-coord> <y-coord>\n";
+        if ((!(iss >> id >> x >> y)) || (x < 0) || (y < 0)) {
+            std::cerr << "Invalid move command: expected 3 positive arguments\n- move <ElementID> <x-coord> <y-coord>\n";
             return -1; 
         }
 
