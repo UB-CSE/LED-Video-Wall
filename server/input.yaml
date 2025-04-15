@@ -33,6 +33,6 @@ elements:
   "elem5":
     id: 5
     type: "video"
-    filepath: "images/alan/alan_video_64x64.mp4"
+    filepath: "images/cat64.mp4"
     framerate: 30
     location: [0, 0]

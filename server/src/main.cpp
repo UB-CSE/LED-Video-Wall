@@ -17,11 +17,12 @@
 #include "input-parser.hpp"
 #include <opencv2/opencv.hpp>
 #include "controller.hpp"
+#include "command.hpp"
 #include <thread>
 #include <chrono>
 
 //Change this flag as needed. Debug mode displays virtual canvas locally per update
-#define DEBUG_MODE 0
+#define DEBUG_MODE 1
 
 int main(int argc, char* argv[]) {
 
@@ -72,8 +73,41 @@ int main(int argc, char* argv[]) {
                      server_config.clients,
                      server,
                      server_config.ns_per_frame);
- 
+    
+
+     printf("\n Available Commands : \n- pause\n- resume\n- quit\n- move <ElementID> <x-coord> <y-coord>\n");
      while(1) {
+
+        /*
+        =============================================
+        Command line shenanigans
+
+        Available Commands : 
+        - pause
+        - resume
+        - quit
+        - move <ElementID> <x-coord> <y-coord
+
+        =============================================
+        */
+        if(inputAvailable()){
+            std::string command;
+            std::getline(std::cin, command);
+            
+            int status = processCommand(vCanvas, command);
+            
+            if (status == 1) {
+                break; 
+            }
+        }
+
+        /*
+        =============================================
+                        Continue
+        =============================================
+        */
+
+
          cont.frame_exec(DEBUG_MODE);
      }
 

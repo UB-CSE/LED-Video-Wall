@@ -160,7 +160,7 @@ void VirtualCanvas::pushToCanvas(){
         cv::Point loc = elemPtr->getLocation();
 
         //Gets the current frame of the element object referenced by elemPtr
-        cv::Mat elemMat = elemPtr->getPixelMatrix();
+        cv::Mat elemMat = elemPtr->getPixelMatrix().clone();
 
         cv::Size elemSize = elemMat.size();
 
@@ -174,9 +174,13 @@ void VirtualCanvas::pushToCanvas(){
 
             if(loc.x + elemSize.width > dim.width){
                 elemSize.width = dim.width-loc.x;
-            }else if (loc.y + elemSize.height > dim.height){
+            }
+            
+            if (loc.y + elemSize.height > dim.height){
                 elemSize.height = dim.height - loc.y;
             }
+
+            
             
             elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
 
@@ -195,8 +199,23 @@ void VirtualCanvas::pushToCanvas(){
     }
 }
 
+bool VirtualCanvas::moveElement(int elementId, cv::Point loc){
 
-void VirtualCanvas::removeElementFromCanvas(int elementId) {
+    std::vector<Element *> elementPtrs = getElementList();
+    auto it = std::find_if(elementPtrs.begin(), elementPtrs.end(), [elementId](const Element* ptr) {
+        return ptr && ptr->getId() == elementId;
+    });
+
+    if (it != elementPtrs.end()) {
+        (*it)->getLocation() = loc;
+    }
+
+    return 0;
+
+}
+
+
+bool VirtualCanvas::removeElementFromCanvas(int elementId) {
     clear();
 
     for (size_t i = 0 ; i < elementPtrList.size(); i++) {
@@ -210,6 +229,7 @@ void VirtualCanvas::removeElementFromCanvas(int elementId) {
     }
 
     pushToCanvas();
+    return 0;
 }
 
 

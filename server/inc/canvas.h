@@ -18,10 +18,11 @@ class Element {
         cv::Point location;
         int frameRate;
         
+        
     public:
 
         int getId() const { return id;};
-        cv::Point getLocation() const { return location;};
+        cv::Point& getLocation() { return location;};
         int getFrameRate() {return frameRate;};
         cv::Mat getPixelMatrix() {return pixelMatrix;};
 
@@ -93,9 +94,9 @@ class VirtualCanvas{
         int getElementCount() const { return elementCount; }
         const std::vector<Element *>& getElementList() const { return elementPtrList; }
         void clear() {pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);}
-    
+        bool moveElement(int elementId, cv::Point loc);
         void addElementToCanvas(Element* element);
-        void removeElementFromCanvas(int elementId);
+        bool removeElementFromCanvas(int elementId);
         void pushToCanvas();
     };
 
