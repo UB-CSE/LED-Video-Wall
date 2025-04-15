@@ -179,6 +179,11 @@ void VirtualCanvas::pushToCanvas(){
             }
             
             elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
+
+            //Apply the gamma LUT here - OpenCV DOES support in place lutting
+            cv::LUT(elemMat, canvasLut, elemMat);
+
+
             elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
         }else{
 

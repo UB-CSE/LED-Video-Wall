@@ -72,7 +72,10 @@ class VirtualCanvas{
     
     public:
         int elementCount;
+
+
         cv::Mat pixelMatrix;
+        cv::Mat canvasLut;
         cv::Size dim;
         std::vector<Element *> elementPtrList;
 

@@ -99,6 +99,8 @@ void Controller::frame_exec(bool debug) {
     this->canvas.pushToCanvas();
 
     if(debug){ //If this is true, then display the virtual canvas client side. Used for debugging and virtual visualization.
+
+        cv::namedWindow("Virtual Canvas", cv::WINDOW_NORMAL);
         cv::imshow("Virtual Canvas", canvas.getPixelMatrix());
         cv::waitKey(1);
     }

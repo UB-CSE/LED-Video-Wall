@@ -11,8 +11,6 @@
 // forward declarations
 cv::Scalar hexColorToScalar(const std::string &hexColor);
 
-#define MASTER_FRAMERATE 60
-
 
 
 
@@ -21,10 +19,42 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
     try {
         YAML::Node config = YAML::LoadFile(inputFile);
         YAML::Node elements = config["elements"];
+        
+        /*
+        =======================================================================
+                        LUT calculations for gamma application.
+        =======================================================================
+
+        Specifically, this precomputes the lookup table for the given gamma 
+        value so that we don't need to do compute per pixel per image
+
+   
+        */
+
+        cv::Mat lut(1, 256, CV_8UC1);
+        double gamma = config["settings"]["gamma"].as<double>();
+
+        if(gamma < 0){
+            throw std::invalid_argument("Bad gamma value given");
+        }
+
+        uchar* lutPtr = lut.ptr();
+        for (int i = 0; i < 256; ++i) {
+            lutPtr[i] = cv::saturate_cast<uchar>(pow(i / 255.0, gamma) * 255.0);
+        }
+        vCanvas.canvasLut = lut;
+
+
+
+        /*
+        =======================================================================
+                                Element processing
+        =======================================================================
+        */
 
         if (!elements) {
             std::cerr << "No elements found in config." << std::endl;
-            throw std::runtime_error("Empty Config!");
+            throw std::invalid_argument("Empty Config!");
         }
 
         for (YAML::const_iterator it = elements.begin(); it != elements.end(); ++it) {
