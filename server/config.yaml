@@ -1,6 +1,6 @@
 ignore-bounds-checks: true
 
-ns-per-frame: 100000000 # 10 fps
+ns-per-frame: 50000000 # 20 fps
 
 matrix-specs:
   "ws2812b:32x8":
@@ -87,13 +87,13 @@ clients:
   24-0A-C4-0D-AA-F8:
     matrix-connections:
       - pin: 16
-        matrices: [mat5]
-      - pin: 17
-        matrices: [mat6]
-      - pin: 18
-        matrices: [mat7]
-      - pin: 19
         matrices: [mat8]
+      - pin: 17
+        matrices: [mat7]
+      - pin: 18
+        matrices: [mat6]
+      - pin: 19
+        matrices: [mat5]
   30-C6-F7-25-F3-4C:
     matrix-connections:
       - pin: 16
