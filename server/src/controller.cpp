@@ -33,7 +33,7 @@ void EventQueue::addEvent(Event evnt) {
 
 std::optional<Event> EventQueue::tryPopEvent(ns_ts cutoff_time) {
     auto next_event_it = this->queue.begin();
-    if (next_event_it->timestamp < cutoff_time) {
+    if (next_event_it != this->queue.end() && next_event_it->timestamp < cutoff_time) {
         Event next_event = *next_event_it;
         ns_ts timestamp = next_event.timestamp;
         auto action = next_event.action;
