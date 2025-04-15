@@ -20,7 +20,7 @@
 #include <thread>
 #include <chrono>
 
-//Change this flag as needed. Debug mode displays virtual canvas client-side per update
+//Change this flag as needed. Debug mode displays virtual canvas locally per update
 #define DEBUG_MODE 0
 
 int main(int argc, char* argv[]) {
