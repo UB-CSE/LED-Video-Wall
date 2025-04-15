@@ -20,6 +20,9 @@
 #include <thread>
 #include <chrono>
 
+//Change this flag as needed. Debug mode displays virtual canvas client-side per update
+#define DEBUG_MODE 0
+
 int main(int argc, char* argv[]) {
 
      //Required for webcam streaming
@@ -71,7 +74,7 @@ int main(int argc, char* argv[]) {
                      server_config.ns_per_frame);
  
      while(1) {
-         cont.frame_exec();
+         cont.frame_exec(DEBUG_MODE);
      }
 
   

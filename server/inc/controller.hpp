@@ -54,7 +54,7 @@ public:
                LEDTCPServer tcp_server,
                int64_t ns_per_frame);
 
-    void frame_exec();
+    void frame_exec(bool debug);
     void set_leds_all();
 
 private:

@@ -85,7 +85,7 @@ void Controller::frame_wait() {
     nanosleep(&wait, &wait_remaining);
 }
 
-void Controller::frame_exec() {
+void Controller::frame_exec(bool debug) {
     // Todo: send redraw command to all clients.
 
     frame_wait();
@@ -97,6 +97,11 @@ void Controller::frame_exec() {
         event_opt = this->event_queue.tryPopEvent(cur_time);
     }
     this->canvas.pushToCanvas();
+
+    if(debug){ //If this is true, then display the virtual canvas client side. Used for debugging and virtual visualization.
+        cv::imshow("Virtual Canvas", canvas.getPixelMatrix());
+        cv::waitKey(1);
+    }
     this->set_leds_all();
 }
 
