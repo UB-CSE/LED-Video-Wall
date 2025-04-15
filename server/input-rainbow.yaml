@@ -1,0 +1,6 @@
+elements:
+  "elem1":
+    id: 1
+    type: "image"
+    filepath: "images/rainbow.png"
+    location: [0,0]
