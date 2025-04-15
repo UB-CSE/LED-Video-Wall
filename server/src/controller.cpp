@@ -70,12 +70,6 @@ Controller::Controller(VirtualCanvas canvas,
                 return elem->nextFrame(frame);
             };
             this->event_queue.addEvent(Event(cur_time + period, period, nextFrame));
-        } else {
-            auto show = [elem](Controller* cont) {
-                cv::Mat frame;
-                return elem->nextFrame(frame);
-            };
-            this->event_queue.addEvent(Event(cur_time, show));
         }
     }
 }
