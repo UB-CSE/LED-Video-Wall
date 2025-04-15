@@ -160,8 +160,7 @@ void VirtualCanvas::pushToCanvas(){
         cv::Point loc = elemPtr->getLocation();
 
         //Gets the current frame of the element object referenced by elemPtr
-        cv::Mat elemMat;
-        elemPtr->nextFrame(elemMat);
+        cv::Mat elemMat = elemPtr->getPixelMatrix();
 
         cv::Size elemSize = elemMat.size();
 

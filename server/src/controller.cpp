@@ -102,6 +102,7 @@ void Controller::frame_exec() {
         event.action(this);
         event_opt = this->event_queue.tryPopEvent(cur_time);
     }
+    this->canvas.pushToCanvas();
     this->set_leds_all();
 }
 

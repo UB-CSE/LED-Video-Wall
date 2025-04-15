@@ -23,6 +23,7 @@ class Element {
         int getId() const { return id;};
         cv::Point getLocation() const { return location;};
         int getFrameRate() {return frameRate;};
+        cv::Mat getPixelMatrix() {return pixelMatrix;};
 
         virtual bool nextFrame(cv::Mat& frame) = 0;
         virtual void reset() = 0;
