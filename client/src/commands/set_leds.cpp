@@ -5,12 +5,12 @@
 
 static const char *TAG = "SetLeds";
 
-void set_leds(SetLedsMessage *msg) {
+int set_leds(SetLedsMessage *msg) {
   ESP_LOGI(TAG, "Handling set_leds");
 
   if (msg == NULL) {
     ESP_LOGW(TAG, "Invalid set_leds message (null)");
-    return;
+    return -1;
   }
 
   uint8_t gpio_pin = msg->gpio_pin;
@@ -18,13 +18,13 @@ void set_leds(SetLedsMessage *msg) {
   auto it = pin_to_handle.find(gpio_pin);
   if (it == pin_to_handle.end()) {
     ESP_LOGE(TAG, "Received data for an unconfigured GPIO pin %d.", gpio_pin);
-    return;
+    return -1;
   }
 
   led_strip_handle_t strip = it->second;
   if (!strip) {
     ESP_LOGE(TAG, "LED strip handle not initialized for pin %d", gpio_pin);
-    return;
+    return -1;
   }
 
   uint32_t data_size = msg->header.size - sizeof(SetLedsMessage);
@@ -52,4 +52,6 @@ void set_leds(SetLedsMessage *msg) {
         vTaskDelete(NULL);
       },
       "LED Refresh", 2048, (void *)strip, 1, NULL, 1);
+
+  return 0;
 }

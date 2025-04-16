@@ -13,7 +13,8 @@
 #define CHECK_IN_DELAY_MS 500
 
 void connect_wifi();
-void send_checkin(WiFiClient socket);
-void parse_tcp_message(WiFiClient socket);
+int send_checkin(WiFiClient socket);
+int parse_tcp_message(WiFiClient socket, uint8_t **buffer,
+                      uint32_t *buffer_size);
 
 #endif

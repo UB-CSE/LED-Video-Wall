@@ -3,7 +3,7 @@
 
 #include "protocol.hpp"
 
-void get_status(GetStatusMessage *msg);
+int get_status(GetStatusMessage *msg);
 void send_status();
 
 #endif

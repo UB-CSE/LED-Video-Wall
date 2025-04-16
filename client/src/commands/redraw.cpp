@@ -7,17 +7,17 @@
 
 static const char *TAG = "Redraw";
 
-void redraw(RedrawMessage *msg) {
+int redraw(RedrawMessage *msg) {
   ESP_LOGI(TAG, "Handling redraw");
 
   if (msg == NULL) {
     ESP_LOGW(TAG, "Invalid redraw message (null)");
-    return;
+    return -1;
   }
 
   if (pin_to_handle.empty()) {
     ESP_LOGE(TAG, "No LED strips configured");
-    return;
+    return -1;
   }
 
   for (auto &entry : pin_to_handle) {
@@ -25,4 +25,6 @@ void redraw(RedrawMessage *msg) {
   }
 
   ESP_LOGI(TAG, "LEDs refreshed across all configured pins.");
+
+  return 0;
 }

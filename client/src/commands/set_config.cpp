@@ -17,12 +17,12 @@ void clear_led_strips() {
   pin_to_handle.clear();
 }
 
-void set_config(SetConfigMessage *msg) {
+int set_config(SetConfigMessage *msg) {
   ESP_LOGI(TAG, "Handling set_config");
 
   if (msg == NULL) {
     ESP_LOGW(TAG, "Invalid set_config message (null)");
-    return;
+    return -1;
   }
 
   clear_led_strips();
@@ -31,7 +31,7 @@ void set_config(SetConfigMessage *msg) {
 
   if (num_pins == 0) {
     ESP_LOGE(TAG, "num_pins cannot be zero");
-    return;
+    return -1;
   }
 
   for (int i = 0; i < num_pins; i++) {
@@ -72,7 +72,7 @@ void set_config(SetConfigMessage *msg) {
       ESP_LOGE(TAG, "Failed to create LED strip for pin %u",
                (unsigned int)gpio_pin);
       clear_led_strips();
-      return;
+      return -1;
     }
 
     led_strip_clear(strip);
@@ -80,4 +80,6 @@ void set_config(SetConfigMessage *msg) {
   }
 
   ESP_LOGI(TAG, "Configuration updated");
+
+  return 0;
 }

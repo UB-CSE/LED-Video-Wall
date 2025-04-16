@@ -3,6 +3,6 @@
 
 #include "protocol.hpp"
 
-void redraw(RedrawMessage *msg);
+int redraw(RedrawMessage *msg);
 
 #endif

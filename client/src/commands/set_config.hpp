@@ -8,7 +8,6 @@
 
 extern std::map<uint8_t, led_strip_handle_t> pin_to_handle;
 
-void set_config(SetConfigMessage *msg);
-void clear_led_strips();
+int set_config(SetConfigMessage *msg);
 
 #endif

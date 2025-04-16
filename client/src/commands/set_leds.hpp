@@ -3,6 +3,6 @@
 
 #include "protocol.hpp"
 
-void set_leds(SetLedsMessage *msg);
+int set_leds(SetLedsMessage *msg);
 
 #endif

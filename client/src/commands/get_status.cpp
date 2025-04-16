@@ -4,9 +4,11 @@
 
 static const char *TAG = "GetStatus";
 
-void get_status(GetStatusMessage *msg) {
+int get_status(GetStatusMessage *msg) {
   ESP_LOGI(TAG, "Handling get_status");
   send_status();
+
+  return 0;
 }
 
 void send_status() {}

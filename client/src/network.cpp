@@ -35,9 +35,6 @@ static const char *TAG = "Network";
 #define WIFI_PASSWORD ""
 #endif
 
-uint8_t *global_buffer = nullptr;
-uint32_t global_buffer_size = 0;
-
 // TODO: we may be able to auto set wifi in esp-idf settings
 void connect_wifi() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -54,7 +51,7 @@ void connect_wifi() {
   ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP().toString().c_str());
 }
 
-void send_checkin(WiFiClient socket) {
+int send_checkin(WiFiClient socket) {
   ESP_LOGI(TAG, "Sending check-in message");
 
   // When attempting to connect to the server, there are multiple ports that it
@@ -74,7 +71,7 @@ void send_checkin(WiFiClient socket) {
                port);
       if (port == SERVER_PORT_END) {
         ESP_LOGI(TAG, "Failed to connect to any server port");
-        return;
+        return -1;
       }
     }
   }
@@ -90,74 +87,19 @@ void send_checkin(WiFiClient socket) {
   } else {
     ESP_LOGW(TAG, "Failed to encode check-in message");
   }
+
+  return 0;
 }
 
-void parse_tcp_message(WiFiClient socket) {
-  uint8_t size_buffer[sizeof(uint32_t)];
-  int bytes_read = socket.read(size_buffer, sizeof(size_buffer));
-  if (bytes_read != sizeof(uint32_t)) {
-    ESP_LOGW(TAG, "Failed to read message size");
-    // TODO: it's possible to read only half the message size. if this were to
-    // occur, then it's posssible that the next time parse_tcp_message is
-    // called, the bytes are misaligned. we need another loop reading bytes in
-    // this case
-    return;
-  }
-
-  uint32_t message_size = get_message_size(size_buffer);
-
-  ESP_LOGD(TAG, "Message size from header: %u bytes",
-           (unsigned int)message_size);
-
-  // The global buffer is resized to the maximum size message we can possibly
-  // receive. Since we expect to receive that same size message multiple times,
-  // this is a fair optimization.
-  //
-  // We may additionally consider resizing this buffer depending on the maximum
-  // constraints given from a call to set_config, otherwise we'd expect this to
-  // resize rather significantly on the first call to set_leds.
-  //
-  // TODO: if the client ever changes config, we can assume the size of the
-  // global_buffer may decrease, so we should probably add some checks to calc
-  // the max buffer size in set_config
-  if (message_size > global_buffer_size) {
-    uint8_t *new_buffer = (uint8_t *)realloc(global_buffer, message_size);
-    if (new_buffer) {
-      global_buffer = new_buffer;
-      global_buffer_size = message_size;
-    } else {
-      ESP_LOGW(TAG, "Failed to resize message buffer");
-
-      // When realloc fails, it deallocs the buffer and returns a null pointer,
-      // so we must reset the size to its initial state.
-      global_buffer_size = 0;
-
-      // If we fail to realloc the buffer, then we can't read the whole message.
-      // If we return from this function and it finds bytes available again, it
-      // may start reading in the middle of a message, resulting in undefined
-      // behavior. Thus, we close the socket and return, allowing the client to
-      // reconnect and resume later.
-      //
-      // TODO: ideally we'd recognize how many bytes are left in the previous
-      // message
-      socket.stop();
-
-      return;
-    }
-  }
-
-  memcpy(global_buffer, size_buffer, sizeof(uint32_t));
-
-  uint32_t remaining_bytes = message_size - sizeof(uint32_t);
-
+int read_exact(WiFiClient socket, uint8_t *buffer, uint32_t len) {
   uint32_t total = 0;
-  uint8_t *buffer_ptr = global_buffer + sizeof(uint32_t);
-  while (total < remaining_bytes) {
-    int current = socket.read(buffer_ptr + total, remaining_bytes - total);
+  uint8_t *buffer_ptr = buffer + sizeof(uint32_t);
+  while (total < len) {
+    int current = socket.read(buffer_ptr + total, len - total);
     if (current <= 0) {
       if (!socket.connected()) {
         ESP_LOGW(TAG, "Socket disconnected");
-        return;
+        return -1;
       }
 
       ESP_LOGW(TAG, "Socket read failed");
@@ -171,31 +113,89 @@ void parse_tcp_message(WiFiClient socket) {
 
     total += current;
     ESP_LOGD(TAG, "Read %d bytes, total read: %u/%u bytes", current,
-             (unsigned int)total, (unsigned int)remaining_bytes);
+             (unsigned int)total, (unsigned int)len);
   }
 
-  uint16_t op_code = get_message_op_code(global_buffer);
+  return 0;
+}
+
+int parse_tcp_message(WiFiClient socket, uint8_t **buffer,
+                      uint32_t *buffer_size) {
+  uint8_t size_buffer[sizeof(uint32_t)];
+  if (read_exact(socket, *buffer, sizeof(size_buffer)) != 0) {
+    return -1;
+  }
+
+  uint32_t message_size = get_message_size(size_buffer);
+
+  ESP_LOGD(TAG, "Message size from header: %u bytes",
+           (unsigned int)message_size);
+
+  // The buffer is resized to the maximum size message we can possibly
+  // receive. Since we expect to receive that same size message multiple times,
+  // this is a fair optimization.
+  //
+  // We may additionally consider resizing this buffer depending on the maximum
+  // constraints given from a call to set_config, otherwise we'd expect this to
+  // resize rather significantly on the first call to set_leds.
+  if (message_size > *buffer_size) {
+    uint8_t *new_buffer = (uint8_t *)realloc(buffer, message_size);
+    if (new_buffer) {
+      *buffer = new_buffer;
+      *buffer_size = message_size;
+    } else {
+      ESP_LOGW(TAG, "Failed to resize message buffer");
+
+      // If we fail to realloc the buffer, then we can't read the whole message.
+      // If we return from this function and it finds bytes available again, it
+      // may start reading in the middle of a message, resulting in undefined
+      // behavior. Thus, we close the socket and return, allowing the client to
+      // reconnect and resume later.
+      socket.stop();
+
+      return -1;
+    }
+  }
+
+  memcpy(*buffer, size_buffer, sizeof(uint32_t));
+
+  uint32_t remaining_bytes = message_size - sizeof(uint32_t);
+  if (read_exact(socket, *buffer, remaining_bytes) != 0) {
+    return -1;
+  }
+
+  uint16_t op_code = get_message_op_code(*buffer);
   ESP_LOGD(TAG, "Received OpCode: 0x%04X", op_code);
 
   switch (op_code) {
   case OP_SET_LEDS: {
-    set_leds(decode_set_leds(global_buffer));
+    if (set_leds(decode_set_leds(*buffer)) != 0) {
+      return -1;
+    }
     break;
   }
   case OP_GET_STATUS: {
-    get_status(decode_get_status(global_buffer));
+    if (get_status(decode_get_status(*buffer)) != 0) {
+      return -1;
+    }
     break;
   }
   case OP_REDRAW: {
-    redraw(decode_redraw(global_buffer));
+    if (redraw(decode_redraw(*buffer)) != 0) {
+      return -1;
+    }
     break;
   }
   case OP_SET_CONFIG: {
-    set_config(decode_set_config(global_buffer));
+    if (set_config(decode_set_config(*buffer)) != 0) {
+      return -1;
+    }
     break;
   }
   default:
     ESP_LOGW(TAG, "Unknown OpCode: 0x%02X", op_code);
     break;
   }
+
+  return 0;
 }
