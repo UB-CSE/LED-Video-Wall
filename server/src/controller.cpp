@@ -1,7 +1,6 @@
 #include "controller.hpp"
 #include "tcp.hpp"
 #include "canvas.h"
-#include <bits/types/struct_timespec.h>
 #include <cmath>
 #include <cstdint>
 #include <ctime>

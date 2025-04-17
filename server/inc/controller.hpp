@@ -4,7 +4,6 @@
 #include "canvas.h"
 #include "client.hpp"
 #include "tcp.hpp"
-#include <bits/types/struct_timespec.h>
 #include <chrono>
 #include <cstdint>
 #include <optional>
