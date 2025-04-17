@@ -1,8 +1,6 @@
 #include "tcp.hpp"
 #include "canvas.h"
 #include "client.hpp"
-#include <asm-generic/errno.h>
-#include <asm-generic/socket.h>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
