@@ -36,19 +36,14 @@ int set_leds(SetLedsMessage *msg) {
     uint8_t g = pixel_data[i * 3 + 1];
     uint8_t b = pixel_data[i * 3 + 2];
 
-    led_strip_set_pixel(strip, i, r, g, b);
+    ESP_ERROR_CHECK(led_strip_set_pixel(strip, i, r, g, b));
   }
 
   // TODO: temp
-  // "What's worse, if the RMT interrupt is delayed or not serviced in time
-  // (e.g. if Wi-Fi interrupt happens on the same CPU core), the RMT transaction
-  // will be corrupted and the LEDs will display incorrect colors." I'm not sure
-  // if it's necessary to pin the task to a core, but ^ is found in the docs and
-  // WiFi is on core 0.
   xTaskCreatePinnedToCore(
       [](void *param) {
         led_strip_handle_t strip = (led_strip_handle_t)param;
-        led_strip_refresh(strip);
+        ESP_ERROR_CHECK(led_strip_refresh(strip));
         vTaskDelete(NULL);
       },
       "LED Refresh", 2048, (void *)strip, 1, NULL, 1);

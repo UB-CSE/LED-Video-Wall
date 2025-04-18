@@ -75,7 +75,7 @@ int set_config(SetConfigMessage *msg) {
       return -1;
     }
 
-    led_strip_clear(strip);
+    ESP_ERROR_CHECK(led_strip_clear(strip));
     pin_to_handle[gpio_pin] = strip;
   }
 
