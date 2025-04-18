@@ -2,7 +2,7 @@
 
 # Installation
 ## Required
-* [`idf.py`](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html#installation) (Install `v5.3.2`, due to dependency lock of the Arduino component)
+* [`idf.py`](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html#installation) (Tested with `v5.4.1`)
 
 ## Optional
 * [`idf-eclipse-plugin`](https://github.com/espressif/idf-eclipse-plugin/blob/master/README.md) (Eclipse)

@@ -1,10 +1,16 @@
-#include "WiFiClient.h"
 #include "esp_log.h"
-#include <Arduino.h>
-#include <WiFi.h>
-#include <cstddef>
-#include <cstdint>
-#include <esp_wifi.h>
+#include "esp_wifi.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "commands/get_status.hpp"
 #include "commands/redraw.hpp"
@@ -35,24 +41,37 @@ static const char *TAG = "Network";
 #define WIFI_PASSWORD ""
 #endif
 
-// TODO: we may be able to auto set wifi in esp-idf settings
-void connect_wifi() {
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  ESP_LOGI(TAG, "MAC Address: %s", WiFi.macAddress().c_str());
-  ESP_LOGI(TAG, "Connecting to WiFi");
-
-  while (WiFi.status() != WL_CONNECTED) {
-    vTaskDelay(pdMS_TO_TICKS(WIFI_RECONNECT_DELAY_MS));
-    ESP_LOGD(TAG, ".");
+int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
+  uint32_t total = 0;
+  while (total < len) {
+    ssize_t bytes_read = recv(sockfd, buffer + total, len - total, 0);
+    if (bytes_read > 0) {
+      total += bytes_read;
+      ESP_LOGD(TAG, "Read %d bytes, total read: %u/%u bytes", bytes_read,
+               (unsigned int)total, (unsigned int)len);
+    } else if (bytes_read == 0 || errno == ECONNRESET) {
+      ESP_LOGW(TAG, "Socket disconnected");
+      return -1;
+    } else {
+      ESP_LOGW(TAG, "recv() error: errno %d", errno);
+      // Oftentimes socket.read will return 0 or -1, then after a few iterations
+      // begin reading data again from the same message. The root of this issue
+      // isn't clear, so we add a delay here to prevent hogging the CPU. Note
+      // that 10ms is sufficient for the task watchdog to not trigger.
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
   }
 
-  ESP_LOGI(TAG, "Connected to WiFi");
-  ESP_LOGI(TAG, "IP Address: %s", WiFi.localIP().toString().c_str());
+  return 0;
 }
 
-int send_checkin(WiFiClient socket) {
+int checkin(int *out_sockfd) {
   ESP_LOGI(TAG, "Sending check-in message");
+
+  int sockfd = -1;
+  struct sockaddr_in dest_addr;
+  dest_addr.sin_family = AF_INET;
+  inet_pton(AF_INET, SERVER_IP, &dest_addr.sin_addr.s_addr);
 
   // When attempting to connect to the server, there are multiple ports that it
   // may have connected to. The preprocessor constants SERVER_PORT_START and
@@ -62,67 +81,63 @@ int send_checkin(WiFiClient socket) {
   // connection. If a connection does succeed then the loop ends early and
   // continues with the rest of the code.
   for (uint16_t port = SERVER_PORT_START; port <= SERVER_PORT_END; port++) {
-    if (socket.connect(SERVER_IP, port)) {
+    if (sockfd >= 0) {
+      close(sockfd);
+    }
+
+    sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (sockfd < 0) {
+      ESP_LOGE(TAG, "Failed to create socket: %d", errno);
+      continue;
+    }
+
+    dest_addr.sin_port = htons(port);
+
+    if (connect(sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) ==
+        0) {
+      ESP_LOGI(TAG, "Connected to %s:%u", SERVER_IP, port);
       break;
     } else {
-      ESP_LOGD(TAG,
-               "Tried and failed to connect to server port: %hu; trying a "
-               "different port",
-               port);
-      if (port == SERVER_PORT_END) {
-        ESP_LOGI(TAG, "Failed to connect to any server port");
-        return -1;
-      }
+      ESP_LOGD(TAG, "Connect to port %u failed: %d", port, errno);
+      close(sockfd);
+      sockfd = -1;
     }
   }
+
+  if (sockfd < 0) {
+    ESP_LOGI(TAG, "Unable to connect to any server port");
+    return -1;
+  }
+
   uint8_t mac[6];
-  esp_wifi_get_mac(WIFI_IF_STA, mac);
+  ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
 
   uint32_t msg_size = 0;
   uint8_t *buffer = encode_check_in(mac, &msg_size);
-  if (buffer) {
-    socket.write(buffer, msg_size);
-    ESP_LOGI(TAG, "Check-in message sent");
-    free_message_buffer(buffer);
-  } else {
+  if (!buffer) {
     ESP_LOGW(TAG, "Failed to encode check-in message");
+    close(sockfd);
+    return -1;
   }
+
+  ssize_t written = send(sockfd, buffer, msg_size, 0);
+  free_message_buffer(buffer);
+
+  if (written < 0) {
+    ESP_LOGE(TAG, "Send check-in failed: %d", errno);
+    close(sockfd);
+    return -1;
+  }
+
+  ESP_LOGI(TAG, "Check-in message sent");
+  *out_sockfd = sockfd;
 
   return 0;
 }
 
-int read_exact(WiFiClient socket, uint8_t *buffer, uint32_t len) {
-  uint32_t total = 0;
-  uint8_t *buffer_ptr = buffer + sizeof(uint32_t);
-  while (total < len) {
-    int current = socket.read(buffer_ptr + total, len - total);
-    if (current <= 0) {
-      if (!socket.connected()) {
-        ESP_LOGW(TAG, "Socket disconnected");
-        return -1;
-      }
-
-      ESP_LOGW(TAG, "Socket read failed");
-
-      // Oftentimes socket.read will return 0 or -1, then after a few iterations
-      // begin reading data again from the same message. The root of this issue
-      // isn't clear, so we add a delay here to prevent hogging the CPU. Note
-      // that 10ms is sufficient for the task watchdog to not trigger.
-      vTaskDelay(pdMS_TO_TICKS(10));
-    }
-
-    total += current;
-    ESP_LOGD(TAG, "Read %d bytes, total read: %u/%u bytes", current,
-             (unsigned int)total, (unsigned int)len);
-  }
-
-  return 0;
-}
-
-int parse_tcp_message(WiFiClient socket, uint8_t **buffer,
-                      uint32_t *buffer_size) {
+int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   uint8_t size_buffer[sizeof(uint32_t)];
-  if (read_exact(socket, *buffer, sizeof(size_buffer)) != 0) {
+  if (read_exact(sockfd, *buffer, sizeof(size_buffer)) != 0) {
     return -1;
   }
 
@@ -151,7 +166,7 @@ int parse_tcp_message(WiFiClient socket, uint8_t **buffer,
       // may start reading in the middle of a message, resulting in undefined
       // behavior. Thus, we close the socket and return, allowing the client to
       // reconnect and resume later.
-      socket.stop();
+      close(sockfd);
 
       return -1;
     }
@@ -160,7 +175,7 @@ int parse_tcp_message(WiFiClient socket, uint8_t **buffer,
   memcpy(*buffer, size_buffer, sizeof(uint32_t));
 
   uint32_t remaining_bytes = message_size - sizeof(uint32_t);
-  if (read_exact(socket, *buffer, remaining_bytes) != 0) {
+  if (read_exact(sockfd, *buffer + sizeof(uint32_t), remaining_bytes) != 0) {
     return -1;
   }
 
