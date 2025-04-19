@@ -1,17 +1,11 @@
 #include "esp_event.h"
 #include "esp_log.h"
-#include "esp_system.h"
 #include "esp_wifi.h"
-#include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "freertos/task.h"
-#include "lwip/err.h"
-#include "lwip/sys.h"
-#include "nvs_flash.h"
 
 #include <string.h>
 
-#include "network.hpp"
 #include "wifi_credentials.hpp"
 
 static EventGroupHandle_t s_wifi_event_group;
@@ -21,26 +15,17 @@ static EventGroupHandle_t s_wifi_event_group;
 
 static const char *TAG = "WiFi";
 
-static int s_retry_num = 0;
-
 static void event_handler(void *arg, esp_event_base_t event_base,
                           int32_t event_id, void *event_data) {
   if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
     esp_wifi_connect();
   } else if (event_base == WIFI_EVENT &&
              event_id == WIFI_EVENT_STA_DISCONNECTED) {
-    if (s_retry_num < WIFI_MAX_RETRY) {
-      esp_wifi_connect();
-      s_retry_num++;
-      ESP_LOGI(TAG, "Retrying connecting to the AP");
-    } else {
-      xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-    }
-    ESP_LOGI(TAG, "Connecting to the AP failed");
+    ESP_LOGI(TAG, "Disconnected from AP, reconnecting");
+    esp_wifi_connect();
   } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
     ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
     ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
-    s_retry_num = 0;
     xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
   }
 }
