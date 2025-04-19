@@ -6,6 +6,8 @@ static const char *TAG = "GetStatus";
 
 int get_status(GetStatusMessage *msg) {
   ESP_LOGI(TAG, "Handling get_status");
+
+  // TODO:
   send_status();
 
   return 0;

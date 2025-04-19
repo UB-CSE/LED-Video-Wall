@@ -9,12 +9,15 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 
+#include "log.hpp"
 #include "network.hpp"
 #include "wifi.hpp"
 
 static const char *TAG = "Main";
 
 extern "C" void app_main(void) {
+  init_buffered_log();
+
   esp_err_t ret = nvs_flash_init();
   if (ret == ESP_ERR_NVS_NO_FREE_PAGES ||
       ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {

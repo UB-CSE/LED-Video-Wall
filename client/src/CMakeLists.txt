@@ -3,9 +3,10 @@ idf_component_register(
         "main.cpp"
         "network.cpp"
         "wifi.cpp"
+        "log.cpp"
         "commands/set_config.cpp"
         "commands/set_leds.cpp"
         "commands/redraw.cpp"
         "commands/get_status.cpp"
     INCLUDE_DIRS "."
-    REQUIRES led_strip protocol esp_wifi esp_event nvs_flash)
+    REQUIRES led_strip protocol esp_wifi esp_event nvs_flash esp_ringbuf)
