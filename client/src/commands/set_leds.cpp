@@ -9,7 +9,7 @@ int set_leds(SetLedsMessage *msg) {
   ESP_LOGI(TAG, "Handling set_leds");
 
   if (msg == NULL) {
-    ESP_LOGW(TAG, "Invalid set_leds message (null)");
+    ESP_LOGE(TAG, "Invalid set_leds message (null)");
     return -1;
   }
 

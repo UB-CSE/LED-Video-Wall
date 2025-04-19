@@ -21,7 +21,7 @@ int set_config(SetConfigMessage *msg) {
   ESP_LOGI(TAG, "Handling set_config");
 
   if (msg == NULL) {
-    ESP_LOGW(TAG, "Invalid set_config message (null)");
+    ESP_LOGE(TAG, "Invalid set_config message (null)");
     return -1;
   }
 

@@ -12,7 +12,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "commands/get_status.hpp"
+#include "commands/get_logs.hpp"
 #include "commands/redraw.hpp"
 #include "commands/set_config.hpp"
 #include "commands/set_leds.hpp"
@@ -49,11 +49,13 @@ int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
       total += bytes_read;
       ESP_LOGD(TAG, "Read %d bytes, total read: %u/%u bytes", bytes_read,
                (unsigned int)total, (unsigned int)len);
-    } else if (bytes_read == 0 || errno == ECONNRESET) {
+    } else if (errno == ECONNRESET) {
       ESP_LOGW(TAG, "Socket disconnected");
       return -1;
     } else {
-      ESP_LOGW(TAG, "recv() error: errno %d", errno);
+      ESP_LOGW(TAG, "Failed to read socket: %d", errno);
+
+      // TODO: test to see if this happens with non-arduino sockets
       // Oftentimes socket.read will return 0 or -1, then after a few iterations
       // begin reading data again from the same message. The root of this issue
       // isn't clear, so we add a delay here to prevent hogging the CPU. Note
@@ -189,8 +191,8 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
     }
     break;
   }
-  case OP_GET_STATUS: {
-    if (get_status(decode_get_status(*buffer)) != 0) {
+  case OP_GET_LOGS: {
+    if (get_logs(decode_get_logs(*buffer), sockfd) != 0) {
       return -1;
     }
     break;

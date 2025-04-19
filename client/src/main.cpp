@@ -26,7 +26,7 @@ extern "C" void app_main(void) {
   }
   ESP_ERROR_CHECK(ret);
 
-  connect_wifi();
+  init_wifi();
 
   int sockfd;
   if (checkin(&sockfd) != 0) {
