@@ -1,4 +1,5 @@
 #include "esp_log.h"
+#include "esp_log_level.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
@@ -38,21 +39,13 @@ extern "C" void app_main(void) {
   uint8_t *buffer = nullptr;
 
   while (true) {
-    int available = 0;
-    if (ioctl(sockfd, FIONREAD, &available) < 0) {
-      ESP_LOGW(TAG, "Failed to check if data is available: %d", errno);
-      available = 0;
-    }
+    if (parse_tcp_message(sockfd, &buffer, &buffer_size) < 0) {
+      ESP_LOGI(TAG, "Reconnecting to server...");
 
-    if (available > 0) {
-      if (parse_tcp_message(sockfd, &buffer, &buffer_size) < 0) {
-        ESP_LOGI(TAG, "Reconnecting to server...");
+      vTaskDelay(pdMS_TO_TICKS(CHECK_IN_DELAY_MS));
 
-        vTaskDelay(pdMS_TO_TICKS(CHECK_IN_DELAY_MS));
-
-        if (checkin(&sockfd) != 0) {
-          ESP_LOGE(TAG, "Check-in failed");
-        }
+      if (checkin(&sockfd) < 0) {
+        ESP_LOGE(TAG, "Check-in failed");
       }
     }
 

@@ -6,6 +6,7 @@
 #define SERVER_PORT_END 7074
 
 #define CHECK_IN_DELAY_MS 500
+#define RECV_TIMEOUT_SEC 5
 
 #include <unistd.h>
 

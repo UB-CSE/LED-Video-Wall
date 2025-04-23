@@ -49,18 +49,12 @@ int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
       total += bytes_read;
       ESP_LOGD(TAG, "Read %d bytes, total read: %u/%u bytes", bytes_read,
                (unsigned int)total, (unsigned int)len);
-    } else if (errno == ECONNRESET) {
+    } else if (bytes_read == 0) {
       ESP_LOGW(TAG, "Socket disconnected");
       return -1;
     } else {
-      ESP_LOGW(TAG, "Failed to read socket: %d", errno);
-
-      // TODO: test to see if this happens with non-arduino sockets
-      // Oftentimes socket.read will return 0 or -1, then after a few iterations
-      // begin reading data again from the same message. The root of this issue
-      // isn't clear, so we add a delay here to prevent hogging the CPU. Note
-      // that 10ms is sufficient for the task watchdog to not trigger.
-      vTaskDelay(pdMS_TO_TICKS(10));
+      ESP_LOGW(TAG, "Error reading socket: %d", errno);
+      return -1;
     }
   }
 
@@ -91,6 +85,14 @@ int checkin(int *out_sockfd) {
     if (sockfd < 0) {
       ESP_LOGE(TAG, "Failed to create socket: %d", errno);
       continue;
+    }
+
+    struct timeval tv {
+      RECV_TIMEOUT_SEC, 0
+    };
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+      ESP_LOGE(TAG, "Failed to set socket recv timeout");
+      return -1;
     }
 
     dest_addr.sin_port = htons(port);
