@@ -12,17 +12,16 @@ uint32_t get_message_size(const uint8_t *buffer) {
   return size;
 }
 
-uint16_t get_message_op_code(const uint8_t *buffer) {
-  uint16_t op_code;
-  memcpy(&op_code, buffer + sizeof(uint32_t), sizeof(uint16_t));
+uint8_t get_message_op_code(const uint8_t *buffer) {
+  uint8_t op_code;
+  memcpy(&op_code, buffer + sizeof(uint32_t), sizeof(uint8_t));
   return op_code;
 }
 
 void free_message_buffer(void *buffer) { free(buffer); }
 
-uint8_t *encode_set_leds(uint8_t gpio_pin, uint8_t bit_depth,
-                         const uint8_t *pixel_data, uint32_t data_size,
-                         uint32_t *out_size) {
+uint8_t *encode_set_leds(uint8_t gpio_pin, const uint8_t *pixel_data,
+                         uint32_t data_size, uint32_t *out_size) {
 
   *out_size = sizeof(SetLedsMessage) + data_size;
   uint8_t *buffer = allocate_message_buffer(*out_size);
@@ -33,7 +32,6 @@ uint8_t *encode_set_leds(uint8_t gpio_pin, uint8_t bit_depth,
   msg->header.size = *out_size;
   msg->header.op_code = OP_SET_LEDS;
   msg->gpio_pin = gpio_pin;
-  msg->bit_depth = bit_depth;
 
   if (pixel_data && data_size > 0) {
     memcpy(msg->pixel_data, pixel_data, data_size);
@@ -44,8 +42,8 @@ uint8_t *encode_set_leds(uint8_t gpio_pin, uint8_t bit_depth,
 
 // Like encode_set_leds, but doesn't copy the pixel data for you; that is, only
 // the fixed size parts of the message are set.
-SetLedsMessage *encode_fixed_set_leds(uint8_t gpio_pin, uint8_t bit_depth,
-                                      uint32_t data_size, uint32_t *out_size) {
+SetLedsMessage *encode_fixed_set_leds(uint8_t gpio_pin, uint32_t data_size,
+                                      uint32_t *out_size) {
   *out_size = sizeof(SetLedsMessage) + data_size;
   uint8_t *buffer = allocate_message_buffer(*out_size);
   if (!buffer)
@@ -55,14 +53,12 @@ SetLedsMessage *encode_fixed_set_leds(uint8_t gpio_pin, uint8_t bit_depth,
   msg->header.size = *out_size;
   msg->header.op_code = OP_SET_LEDS;
   msg->gpio_pin = gpio_pin;
-  msg->bit_depth = bit_depth;
 
   return msg;
 }
 
-uint8_t *encode_get_status(const char *debug_string, uint32_t *out_size) {
-  uint32_t debug_len = debug_string ? strlen(debug_string) + 1 : 0;
-  *out_size = sizeof(MessageHeader) + debug_len;
+uint8_t *encode_get_logs(uint32_t *out_size) {
+  *out_size = sizeof(MessageHeader);
 
   uint8_t *buffer = allocate_message_buffer(*out_size);
   if (!buffer)
@@ -70,25 +66,7 @@ uint8_t *encode_get_status(const char *debug_string, uint32_t *out_size) {
 
   MessageHeader *header = (MessageHeader *)buffer;
   header->size = *out_size;
-  header->op_code = OP_GET_STATUS;
-
-  if (debug_string && debug_len > 0) {
-    memcpy(buffer + sizeof(MessageHeader), debug_string, debug_len);
-  }
-
-  return buffer;
-}
-
-uint8_t *encode_set_brightness(uint16_t brightness, uint32_t *out_size) {
-  *out_size = sizeof(SetBrightnessMessage);
-  uint8_t *buffer = allocate_message_buffer(*out_size);
-  if (!buffer)
-    return NULL;
-
-  SetBrightnessMessage *msg = (SetBrightnessMessage *)buffer;
-  msg->header.size = *out_size;
-  msg->header.op_code = OP_SET_BRIGHTNESS;
-  msg->brightness = brightness;
+  header->op_code = OP_GET_LOGS;
 
   return buffer;
 }
@@ -106,9 +84,8 @@ uint8_t *encode_redraw(uint32_t *out_size) {
   return buffer;
 }
 
-uint8_t *encode_set_config(uint8_t num_color_channels, uint16_t init_brightness,
-                           uint8_t pins_used, const PinInfo *pin_info,
-                           uint32_t *out_size) {
+uint8_t *encode_set_config(uint8_t num_color_channels, uint8_t pins_used,
+                           const PinInfo *pin_info, uint32_t *out_size) {
 
   *out_size = sizeof(SetConfigMessage) + (pins_used * sizeof(PinInfo));
   uint8_t *buffer = allocate_message_buffer(*out_size);
@@ -119,7 +96,6 @@ uint8_t *encode_set_config(uint8_t num_color_channels, uint16_t init_brightness,
   msg->header.size = *out_size;
   msg->header.op_code = OP_SET_CONFIG;
   msg->num_color_channels = num_color_channels;
-  msg->init_brightness = init_brightness;
   msg->pins_used = pins_used;
 
   if (pin_info && pins_used > 0) {
@@ -146,8 +122,8 @@ uint8_t *encode_check_in(const uint8_t *mac_address, uint32_t *out_size) {
   return buffer;
 }
 
-uint8_t *encode_send_status(const char *debug_string, uint32_t *out_size) {
-  uint32_t debug_len = debug_string ? strlen(debug_string) + 1 : 0;
+uint8_t *encode_send_logs(const char *logs, uint32_t *out_size) {
+  uint32_t debug_len = logs ? strlen(logs) + 1 : 0;
   *out_size = sizeof(MessageHeader) + debug_len;
 
   uint8_t *buffer = allocate_message_buffer(*out_size);
@@ -156,10 +132,10 @@ uint8_t *encode_send_status(const char *debug_string, uint32_t *out_size) {
 
   MessageHeader *header = (MessageHeader *)buffer;
   header->size = *out_size;
-  header->op_code = OP_SEND_STATUS;
+  header->op_code = OP_SEND_LOGS;
 
-  if (debug_string && debug_len > 0) {
-    memcpy(buffer + sizeof(MessageHeader), debug_string, debug_len);
+  if (logs && debug_len > 0) {
+    memcpy(buffer + sizeof(MessageHeader), logs, debug_len);
   }
 
   return buffer;
@@ -176,7 +152,7 @@ SetLedsMessage *decode_set_leds(const uint8_t *buffer) {
   return (SetLedsMessage *)buffer;
 }
 
-GetStatusMessage *decode_get_status(const uint8_t *buffer) {
+GetLogsMessage *decode_get_logs(const uint8_t *buffer) {
   if (!buffer)
     return NULL;
 
@@ -184,18 +160,7 @@ GetStatusMessage *decode_get_status(const uint8_t *buffer) {
   if (message_size < sizeof(MessageHeader))
     return NULL;
 
-  return (GetStatusMessage *)buffer;
-}
-
-SetBrightnessMessage *decode_set_brightness(const uint8_t *buffer) {
-  if (!buffer)
-    return NULL;
-
-  uint32_t message_size = get_message_size(buffer);
-  if (message_size < sizeof(SetBrightnessMessage))
-    return NULL;
-
-  return (SetBrightnessMessage *)buffer;
+  return (GetLogsMessage *)buffer;
 }
 
 RedrawMessage *decode_redraw(const uint8_t *buffer) {
@@ -231,7 +196,7 @@ CheckInMessage *decode_check_in(const uint8_t *buffer) {
   return (CheckInMessage *)buffer;
 }
 
-SendStatusMessage *decode_send_status(const uint8_t *buffer) {
+SendLogsMessage *decode_send_logs(const uint8_t *buffer) {
   if (!buffer)
     return NULL;
 
@@ -239,5 +204,5 @@ SendStatusMessage *decode_send_status(const uint8_t *buffer) {
   if (message_size < sizeof(MessageHeader))
     return NULL;
 
-  return (SendStatusMessage *)buffer;
+  return (SendLogsMessage *)buffer;
 }

@@ -1,15 +1,25 @@
-#include "get_status.hpp"
+#include "esp_log.h"
+#include "esp_wifi.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#include <arpa/inet.h>
+#include <errno.h>
+#include <netinet/in.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
+#include "commands/get_logs.hpp"
+#include "commands/redraw.hpp"
+#include "commands/set_config.hpp"
+#include "commands/set_leds.hpp"
 #include "network.hpp"
 #include "protocol.hpp"
-#include "redraw.hpp"
-#include "set_brightness.hpp"
-#include "set_config.hpp"
-#include "set_leds.hpp"
-#include <Arduino.h>
-#include <WiFi.h>
-#include <cstddef>
-#include <cstdint>
-#include <esp_wifi.h>
+
+static const char *TAG = "Network";
 
 // There should be a separate header file, "wifi_credentials.hpp", that defines
 // preprocessor constants, WIFI_SSID and WIFI_PASSWORD, that are used by the
@@ -31,34 +41,33 @@
 #define WIFI_PASSWORD ""
 #endif
 
-WiFiClient socket;
-
-uint8_t *global_buffer = nullptr;
-uint32_t global_buffer_size = 0;
-
-// TODO: we may be able to auto set wifi in esp-idf settings
-void connect_wifi() {
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  Serial.print("MAC Address: ");
-  Serial.println(WiFi.macAddress());
-
-  Serial.print("Connecting to WiFi");
-
-  while (WiFi.status() != WL_CONNECTED) {
-    vTaskDelay(pdMS_TO_TICKS(WIFI_RECONNECT_DELAY_MS));
-    Serial.print(".");
+int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
+  uint32_t total = 0;
+  while (total < len) {
+    ssize_t bytes_read = recv(sockfd, buffer + total, len - total, 0);
+    if (bytes_read > 0) {
+      total += bytes_read;
+      ESP_LOGD(TAG, "Read %d bytes, total read: %u/%u bytes", bytes_read,
+               (unsigned int)total, (unsigned int)len);
+    } else if (bytes_read == 0) {
+      ESP_LOGW(TAG, "Socket disconnected");
+      return -1;
+    } else {
+      ESP_LOGW(TAG, "Error reading socket: %d", errno);
+      return -1;
+    }
   }
 
-  Serial.println("\nConnected to WiFi");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-
-  send_checkin();
+  return 0;
 }
 
-void send_checkin() {
-  Serial.println("Sending check-in message");
+int checkin(int *out_sockfd) {
+  ESP_LOGI(TAG, "Sending check-in message");
+
+  int sockfd = -1;
+  struct sockaddr_in dest_addr;
+  dest_addr.sin_family = AF_INET;
+  inet_pton(AF_INET, SERVER_IP, &dest_addr.sin_addr.s_addr);
 
   // When attempting to connect to the server, there are multiple ports that it
   // may have connected to. The preprocessor constants SERVER_PORT_START and
@@ -68,155 +77,144 @@ void send_checkin() {
   // connection. If a connection does succeed then the loop ends early and
   // continues with the rest of the code.
   for (uint16_t port = SERVER_PORT_START; port <= SERVER_PORT_END; port++) {
-    if (socket.connect(SERVER_IP, port)) {
+    if (sockfd >= 0) {
+      close(sockfd);
+    }
+
+    sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+    if (sockfd < 0) {
+      ESP_LOGE(TAG, "Failed to create socket: %d", errno);
+      continue;
+    }
+
+    struct timeval tv {
+      RECV_TIMEOUT_SEC, 0
+    };
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+      ESP_LOGE(TAG, "Failed to set socket recv timeout");
+      return -1;
+    }
+
+    dest_addr.sin_port = htons(port);
+
+    if (connect(sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) ==
+        0) {
+      ESP_LOGI(TAG, "Connected to %s:%u", SERVER_IP, port);
       break;
     } else {
-      Serial.print("Tried and failed to connect to server port: ");
-      Serial.print(port);
-      Serial.println("; trying a different port.");
-      if (port == SERVER_PORT_END) {
-        Serial.println("Failed to connect to any server port");
-        return;
-      }
+      ESP_LOGD(TAG, "Connect to port %u failed: %d", port, errno);
+      close(sockfd);
+      sockfd = -1;
     }
   }
+
+  if (sockfd < 0) {
+    ESP_LOGI(TAG, "Unable to connect to any server port");
+    return -1;
+  }
+
   uint8_t mac[6];
-  esp_wifi_get_mac(WIFI_IF_STA, mac);
+  ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
 
   uint32_t msg_size = 0;
   uint8_t *buffer = encode_check_in(mac, &msg_size);
-  if (buffer) {
-    socket.write(buffer, msg_size);
-    Serial.println("Check-in message sent");
-    free_message_buffer(buffer);
-  } else {
-    Serial.println("Failed to encode check-in message");
+  if (!buffer) {
+    ESP_LOGW(TAG, "Failed to encode check-in message");
+    close(sockfd);
+    return -1;
   }
+
+  ssize_t written = send(sockfd, buffer, msg_size, 0);
+  free_message_buffer(buffer);
+
+  if (written < 0) {
+    ESP_LOGE(TAG, "Send check-in failed: %d", errno);
+    close(sockfd);
+    return -1;
+  }
+
+  ESP_LOGI(TAG, "Check-in message sent");
+  *out_sockfd = sockfd;
+
+  return 0;
 }
 
-void parse_tcp_message() {
+int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   uint8_t size_buffer[sizeof(uint32_t)];
-  int bytes_read = socket.read(size_buffer, sizeof(size_buffer));
-  if (bytes_read != sizeof(uint32_t)) {
-    Serial.println("Failed to read message size");
-    // TODO: it's possible to read only half the message size. if this were to
-    // occur, then it's posssible that the next time parse_tcp_message is
-    // called, the bytes are misaligned. we need another loop reading bytes in
-    // this case
-    return;
+  if (read_exact(sockfd, *buffer, sizeof(size_buffer)) != 0) {
+    return -1;
   }
 
   uint32_t message_size = get_message_size(size_buffer);
 
-  Serial.printf("Message size from header: %u bytes\n",
-                (unsigned int)message_size);
+  ESP_LOGD(TAG, "Message size from header: %u bytes",
+           (unsigned int)message_size);
 
-  // The global buffer is resized to the maximum size message we can possibly
+  // The buffer is resized to the maximum size message we can possibly
   // receive. Since we expect to receive that same size message multiple times,
   // this is a fair optimization.
   //
   // We may additionally consider resizing this buffer depending on the maximum
   // constraints given from a call to set_config, otherwise we'd expect this to
   // resize rather significantly on the first call to set_leds.
-  //
-  // TODO: if the client ever changes config, we can assume the size of the
-  // global_buffer may decrease, so we should probably add some checks to calc
-  // the max buffer size in set_config
-  if (message_size > global_buffer_size) {
-    uint8_t *new_buffer = (uint8_t *)realloc(global_buffer, message_size);
+  if (message_size > *buffer_size) {
+    uint8_t *new_buffer = (uint8_t *)realloc(buffer, message_size);
     if (new_buffer) {
-      global_buffer = new_buffer;
-      global_buffer_size = message_size;
+      *buffer = new_buffer;
+      *buffer_size = message_size;
     } else {
-      Serial.println("Failed to resize message buffer");
-
-      // When realloc fails, it deallocs the buffer and returns a null pointer,
-      // so we must reset the size to its initial state.
-      global_buffer_size = 0;
+      ESP_LOGW(TAG, "Failed to resize message buffer");
 
       // If we fail to realloc the buffer, then we can't read the whole message.
       // If we return from this function and it finds bytes available again, it
       // may start reading in the middle of a message, resulting in undefined
       // behavior. Thus, we close the socket and return, allowing the client to
       // reconnect and resume later.
-      //
-      // TODO: ideally we'd recognize how many bytes are left in the previous
-      // message
-      socket.stop();
+      close(sockfd);
 
-      return;
+      return -1;
     }
   }
 
-  memcpy(global_buffer, size_buffer, sizeof(uint32_t));
+  memcpy(*buffer, size_buffer, sizeof(uint32_t));
 
   uint32_t remaining_bytes = message_size - sizeof(uint32_t);
-
-  uint32_t total = 0;
-  uint8_t *buffer_ptr = global_buffer + sizeof(uint32_t);
-  while (total < remaining_bytes) {
-    int current = socket.read(buffer_ptr + total, remaining_bytes - total);
-    if (current <= 0) {
-      if (!socket.connected()) {
-        Serial.println("Socket disconnected");
-        return;
-      }
-
-      Serial.println("Socket read failed");
-
-      // Oftentimes socket.read will return 0 or -1, then after a few iterations
-      // begin reading data again from the same message. The root of this issue
-      // isn't clear, so we add a delay here to prevent hogging the CPU. Note
-      // that 10ms is sufficient for the task watchdog to not trigger.
-      vTaskDelay(pdMS_TO_TICKS(10));
-    }
-
-    total += current;
-    Serial.printf("Read %d bytes, total read: %u/%u bytes\n", current,
-                  (unsigned int)total, (unsigned int)remaining_bytes);
+  if (read_exact(sockfd, *buffer + sizeof(uint32_t), remaining_bytes) != 0) {
+    return -1;
   }
 
-  uint16_t op_code = get_message_op_code(global_buffer);
-  Serial.printf("Received OpCode: 0x%04X\n", op_code);
+  uint16_t op_code = get_message_op_code(*buffer);
+  ESP_LOGD(TAG, "Received OpCode: 0x%04X", op_code);
 
   switch (op_code) {
   case OP_SET_LEDS: {
-    SetLedsMessage *msg = decode_set_leds(global_buffer);
-    if (msg) {
-      set_leds(msg);
+    if (set_leds(decode_set_leds(*buffer)) != 0) {
+      return -1;
     }
     break;
   }
-  case OP_GET_STATUS: {
-    GetStatusMessage *msg = decode_get_status(global_buffer);
-    if (msg) {
-      get_status(msg);
-    }
-    break;
-  }
-  case OP_SET_BRIGHTNESS: {
-    SetBrightnessMessage *msg = decode_set_brightness(global_buffer);
-    if (msg) {
-      set_brightness(msg);
+  case OP_GET_LOGS: {
+    if (get_logs(decode_get_logs(*buffer), sockfd) != 0) {
+      return -1;
     }
     break;
   }
   case OP_REDRAW: {
-    RedrawMessage *msg = decode_redraw(global_buffer);
-    if (msg) {
-      redraw(msg);
+    if (redraw(decode_redraw(*buffer)) != 0) {
+      return -1;
     }
     break;
   }
   case OP_SET_CONFIG: {
-    SetConfigMessage *msg = decode_set_config(global_buffer);
-    if (msg) {
-      set_config(msg);
+    if (set_config(decode_set_config(*buffer)) != 0) {
+      return -1;
     }
     break;
   }
   default:
-    Serial.printf("Unknown OpCode: 0x%02X\n", op_code);
+    ESP_LOGW(TAG, "Unknown OpCode: 0x%02X", op_code);
     break;
   }
+
+  return 0;
 }

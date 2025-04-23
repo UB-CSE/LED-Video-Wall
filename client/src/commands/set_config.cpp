@@ -1,9 +1,12 @@
-#include "driver/gpio.h"
+#include "esp_log.h"
 #include "led_strip.h"
+
+#include <map>
+
 #include "protocol.hpp"
 #include "set_config.hpp"
-#include <Arduino.h>
-#include <map>
+
+static const char *TAG = "SetConfig";
 
 std::map<uint8_t, led_strip_handle_t> pin_to_handle;
 
@@ -14,22 +17,21 @@ void clear_led_strips() {
   pin_to_handle.clear();
 }
 
-void set_config(SetConfigMessage *msg) {
-  if (msg == NULL) {
-    Serial.println("Error: Null set_config message pointer");
-    return;
-  }
+int set_config(SetConfigMessage *msg) {
+  ESP_LOGI(TAG, "Handling set_config");
 
-  Serial.println("Handling set_config");
+  if (msg == NULL) {
+    ESP_LOGE(TAG, "Invalid set_config message (null)");
+    return -1;
+  }
 
   clear_led_strips();
 
-  // uint16_t brightness = msg->init_brightness;
   uint8_t num_pins = msg->pins_used;
 
   if (num_pins == 0) {
-    Serial.println("Error: num_pins cannot be zero");
-    return;
+    ESP_LOGE(TAG, "num_pins cannot be zero");
+    return -1;
   }
 
   for (int i = 0; i < num_pins; i++) {
@@ -38,7 +40,7 @@ void set_config(SetConfigMessage *msg) {
     uint16_t num_leds = pinfo->max_leds;
 
     if (num_leds == 0) {
-      Serial.printf("Warning: num_leds is zero for pin %d\n", gpio_pin);
+      ESP_LOGE(TAG, "num_leds is zero for pin %u", (unsigned int)gpio_pin);
       continue;
     }
 
@@ -67,14 +69,17 @@ void set_config(SetConfigMessage *msg) {
     esp_err_t ret =
         led_strip_new_rmt_device(&strip_config, &rmt_config, &strip);
     if (ret != ESP_OK) {
-      Serial.printf("Error: Failed to create LED strip for pin %d\n", gpio_pin);
+      ESP_LOGE(TAG, "Failed to create LED strip for pin %u",
+               (unsigned int)gpio_pin);
       clear_led_strips();
-      return;
+      return -1;
     }
 
-    led_strip_clear(strip);
+    ESP_ERROR_CHECK(led_strip_clear(strip));
     pin_to_handle[gpio_pin] = strip;
   }
 
-  Serial.println("Configuration updated.");
+  ESP_LOGI(TAG, "Configuration updated");
+
+  return 0;
 }
