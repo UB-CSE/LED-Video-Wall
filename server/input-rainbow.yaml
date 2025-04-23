@@ -1,3 +1,5 @@
+settings:
+  gamma: 1.05
 elements:
   "elem1":
     id: 1

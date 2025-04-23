@@ -1,8 +1,6 @@
 #include "tcp.hpp"
 #include "canvas.h"
 #include "client.hpp"
-#include <asm-generic/errno.h>
-#include <asm-generic/socket.h>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -14,6 +12,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <cstring>
 #include <map>
 #include <thread>
@@ -37,7 +36,16 @@ void handle_conns(int socket, LEDTCPServer* server) {
     }
 
     while (1) {
-        int client_socket = accept4(socket, NULL, NULL, SOCK_NONBLOCK);
+        int client_socket = accept(socket, NULL, NULL);
+        int flags = fcntl(client_socket, F_GETFL, 0);
+        if (flags == -1) {
+            close(client_socket);
+            break;
+        }
+        if (fcntl(client_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
+            close(client_socket);
+            break;
+        }
         CheckInMessage msg;
         MessageHeader* header = &msg.header;
         *header = server->tcp_recv_header(client_socket);

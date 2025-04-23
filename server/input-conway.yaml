@@ -1,0 +1,27 @@
+settings:
+  gamma: 1.00
+elements:
+  "elem1":
+    id: 1
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
+    framerate: 1
+    location: [0, 0]
+  "elem2":
+    id: 2
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
+    framerate: 1
+    location: [0, 32]
+  "elem3":
+    id: 3
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
+    framerate: 1
+    location: [32, 0]
+  "elem4":
+    id: 4
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
+    framerate: 1
+    location: [32, 32]
