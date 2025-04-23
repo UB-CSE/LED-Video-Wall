@@ -1,7 +1,6 @@
 #include "tcp.hpp"
+#include "canvas.h"
 #include "client.hpp"
-#include <asm-generic/errno.h>
-#include <asm-generic/socket.h>
 #include <cstdint>
 #include <cstdio>
 #include <iostream>
@@ -13,6 +12,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <cstring>
 #include <map>
 #include <thread>
@@ -36,7 +36,16 @@ void handle_conns(int socket, LEDTCPServer* server) {
     }
 
     while (1) {
-        int client_socket = accept4(socket, NULL, NULL, SOCK_NONBLOCK);
+        int client_socket = accept(socket, NULL, NULL);
+        int flags = fcntl(client_socket, F_GETFL, 0);
+        if (flags == -1) {
+            close(client_socket);
+            break;
+        }
+        if (fcntl(client_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
+            close(client_socket);
+            break;
+        }
         CheckInMessage msg;
         MessageHeader* header = &msg.header;
         *header = server->tcp_recv_header(client_socket);
@@ -262,19 +271,20 @@ void LEDTCPServer::tcp_recv(int socket, void* data, int size) {
     }
 }
 
-void LEDTCPServer::set_leds(const Client* c, int client_socket, const cv::Mat &cvmat, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
+void LEDTCPServer::set_leds(const Client* c, int client_socket, VirtualCanvas canvas, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
     uint32_t width = ledmat->spec->width;
     uint32_t height = ledmat->spec->height;
-    uint32_t x = ledmat->pos.x;
-    uint32_t y = ledmat->pos.y;
-    rotation rot = ledmat->pos.rot;
     // swap width and height if rotated +/-90 degrees
+    rotation rot = ledmat->pos.rot;
     if (rot == LEFT || rot == RIGHT) {
         uint32_t temp = width;
         height = width;
         height = temp;
     }
-    cv::Mat sub_cvmat = cvmat(cv::Rect(x, y, width, height)).clone();
+    uint32_t x = ledmat->pos.x;
+    uint32_t y = ledmat->pos.y;
+
+    cv::Mat sub_cvmat = canvas.getPixelMatrix()(cv::Rect(x, y, width, height)).clone();
     if (rot == LEFT) {
         cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_CLOCKWISE);
     } else if (rot == RIGHT) {
