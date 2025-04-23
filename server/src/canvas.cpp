@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <iostream>
+#include <string>
 
 
 //ImageElement implementation
@@ -60,10 +61,7 @@ void CarouselElement::reset() {
 //VideoElement implementation
 
 VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {
-    //If camera, uses default camera. This does not work on wsl because we dont have native webcam access.
-    if(filepath == "camera"){
-        cap.open(0);
-    }else if(filepath.find("rtsp://") != std::string::npos){
+    if(filepath.find("rtsp://") != std::string::npos){
         cap.open(filepath, cv::CAP_FFMPEG);
     }else{
         cap.open(filepath);
@@ -76,12 +74,26 @@ VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc, i
     cap.set(cv::CAP_PROP_POS_FRAMES, 0);
 }
 
+//VideoElement implementation
+
+VideoElement::VideoElement(int webcamNum, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {
+    // This does not work on wsl because we dont have native webcam access.
+    cap.open(webcamNum);
+    if (!cap.isOpened())
+        throw std::runtime_error("Failed to open webcam: " + std::to_string(webcamNum));
+
+    //Load first frame
+    cap.read(pixelMatrix);
+    cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+}
+
+
 bool VideoElement::nextFrame(cv::Mat& frame) {
     if (!cap.read(pixelMatrix)) {
         //Rewind and try again
         cap.set(cv::CAP_PROP_POS_FRAMES, 0);
         if (!cap.read(pixelMatrix)) {
-            frame = cv::Mat(); // fallback to empty to prevent crashes when ending
+            frame = cv::Mat::zeros(pixelMatrix.size(), CV_8UC3); // fallback to empty to prevent crashes when ending
             return false;
         }
     }

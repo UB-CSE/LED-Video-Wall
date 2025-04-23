@@ -148,6 +148,31 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 vCanvas.addElementToCanvas(elem);
 
             }
+            /*
+            Webcam
+            */
+            else if (type == "webcam") {
+                if (!value["camera-number"] || !value["location"] || !value["framerate"]) {
+                    std::cerr << "Missing filepath or location for element: " << key << std::endl;
+    
+                }
+
+                int frameRate = value["framerate"].as<int>();
+                int webcamNum = value["camera-number"].as<int>();
+                std::vector<int> locVec = value["location"].as<std::vector<int>>();
+
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0) {
+                    std::cerr << "Location for element " << key << " malformed." << std::endl;
+        
+                }
+
+                cv::Point loc(locVec[0], locVec[1]);
+
+                Element * elem = new VideoElement(webcamNum, id, loc, frameRate);
+
+                vCanvas.addElementToCanvas(elem);
+
+            }
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
             }

@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
 
      //Required for webcam streaming
      setenv("RDMAV_FORK_SAFE", "1", 1);
+     setenv("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;udp", 1);
 
      ServerConfig server_config;
      std::optional<ServerConfig> server_config_opt;

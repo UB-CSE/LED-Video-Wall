@@ -63,6 +63,7 @@ class VideoElement : public Element {
     
     public:
         VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate);
+        VideoElement(int webcamNum, int id, cv::Point loc, int frameRate);
         bool nextFrame(cv::Mat& frame) override;
         void reset() override;
     };
