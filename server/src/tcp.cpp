@@ -40,11 +40,11 @@ void handle_conns(int socket, LEDTCPServer* server) {
         int flags = fcntl(client_socket, F_GETFL, 0);
         if (flags == -1) {
             close(client_socket);
-            break;
+            continue;
         }
         if (fcntl(client_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
             close(client_socket);
-            break;
+            continue;
         }
         CheckInMessage msg;
         MessageHeader* header = &msg.header;
@@ -52,7 +52,7 @@ void handle_conns(int socket, LEDTCPServer* server) {
         if (msg.header.op_code != OP_CHECK_IN || msg.header.size != sizeof(CheckInMessage)) {
             std::cerr << "Expected check-in message, got invalid op-code or message size.\n";
             close(client_socket);
-            break;
+            continue;
         }
         server->tcp_recv(client_socket,
                          &(msg.mac_address),
