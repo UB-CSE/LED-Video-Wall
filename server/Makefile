@@ -1,6 +1,6 @@
 # Config File Locations
-SRC_DIRS := src
-INC_DIRS := inc
+SRC_DIRS := src ../protocol/src
+INC_DIRS := inc ../protocol/src
 OBJ_DIR   := obj
 
 # Source and object files

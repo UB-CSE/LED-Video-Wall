@@ -61,6 +61,8 @@ typedef struct {
 
 uint8_t *encode_set_leds(uint8_t gpio_pin, const uint8_t *pixel_data,
                          uint32_t data_size, uint32_t *out_size);
+SetLedsMessage *encode_fixed_set_leds(uint8_t gpio_pin, uint32_t data_size,
+                                      uint32_t *out_size);
 
 uint8_t *encode_get_logs(const char *debug_string, uint32_t *out_size);
 

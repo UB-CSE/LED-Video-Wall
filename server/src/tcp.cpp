@@ -95,7 +95,7 @@ void handle_conns(int socket, LEDTCPServer* server) {
             }
             const PinInfo* inf = pin_info.data();
             uint32_t out_size;
-            uint8_t* msg = encode_set_config(3, 10, num_pins, inf, &out_size);
+            uint8_t* msg = encode_set_config(3, num_pins, inf, &out_size);
             struct pollfd pfd = {client_socket, POLLOUT, -1};
             poll(&pfd, 1, -1);
             send(client_socket, msg, out_size, 0);
@@ -295,7 +295,7 @@ void LEDTCPServer::set_leds(const Client* c, int client_socket, VirtualCanvas ca
 
     uint32_t array_size = ledmat->packed_pixel_array_size;
     uint32_t msg_size;
-    SetLedsMessage* msg_buf = encode_fixed_set_leds(pin, bit_depth, array_size, &msg_size);
+    SetLedsMessage* msg_buf = encode_fixed_set_leds(pin, array_size, &msg_size);
     uint8_t* pixel_buf = &(msg_buf->pixel_data[0]);
     const uint8_t* data = sub_cvmat.data;
     const int brightness_reduction = 10;
