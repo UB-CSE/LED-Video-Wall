@@ -317,3 +317,10 @@ void LEDTCPServer::set_leds(const Client* c, int client_socket, VirtualCanvas ca
     this->tcp_send(c, client_socket, msg_buf, msg_size);
     free_message_buffer(msg_buf);
 }
+
+void LEDTCPServer::redraw(const Client* c, int client_socket) {
+    uint32_t msg_size;
+    uint8_t* msg_buf = encode_redraw(&msg_size);
+    this->tcp_send(c, client_socket, msg_buf, msg_size);
+    free_message_buffer(msg_buf);
+}

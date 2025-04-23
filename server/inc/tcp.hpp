@@ -60,6 +60,7 @@ public:
                   LEDMatrix* ledmat,
                   uint8_t pin,
                   uint8_t bit_depth);
+    void redraw(const Client* c, int client_socket);
 };
 
 std::optional<LEDTCPServer> create_server(uint32_t addr,

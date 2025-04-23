@@ -55,6 +55,7 @@ public:
 
     void frame_exec(bool debug);
     void set_leds_all();
+    void redraw_all();
 
 private:
     void frame_wait();
