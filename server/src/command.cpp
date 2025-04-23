@@ -24,39 +24,34 @@ bool inputAvailable() {
 }
 
 
-int processCommand(VirtualCanvas& vCanvas, std::string& line) {
+int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaused) {
     std::istringstream iss(line);
-    std::string command;
-    iss >> command; //Gets the first word
-
-    if (command == "quit") {
+    std::string cmd;
+    iss >> cmd;
+    
+    if (cmd == "quit") {
         return 1;
     }
-
-    if (command == "pause") {
-        std::cout << "Paused.. Use <resume> to continue\n";
-        std::string subcmd;
-        while (true) {
-            std::getline(std::cin, subcmd);
-            if (subcmd == "resume") break;
-            processCommand(vCanvas, subcmd);  // Allow commands while paused
-        }
+    if (cmd == "pause") {
+        isPaused = true;
+        std::cout << "Paused.  Send <resume> to continue.\n";
         return 0;
     }
-
-    if (command == "move") {
+    if (cmd == "resume") {
+        isPaused = false;
+        std::cout << "Resumed.\n";
+        return 0;
+    }
+    if (cmd == "move") {
         int id, x, y;
-        if ((!(iss >> id >> x >> y)) || (x < 0) || (y < 0)) {
-            std::cerr << "Invalid move command: expected 3 positive arguments\n- move <ElementID> <x-coord> <y-coord>\n";
-            return -1; 
+        if (!(iss >> id >> x >> y) || x < 0 || y < 0) {
+            std::cerr << "Invalid move. Usage:\n  move <ElementID> <x> <y>\n";
+        } else {
+            vCanvas.moveElement(id, cv::Point(x, y));
         }
-
-        cv::Point loc(x, y);
-        vCanvas.moveElement(id, loc);
         return 0;
     }
-
-    std::cout << "Unknown command: " << command << "\n";
-    printf("\n Available Commands : \n- pause\n- resume\n- quit\n- move <ElementID> <x-coord> <y-coord>\n");
+    std::cout << "Unknown command: " << cmd << "\n"
+                 "Available: pause, resume, quit, move <id> <x> <y>\n";
     return 0;
 }

@@ -20,9 +20,13 @@
 #include "command.hpp"
 #include <thread>
 #include <chrono>
+#include <fcntl.h>
+#include <unistd.h>  
+#include <sys/stat.h>
 
 //Change this flag as needed. Debug mode displays virtual canvas locally per update
 #define DEBUG_MODE 1
+#define TMP_CMD "/tmp/led-cmd"
 
 int main(int argc, char* argv[]) {
 
@@ -75,12 +79,28 @@ int main(int argc, char* argv[]) {
                      server_config.ns_per_frame);
     
 
-     printf("\n Available Commands : \n- pause\n- resume\n- quit\n- move <ElementID> <x-coord> <y-coord>\n");
+
+    //Setup for pipes
+    unlink(TMP_CMD); //Destroys the existing pipe - dont want leftover commands if any
+    if (mkfifo(TMP_CMD, 0666) == -1 && errno != EEXIST) {std::cerr << "mkfifo failed: " << strerror(errno) << "\n";return 1;} //Creates a fifo style pipe
+    int pipe = open(TMP_CMD, O_RDONLY | O_NONBLOCK); //Opens the pipe for reading only
+    if (pipe < 0) {std::cerr << "open failed: " << strerror(errno) << "\n";return 1;}
+
+    bool isPaused = false;
+    char buf[256];
+    std::cout << "\nWrite your command to " << TMP_CMD << std::endl << "Example: `echo \"move 5 10 10 > " << TMP_CMD << "\'" << std::endl <<  "Available Commands : \n- pause\n- resume\n- quit\n- move <ElementID> <x-coord> <y-coord>\n";
      while(1) {
 
         /*
-        =============================================
-        Command line shenanigans
+        ======================================================================================
+        Command line shenanigans: Using Pipes now:
+
+        From another process, you now enter commands by writing to the FIFO file in "TMP_CMD"
+        By default, it is "/tmp/led-cmd". 
+        
+        For example, open another terminal, and if I want to move an element, I would do:
+
+        `echo "move 5 10 10" > /tmp/led-cmd`
 
         Available Commands : 
         - pause
@@ -88,16 +108,19 @@ int main(int argc, char* argv[]) {
         - quit
         - move <ElementID> <x-coord> <y-coord
 
-        =============================================
+        ======================================================================================
         */
-        if(inputAvailable()){
-            std::string command;
-            std::getline(std::cin, command);
-            
-            int status = processCommand(vCanvas, command);
-            
-            if (status == 1) {
-                break; 
+
+       ssize_t n = read(pipe, buf, sizeof(buf) - 1);
+       if (n > 0) {
+            buf[n] = '\0';
+            //Remove whitespaces
+            std::string line(buf);
+            line.erase(line.find_last_not_of(" \t\r\n") + 1);
+
+            if (!line.empty()) {
+                int status = processCommand(vCanvas, line, isPaused);
+                if (status == 1) {goto EXIT_PROGRAM;}
             }
         }
 
@@ -107,11 +130,13 @@ int main(int argc, char* argv[]) {
         =============================================
         */
 
-
-         cont.frame_exec(DEBUG_MODE);
+        if (!isPaused) {
+            cont.frame_exec(DEBUG_MODE);
+        }
      }
 
-  
-
+    EXIT_PROGRAM:
+    close(pipe);
+    unlink(TMP_CMD);
     return 0;
 }

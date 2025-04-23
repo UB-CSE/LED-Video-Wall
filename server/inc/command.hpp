@@ -4,6 +4,6 @@
 #include "canvas.h"
 
 bool inputAvailable();
-int processCommand(VirtualCanvas& vCanvas, std::string& line);
+int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaused);
 
 #endif
