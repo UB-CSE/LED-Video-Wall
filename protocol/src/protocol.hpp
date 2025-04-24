@@ -8,6 +8,7 @@
 #define OP_SET_CONFIG 0x04
 #define OP_CHECK_IN 0x05
 #define OP_SEND_LOGS 0x06
+#define OP_SET_LEDS_BATCHED 0x07
 
 #define LED_TYPE_WS2811 0x01
 
@@ -25,6 +26,22 @@ typedef struct {
   uint8_t gpio_pin;
   uint8_t pixel_data[];
 } SetLedsMessage;
+
+typedef struct {
+  MessageHeader header;
+  uint8_t batch_count;
+} SetLedsBatchedMessage;
+
+typedef struct {
+  uint8_t gpio_pin;
+  uint32_t num_leds;
+} LedsBatchEntryHeader;
+
+typedef struct {
+  uint8_t gpio_pin;
+  uint32_t num_leds;
+  const uint8_t *pixel_data;
+} LedsBatch;
 
 typedef struct {
   MessageHeader header;
@@ -59,6 +76,9 @@ typedef struct {
 
 #pragma pack(pop)
 
+uint8_t *encode_set_leds_batched(uint8_t batch_count, const LedsBatch *batches,
+                                 uint32_t *out_size);
+
 uint8_t *encode_set_leds(uint8_t gpio_pin, const uint8_t *pixel_data,
                          uint32_t data_size, uint32_t *out_size);
 SetLedsMessage *encode_fixed_set_leds(uint8_t gpio_pin, uint32_t data_size,
@@ -78,6 +98,8 @@ uint8_t *encode_send_logs(const char *buffer, uint32_t *out_size);
 uint8_t get_message_op_code(const uint8_t *buffer);
 
 SetLedsMessage *decode_set_leds(const uint8_t *buffer);
+
+SetLedsBatchedMessage *decode_set_leds_batched(const uint8_t *buffer);
 
 GetLogsMessage *decode_get_logs(const uint8_t *buffer);
 

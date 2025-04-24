@@ -56,10 +56,7 @@ public:
 
     void set_leds(const Client* c,
                   int client_socket,
-                  VirtualCanvas canvas,
-                  LEDMatrix* ledmat,
-                  uint8_t pin,
-                  uint8_t bit_depth);
+                  VirtualCanvas canvas);
     void redraw(const Client* c, int client_socket);
 };
 
