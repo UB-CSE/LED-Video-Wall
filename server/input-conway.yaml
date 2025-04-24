@@ -1,10 +1,5 @@
-#Beyond just the id, the id is also a weight to determine which images have layering priority
-
-
-#Gamma - Less than 1 -> lighter, More than 1 -> Darker
-
 settings:
-  gamma: 1.25
+  gamma: 1.00
 elements:
   "elem1":
     id: 1
@@ -30,9 +25,3 @@ elements:
     filepath: "images/conway_pulsar.mp4"
     framerate: 1
     location: [32, 32]
-  "elem5":
-    id: 5
-    type: "video"
-    filepath: "images/cat64.mp4"
-    framerate: 30
-    location: [0, 0]

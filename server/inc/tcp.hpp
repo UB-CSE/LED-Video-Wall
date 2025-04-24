@@ -14,6 +14,7 @@
 #include <vector>
 #include <set>
 #include <thread>
+#include "canvas.h"
 #include "client.hpp"
 #include "protocol.hpp"
 
@@ -55,7 +56,7 @@ public:
 
     void set_leds(const Client* c,
                   int client_socket,
-                  const cv::Mat &cvmat,
+                  VirtualCanvas canvas,
                   LEDMatrix* ledmat,
                   uint8_t pin,
                   uint8_t bit_depth);

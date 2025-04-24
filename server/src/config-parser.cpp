@@ -1,3 +1,4 @@
+#include "config-parser.hpp"
 #include "client.hpp"
 #include <cstdint>
 #include <optional>
@@ -13,6 +14,20 @@
 #include <regex>
 #include <opencv2/opencv.hpp>
 #include <limits>
+
+ServerConfig::ServerConfig()
+    : clients(),
+      canvas_size(),
+      ns_per_frame()
+{}
+
+ServerConfig::ServerConfig(std::vector<Client*> clients,
+                           cv::Size canvas_size,
+                           int64_t ns_per_frame)
+    : clients(clients),
+      canvas_size(canvas_size),
+      ns_per_frame(ns_per_frame)
+{}
 
 std::string parse_error(std::string error) {
     return "Parse Error: " + error;
@@ -245,14 +260,22 @@ parse_clients(YAML::Node ynode_clients, std::map<std::string, LEDMatrix*> matric
     return clients;
 }
 
-std::pair<std::vector<Client *>, cv::Size>
-parse_config_throws(std::string file) {
+ServerConfig parse_config_throws(std::string file) {
     YAML::Node config = YAML::LoadFile(file);
 
     YAML::Node ynode_clients = yaml_key_present_and_unique(config, "clients");
     YAML::Node ynode_matrices = yaml_key_present_and_unique(config, "matrices");
     YAML::Node ynode_matrix_specs = yaml_key_present_and_unique(config, "matrix-specs");
     YAML::Node ynode_ignore_bounds_checks = config["ignore-bounds-checks"];
+    YAML::Node ynode_ns_per_frame = yaml_key_present_and_unique(config, "ns-per-frame");
+
+    // Parse ns per frame
+    int64_t ns_per_frame = ynode_ns_per_frame.as<int64_t>();
+    if (ns_per_frame <= 0) {
+        throw YAML::RepresentationException(ynode_ns_per_frame.Mark(),
+                                            "'ns-per-frame' must be non-zero and positive!");
+    }
+
 
     // Parse Matrix Specifications
     std::map<std::string, LEDMatrixSpec*> matrix_specs =
@@ -272,5 +295,5 @@ parse_config_throws(std::string file) {
     std::vector<Client*> clients =
         parse_clients(ynode_clients, matrices.first);
 
-    return std::make_pair(clients, matrices.second);
+    return ServerConfig(clients, matrices.second, ns_per_frame);
 }

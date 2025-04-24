@@ -1,0 +1,9 @@
+settings:
+  gamma: 2.0
+elements:
+  "elem1":
+    id: 1
+    type: "video"
+    filepath: "images/alan/alan_video_64x64.mp4"
+    framerate: 10
+    location: [0,0]

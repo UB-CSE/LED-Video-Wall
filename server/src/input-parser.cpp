@@ -1,44 +1,61 @@
 // clang-format off
+#include "input-parser.hpp"
 #include "canvas.h"
-#include "text-render.hpp"
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 #include <string>
 #include <optional>
 #include <vector>
+#include <tuple>
 
 // forward declarations
 cv::Scalar hexColorToScalar(const std::string &hexColor);
 
-/*
-New output format: Map
-
-images -> element vector vector : std::vector<std::vector<Element>>
-carousel -> element vector vector : std::vector<std::vector<Element>>
-videos -> element vector vector : std::vector<std::vector<Element>>
-
-*/
 
 
-std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::string inputFile) {
 
+void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
 
-    std::map <std::string, std::vector<std::vector<Element>>> elementPayload;
-    std::vector<std::vector<Element>> imageArray, carouselArray;
-
-    elementPayload.insert({"images", imageArray});
-    elementPayload.insert({"carousel", carouselArray});
-
-    try { //Check if there are elements at all
+    try {
         YAML::Node config = YAML::LoadFile(inputFile);
         YAML::Node elements = config["elements"];
+        
+        /*
+        =======================================================================
+                        LUT calculations for gamma application.
+        =======================================================================
+
+        Specifically, this precomputes the lookup table for the given gamma 
+        value so that we don't need to do compute per pixel per image
+
+   
+        */
+
+        cv::Mat lut(1, 256, CV_8UC1);
+        double gamma = config["settings"]["gamma"].as<double>();
+
+        if(gamma < 0){
+            throw std::invalid_argument("Bad gamma value given");
+        }
+
+        uchar* lutPtr = lut.ptr();
+        for (int i = 0; i < 256; ++i) {
+            lutPtr[i] = cv::saturate_cast<uchar>(pow(i / 255.0, gamma) * 255.0);
+        }
+        vCanvas.canvasLut = lut;
+
+
+
+        /*
+        =======================================================================
+                                Element processing
+        =======================================================================
+        */
 
         if (!elements) {
             std::cerr << "No elements found in config." << std::endl;
-            return elementPayload;
+            throw std::invalid_argument("Empty Config!");
         }
-
-        //Begin parsing of the elements
 
         for (YAML::const_iterator it = elements.begin(); it != elements.end(); ++it) {
             std::string key = it->first.as<std::string>();
@@ -47,119 +64,123 @@ std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::
             std::string type = value["type"].as<std::string>();
             int id = value["id"].as<int>();
 
-            // IMAGE TYPE
+            /*
+
+            Image Types
+            
+            */
+
             if (type == "image") {
-                //Ensuring required data is all present for adding to the canvas
                 if (!value["filepath"] || !value["location"]) {
                     std::cerr << "Missing filepath or location for element: " << key << std::endl;
-                    abort();
+     
                 }
 
                 std::string filepath = value["filepath"].as<std::string>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
 
-                //Checks to ensure location vector is of the expected form + init openCV point
-                if ((locVec.size() != 2) || (locVec.at(0) < 0) || (locVec.at(1) < 0)) {
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0) {
                     std::cerr << "Location for element " << key << " malformed." << std::endl;
-                    abort();
+
                 }
-                cv::Point loc(locVec.at(0), locVec.at(1));
 
-                //ELEMENT CREATION HERE
-                Element elem(filepath, id, loc);
+                cv::Point loc(locVec[0], locVec[1]);
 
+                /*
+                ELEMENT CONSTRUCTION HERE
+                
+                */
+                Element * elem = new ImageElement(filepath, id, loc, -1); //Remember to "delete elem" afterwards
 
-                //Payload is images -> vec of elements. We wrap individual elements in a vec and push it tp the vector.
-                std::vector<Element> wrappedElem = {elem};
-                elementPayload["images"].push_back(wrappedElem);
+                vCanvas.addElementToCanvas(elem);
             }
 
+            /*
+            
+            Carousel Types
+            
+            */
 
-            //CAROUSEL
-            else if(type == "carousel"){
+            else if (type == "carousel") {
+                if (!value["filepaths"] || !value["location"] || !value["framerate"]) {
+                    std::cerr << "Missing filepaths, framerate, or location for element: " << key << std::endl;
 
-
-                //Ensuring required data is all present for adding to the canvas
-                if (!value["filepaths"] || !value["location"]) {
-                    std::cerr << "Missing filepaths or location for element: " << key << std::endl;
-                    abort();
                 }
 
+                int frameRate = value["framerate"].as<int>();
                 std::vector<std::string> filepaths = value["filepaths"].as<std::vector<std::string>>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
+                cv::Point loc(locVec[0], locVec[1]);
 
-                //Checks to ensure location vector is of the expected form + init openCV point
-                if ((locVec.size() != 2) || (locVec.at(0) < 0) || (locVec.at(1) < 0)) {
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0) {
                     std::cerr << "Location for element " << key << " malformed." << std::endl;
-                    abort();
-                }
-                cv::Point loc(locVec.at(0), locVec.at(1));
 
-                //Create an element for every filepath in the vector and contain them in a vector
-                std::vector<Element> carouselArray;
-                for(const auto& path : filepaths){
-                    Element elem(path, id, loc);
-                    carouselArray.push_back(elem);
                 }
 
-                elementPayload["carousel"].push_back(carouselArray);
+                
+
+                Element * elem = new CarouselElement(filepaths, id, loc, frameRate);
+                vCanvas.addElementToCanvas(elem);
+            }
+
+            /*
+            Video
+            */
+            else if (type == "video") {
+                if (!value["filepath"] || !value["location"] || !value["framerate"]) {
+                    std::cerr << "Missing filepath or location for element: " << key << std::endl;
+    
+                }
+
+                int frameRate = value["framerate"].as<int>();
+                std::string filepath = value["filepath"].as<std::string>();
+                std::vector<int> locVec = value["location"].as<std::vector<int>>();
+
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0) {
+                    std::cerr << "Location for element " << key << " malformed." << std::endl;
+        
+                }
+
+                cv::Point loc(locVec[0], locVec[1]);
+
+                Element * elem = new VideoElement(filepath, id, loc, frameRate);
+
+                vCanvas.addElementToCanvas(elem);
 
             }
-            // TEXT TYPE
-            else if (type == "text") {
-                // check for necessary values
-                if (!value["content"] || !value["font_path"] || !value["location"] || !value["color"] || !value["size"]) 
-                {
-                  std::cerr << "Missing required values for element: " << key << std::endl;
-                  abort();
+            /*
+            Webcam
+            */
+            else if (type == "webcam") {
+                if (!value["camera-number"] || !value["location"] || !value["framerate"]) {
+                    std::cerr << "Missing filepath or location for element: " << key << std::endl;
+    
                 }
-                std::string filepath = value["font_path"].as<std::string>();
-                std::string content = value["content"].as<std::string>();
-                
-                int fontSize = value["size"].as<int>();
-                
-                // parse hex color to cv::Scalar
-                std::string hexColor = value["color"].as<std::string>();
-                cv::Scalar fontColor = hexColorToScalar(hexColor);
-                
-                // convert location from same format to cv::Point as used by renderTextToElement
-                std::vector<int> locVec = value["location"].as<std::vector<int>>();
-                if ((locVec.size() != 2) || (locVec.at(0) < 0) || (locVec.at(1) < 0)) {
-                  std::cerr << "Location for element " << key << " malformed." << std::endl;
-                  abort();
-                }
-                cv::Point posPoint(locVec.at(0), locVec.at(1));
-                
-                std::optional<Element> newElement = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint); 
 
-                if (!newElement.has_value()) {
-                  std::cerr << "Error parsing config: text failed to render, is the TTF file path correct?" << std::endl;
-                  abort();
+                int frameRate = value["framerate"].as<int>();
+                int webcamNum = value["camera-number"].as<int>();
+                std::vector<int> locVec = value["location"].as<std::vector<int>>();
+
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0) {
+                    std::cerr << "Location for element " << key << " malformed." << std::endl;
+        
                 }
-                std::vector<Element> wrappedElem = {newElement.value()};
-                elementPayload["images"].push_back(wrappedElem);
+
+                cv::Point loc(locVec[0], locVec[1]);
+
+                Element * elem = new VideoElement(webcamNum, id, loc, frameRate);
+
+                vCanvas.addElementToCanvas(elem);
+
             }
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
             }
         }
+
     } catch (const YAML::Exception& e) {
         std::cerr << "Error parsing config: " << e.what() << std::endl;
-        abort();
+
     }
-
-    return elementPayload;
 }
- 
-cv::Scalar hexColorToScalar(const std::string &hexColor) {
-  if (hexColor.length() != 7 || hexColor[0] != '#') {
-    // invalid, we'll just return black and warn (thanks nick).
-    std::cerr << "Error parsing config: Hex color \"" << hexColor << "\" invalid." << std::endl;
-    return cv::Scalar(0, 0, 0);
-  }
 
-  int r, g, b;
-  sscanf(hexColor.c_str(), "#%02x%02x%02x", &r, &g, &b);
-
-  return cv::Scalar(b, g, r);
-}

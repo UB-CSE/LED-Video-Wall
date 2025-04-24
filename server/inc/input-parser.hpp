@@ -2,9 +2,14 @@
 #define INPUT_PARSER_HPP
 
 #include <string>
-#include <unordered_map>
-#include "canvas.h"
+#include <tuple>
+#include <vector>
+#include <map>
+#include <opencv2/opencv.hpp>
 
-std::map <std::string, std::vector<std::vector<Element>>> parseInput(const std::string inputFile);
+class Element;
+class VirtualCanvas;
+
+void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile);
 
 #endif
