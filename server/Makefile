@@ -1,11 +1,14 @@
 # Config File Locations
 SRC_DIRS := src ../protocol/src
-INC_DIRS := inc ../protocol/src
+INC_DIRS := inc inc_dummy ../protocol/src
+VPATH+=$(SRC_DIRS)
+VPATH+=$(INC_DIRS)
 OBJ_DIR   := obj
 
 # Source and object files
 SRCS := $(shell find $(SRC_DIRS) -name '*.cpp')
-OBJS := $(foreach src, $(SRCS), $(OBJ_DIR)/$(src).o)
+INCS := $(shell find $(INC_DIRS) -name '*.hpp')
+OBJS := $(foreach src, $(SRCS), $(OBJ_DIR)/$(notdir $(src).o))
 LOCAL_INC_DIRS := $(shell find $(INC_DIRS) -type d)
 
 CXX := g++
@@ -20,9 +23,10 @@ INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
 LDFLAGS = `pkg-config --libs opencv4` \
 	`pkg-config --libs yaml-cpp`
 
+.PHONY: all
 all: led-wall-server
 
-led-wall-server: $(OBJS)
+led-wall-server: $(OBJS) $(INCS)
 	$(CXX) $^ -o $@ $(INCFLAGS) $(LDFLAGS)
 
 $(OBJ_DIR)/%.cpp.o: %.cpp | $(OBJ_DIR)
@@ -32,5 +36,6 @@ $(OBJ_DIR)/%.cpp.o: %.cpp | $(OBJ_DIR)
 $(OBJ_DIR):
 	mkdir -p $(OBJ_DIR)
 
+.PHONY: clean
 clean:
 	rm -rf $(OBJ_DIR)
