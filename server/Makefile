@@ -26,10 +26,10 @@ LDFLAGS = `pkg-config --libs opencv4` \
 .PHONY: all
 all: led-wall-server
 
-led-wall-server: $(OBJS) $(INCS)
+led-wall-server: $(OBJS)
 	$(CXX) $^ -o $@ $(INCFLAGS) $(LDFLAGS)
 
-$(OBJ_DIR)/%.cpp.o: %.cpp | $(OBJ_DIR)
+$(OBJ_DIR)/%.cpp.o: %.cpp $(INCS) | $(OBJ_DIR)
 	mkdir -p $(dir $@)
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(INCFLAGS) -c $< -o $@
 
