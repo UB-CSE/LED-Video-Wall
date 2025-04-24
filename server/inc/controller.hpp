@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_HPP
 #define CONTROLLER_HPP
 
-#include "canvas.h"
+#include "canvas.hpp"
 #include "client.hpp"
 #include "tcp.hpp"
 #include <chrono>

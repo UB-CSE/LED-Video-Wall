@@ -1,5 +1,5 @@
 #include "tcp.hpp"
-#include "canvas.h"
+#include "canvas.hpp"
 #include "client.hpp"
 #include <cstdint>
 #include <cstdio>

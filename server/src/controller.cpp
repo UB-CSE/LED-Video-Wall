@@ -1,6 +1,6 @@
 #include "controller.hpp"
 #include "tcp.hpp"
-#include "canvas.h"
+#include "canvas.hpp"
 #include <cmath>
 #include <cstdint>
 #include <ctime>

@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <sys/select.h>
 #include <string>
-#include "canvas.h"
+#include "canvas.hpp"
 #include "command.hpp"
 
 /*

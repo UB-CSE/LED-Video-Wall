@@ -14,7 +14,7 @@
 #include <vector>
 #include <set>
 #include <thread>
-#include "canvas.h"
+#include "canvas.hpp"
 #include "client.hpp"
 #include "protocol.hpp"
 
