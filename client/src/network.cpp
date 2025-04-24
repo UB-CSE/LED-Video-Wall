@@ -87,9 +87,7 @@ int checkin(int *out_sockfd) {
       continue;
     }
 
-    struct timeval tv {
-      RECV_TIMEOUT_SEC, 0
-    };
+    struct timeval tv{RECV_TIMEOUT_SEC, 0};
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
       ESP_LOGE(TAG, "Failed to set socket recv timeout");
       return -1;
@@ -158,7 +156,7 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   // constraints given from a call to set_config, otherwise we'd expect this to
   // resize rather significantly on the first call to set_leds.
   if (message_size > *buffer_size) {
-    uint8_t *new_buffer = (uint8_t *)realloc(buffer, message_size);
+    uint8_t *new_buffer = (uint8_t *)realloc(*buffer, message_size);
     if (new_buffer) {
       *buffer = new_buffer;
       *buffer_size = message_size;

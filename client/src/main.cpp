@@ -1,10 +1,8 @@
 #include "esp_log.h"
-#include "esp_log_level.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "nvs_flash.h"
 
-#include <errno.h>
 #include <netdb.h>
 #include <stdint.h>
 #include <stdlib.h>
