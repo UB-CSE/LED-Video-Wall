@@ -1,5 +1,5 @@
 #include "tcp.hpp"
-#include "canvas.h"
+#include "canvas.hpp"
 #include "client.hpp"
 #include <cstdint>
 #include <cstdio>
@@ -40,11 +40,11 @@ void handle_conns(int socket, LEDTCPServer* server) {
         int flags = fcntl(client_socket, F_GETFL, 0);
         if (flags == -1) {
             close(client_socket);
-            break;
+            continue;
         }
         if (fcntl(client_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
             close(client_socket);
-            break;
+            continue;
         }
         CheckInMessage msg;
         MessageHeader* header = &msg.header;
@@ -52,7 +52,7 @@ void handle_conns(int socket, LEDTCPServer* server) {
         if (msg.header.op_code != OP_CHECK_IN || msg.header.size != sizeof(CheckInMessage)) {
             std::cerr << "Expected check-in message, got invalid op-code or message size.\n";
             close(client_socket);
-            break;
+            continue;
         }
         server->tcp_recv(client_socket,
                          &(msg.mac_address),
@@ -95,7 +95,7 @@ void handle_conns(int socket, LEDTCPServer* server) {
             }
             const PinInfo* inf = pin_info.data();
             uint32_t out_size;
-            uint8_t* msg = encode_set_config(3, 10, num_pins, inf, &out_size);
+            uint8_t* msg = encode_set_config(3, num_pins, inf, &out_size);
             struct pollfd pfd = {client_socket, POLLOUT, -1};
             poll(&pfd, 1, -1);
             send(client_socket, msg, out_size, 0);
@@ -295,7 +295,7 @@ void LEDTCPServer::set_leds(const Client* c, int client_socket, VirtualCanvas ca
 
     uint32_t array_size = ledmat->packed_pixel_array_size;
     uint32_t msg_size;
-    SetLedsMessage* msg_buf = encode_fixed_set_leds(pin, bit_depth, array_size, &msg_size);
+    SetLedsMessage* msg_buf = encode_fixed_set_leds(pin, array_size, &msg_size);
     uint8_t* pixel_buf = &(msg_buf->pixel_data[0]);
     const uint8_t* data = sub_cvmat.data;
     const int brightness_reduction = 10;
@@ -314,6 +314,13 @@ void LEDTCPServer::set_leds(const Client* c, int client_socket, VirtualCanvas ca
         }
     }
     // uint32_t msg_size = ledmat->packed_pixel_array_size;
+    this->tcp_send(c, client_socket, msg_buf, msg_size);
+    free_message_buffer(msg_buf);
+}
+
+void LEDTCPServer::redraw(const Client* c, int client_socket) {
+    uint32_t msg_size;
+    uint8_t* msg_buf = encode_redraw(&msg_size);
     this->tcp_send(c, client_socket, msg_buf, msg_size);
     free_message_buffer(msg_buf);
 }

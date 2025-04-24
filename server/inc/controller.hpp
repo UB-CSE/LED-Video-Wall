@@ -1,7 +1,7 @@
 #ifndef CONTROLLER_HPP
 #define CONTROLLER_HPP
 
-#include "canvas.h"
+#include "canvas.hpp"
 #include "client.hpp"
 #include "tcp.hpp"
 #include <chrono>
@@ -55,6 +55,7 @@ public:
 
     void frame_exec(bool debug);
     void set_leds_all();
+    void redraw_all();
 
 private:
     void frame_wait();

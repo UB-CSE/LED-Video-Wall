@@ -13,7 +13,7 @@
 #include "client.hpp"
 #include "config-parser.hpp"
 #include <vector>
-#include "canvas.h"
+#include "canvas.hpp"
 #include "input-parser.hpp"
 #include <opencv2/opencv.hpp>
 #include "controller.hpp"

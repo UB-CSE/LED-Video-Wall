@@ -1,6 +1,6 @@
 // clang-format off
 #include "input-parser.hpp"
-#include "canvas.h"
+#include "canvas.hpp"
 #include <iostream>
 #include <yaml-cpp/yaml.h>
 #include <string>
