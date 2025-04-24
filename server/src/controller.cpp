@@ -128,8 +128,6 @@ void Controller::redraw_all() {
     std::vector<std::pair<const Client*, int>> conns;
     this->client_conn_info->getAllConnected(conns);
     for (auto it : conns) {
-        for (MatricesConnection conn : it.first->mat_connections) {
-            this->tcp_server.redraw(it.first, it.second);
-        }
+        this->tcp_server.redraw(it.first, it.second);
     }
 }
