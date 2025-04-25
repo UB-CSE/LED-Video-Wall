@@ -1,0 +1,9 @@
+settings:
+  gamma: 2.0
+elements:
+  "elem1":
+    id: 1
+    type: "webcam"
+    camera-number: 2
+    framerate: 10
+    location: [0, 0]
