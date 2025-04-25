@@ -40,6 +40,38 @@ uint8_t *encode_set_leds(uint8_t gpio_pin, const uint8_t *pixel_data,
   return buffer;
 }
 
+uint8_t *encode_set_leds_batched(uint8_t batch_count, const LedsBatch *batches,
+                                 uint32_t *out_size) {
+  uint32_t payload = 0;
+  for (uint8_t i = 0; i < batch_count; ++i) {
+    payload += sizeof(LedsBatchEntryHeader) + batches[i].num_leds * 3;
+  }
+
+  *out_size = sizeof(MessageHeader) + 1 + payload;
+  uint8_t *buf = allocate_message_buffer(*out_size);
+  if (!buf)
+    return NULL;
+
+  MessageHeader *mh = (MessageHeader *)buf;
+  mh->size = *out_size;
+  mh->op_code = OP_SET_LEDS_BATCHED;
+
+  uint8_t *p = buf + sizeof(MessageHeader);
+  *p++ = batch_count;
+
+  for (uint8_t i = 0; i < batch_count; ++i) {
+    const LedsBatch *b = &batches[i];
+    LedsBatchEntryHeader *eh = (LedsBatchEntryHeader *)p;
+    eh->gpio_pin = b->gpio_pin;
+    eh->num_leds = b->num_leds;
+    p += sizeof(*eh);
+    memcpy(p, b->pixel_data, b->num_leds * 3);
+    p += b->num_leds * 3;
+  }
+
+  return buf;
+}
+
 // Like encode_set_leds, but doesn't copy the pixel data for you; that is, only
 // the fixed size parts of the message are set.
 SetLedsMessage *encode_fixed_set_leds(uint8_t gpio_pin, uint32_t data_size,
@@ -150,6 +182,15 @@ SetLedsMessage *decode_set_leds(const uint8_t *buffer) {
     return NULL;
 
   return (SetLedsMessage *)buffer;
+}
+
+SetLedsBatchedMessage *decode_set_leds_batched(const uint8_t *buffer) {
+  if (!buffer)
+    return NULL;
+  uint32_t sz = get_message_size(buffer);
+  if (sz < sizeof(MessageHeader) + 1)
+    return NULL;
+  return (SetLedsBatchedMessage *)buffer;
 }
 
 GetLogsMessage *decode_get_logs(const uint8_t *buffer) {
