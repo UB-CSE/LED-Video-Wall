@@ -1,3 +1,4 @@
+#include "commands/redraw.hpp"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -14,6 +15,18 @@
 
 static const char *TAG = "Main";
 
+void blocking_checkin(int *sockfd) {
+  while (true) {
+    if (checkin(sockfd) != 0) {
+      ESP_LOGE(TAG, "Check-in failed");
+    } else {
+      break;
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+}
+
 extern "C" void app_main(void) {
   init_buffered_log();
 
@@ -26,11 +39,10 @@ extern "C" void app_main(void) {
   ESP_ERROR_CHECK(ret);
 
   init_wifi();
+  init_redraw();
 
   int sockfd;
-  if (checkin(&sockfd) != 0) {
-    ESP_LOGE(TAG, "Check-in failed");
-  }
+  blocking_checkin(&sockfd);
 
   // The buffer is allocated and resized in parse_tcp_message automatically.
   uint32_t buffer_size = 0;
@@ -42,10 +54,15 @@ extern "C" void app_main(void) {
 
       vTaskDelay(pdMS_TO_TICKS(CHECK_IN_DELAY_MS));
 
-      if (checkin(&sockfd) < 0) {
-        ESP_LOGE(TAG, "Check-in failed");
-      }
+      blocking_checkin(&sockfd);
     }
+
+    // unsigned long pending = 0;
+    // if (ioctl(sockfd, FIONREAD, &pending) == 0) {
+    //   printf("TCP RX buffer has %lu bytes pending\n", pending);
+    // } else {
+    //   perror("ioctl(FIONREAD)");
+    // }
 
     // To prevent the task watchdog timer.
     vTaskDelay(pdMS_TO_TICKS(10));

@@ -9,6 +9,7 @@
 static const char *TAG = "SetConfig";
 
 std::map<uint8_t, led_strip_handle_t> pin_to_handle;
+SemaphoreHandle_t pin_to_handle_mutex = xSemaphoreCreateMutex();
 
 void clear_led_strips() {
   for (auto &entry : pin_to_handle) {
@@ -25,12 +26,14 @@ int set_config(SetConfigMessage *msg) {
     return -1;
   }
 
+  xSemaphoreTake(pin_to_handle_mutex, portMAX_DELAY);
   clear_led_strips();
 
   uint8_t num_pins = msg->pins_used;
 
   if (num_pins == 0) {
     ESP_LOGE(TAG, "num_pins cannot be zero");
+    xSemaphoreGive(pin_to_handle_mutex);
     return -1;
   }
 
@@ -58,10 +61,14 @@ int set_config(SetConfigMessage *msg) {
 
     // TODO: check if dma is supported
     led_strip_rmt_config_t rmt_config = {
-        .clk_src = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz = 10 * 1000 * 1000,
+        .clk_src = RMT_CLK_SRC_APB,
+        .resolution_hz = 80 * 1000 * 1000,
+        // TODO: assuming 4 matrices on esp32
+        .mem_block_symbols = 128,
         // TODO: read more on rmt vs spi and also dma here:
-        // https://components.espressif.com/components/espressif/led_strip/versions/3.0.0
+        //
+        // https : //
+        // components.espressif.com/components/espressif/led_strip/versions/3.0.0
         .flags = {.with_dma = false},
     };
 
@@ -72,6 +79,7 @@ int set_config(SetConfigMessage *msg) {
       ESP_LOGE(TAG, "Failed to create LED strip for pin %u",
                (unsigned int)gpio_pin);
       clear_led_strips();
+      xSemaphoreGive(pin_to_handle_mutex);
       return -1;
     }
 
@@ -80,6 +88,8 @@ int set_config(SetConfigMessage *msg) {
   }
 
   ESP_LOGI(TAG, "Configuration updated");
+
+  xSemaphoreGive(pin_to_handle_mutex);
 
   return 0;
 }

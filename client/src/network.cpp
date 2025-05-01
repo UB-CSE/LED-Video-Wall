@@ -52,6 +52,10 @@ int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
     } else if (bytes_read == 0) {
       ESP_LOGW(TAG, "Socket disconnected");
       return -1;
+    } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      ESP_LOGW(TAG, "Error reading socket: %d; retrying", errno);
+      vTaskDelay(pdMS_TO_TICKS(10));
+      continue;
     } else {
       ESP_LOGW(TAG, "Error reading socket: %d", errno);
       return -1;
@@ -87,7 +91,12 @@ int checkin(int *out_sockfd) {
       continue;
     }
 
-    struct timeval tv{RECV_TIMEOUT_SEC, 0};
+    // TODO: if the server ever restarts or anything, it will take
+    // RECV_TIMEOUT_SEC to timeout a read and reconnect. This isn't ideal, we
+    // should instead use select/polling in the main loop
+    struct timeval tv {
+      RECV_TIMEOUT_SEC, 0
+    };
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
       ESP_LOGE(TAG, "Failed to set socket recv timeout");
       return -1;
@@ -114,15 +123,15 @@ int checkin(int *out_sockfd) {
   uint8_t mac[6];
   ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
 
-  uint32_t msg_size = 0;
-  uint8_t *buffer = encode_check_in(mac, &msg_size);
+  uint32_t message_size = 0;
+  uint8_t *buffer = encode_check_in(mac, &message_size);
   if (!buffer) {
     ESP_LOGW(TAG, "Failed to encode check-in message");
     close(sockfd);
     return -1;
   }
 
-  ssize_t written = send(sockfd, buffer, msg_size, 0);
+  ssize_t written = send(sockfd, buffer, message_size, 0);
   free_message_buffer(buffer);
 
   if (written < 0) {
@@ -139,7 +148,7 @@ int checkin(int *out_sockfd) {
 
 int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   uint8_t size_buffer[sizeof(uint32_t)];
-  if (read_exact(sockfd, *buffer, sizeof(size_buffer)) != 0) {
+  if (read_exact(sockfd, size_buffer, sizeof(size_buffer)) != 0) {
     return -1;
   }
 
@@ -147,6 +156,15 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
 
   ESP_LOGD(TAG, "Message size from header: %u bytes",
            (unsigned int)message_size);
+  if (message_size == 0) {
+    ESP_LOGE(TAG, "msg size of 0");
+    // close(sockfd);
+    return 0;
+  } else if (message_size > 10000) {
+    ESP_LOGE(TAG, "msg is way too big");
+    close(sockfd);
+    return -1;
+  }
 
   // The buffer is resized to the maximum size message we can possibly
   // receive. Since we expect to receive that same size message multiple times,
@@ -191,6 +209,24 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
     }
     break;
   }
+  case OP_SET_LEDS_BATCHED: {
+    // int64_t time_us = esp_timer_get_time();
+
+    // // Convert to seconds
+    // double time_s = time_us / 1000000.0;
+
+    // ESP_LOGI("TIME_SINCE_BOOT", "Time since boot: %.6f seconds", time_s);
+
+    // int64_t t_start = esp_timer_get_time();
+    if (set_leds_batched(decode_set_leds_batched(*buffer)) != 0) {
+      return -1;
+    }
+
+    // int64_t t_end = esp_timer_get_time();
+    // int64_t elapsed_us = t_end - t_start;
+    // ESP_LOGI(TAG, "set_leds_batched completed in %lld µs", elapsed_us);
+    break;
+  }
   case OP_GET_LOGS: {
     if (get_logs(decode_get_logs(*buffer), sockfd) != 0) {
       return -1;
@@ -198,9 +234,21 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
     break;
   }
   case OP_REDRAW: {
+
+    // int64_t time_us = esp_timer_get_time();
+
+    // // Convert to seconds
+    // double time_s = time_us / 1000000.0;
+
+    // ESP_LOGI("TIME_SINCE_BOOT", "Time since boot: %.6f seconds", time_s);
+
+    // int64_t t_start = esp_timer_get_time();
     if (redraw(decode_redraw(*buffer)) != 0) {
       return -1;
     }
+    // int64_t t_end = esp_timer_get_time();
+    // int64_t elapsed_us = t_end - t_start;
+    // ESP_LOGI(TAG, "redraw completed in %lld µs", elapsed_us);
     break;
   }
   case OP_SET_CONFIG: {
