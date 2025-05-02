@@ -44,7 +44,7 @@ static const char *TAG = "Network";
 int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
   uint32_t total = 0;
   while (total < len) {
-    ssize_t bytes_read = recv(sockfd, buffer + total, len - total, 0);
+    ssize_t bytes_read = recv(sockfd, buffer + total, len - total, MSG_WAITALL);
     if (bytes_read > 0) {
       total += bytes_read;
       ESP_LOGD(TAG, "Read %d bytes, total read: %u/%u bytes", bytes_read,
@@ -54,7 +54,7 @@ int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
       return -1;
     } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
       ESP_LOGW(TAG, "Error reading socket: %d; retrying", errno);
-      vTaskDelay(pdMS_TO_TICKS(10));
+      vTaskDelay(1 / portTICK_PERIOD_MS);
       continue;
     } else {
       ESP_LOGW(TAG, "Error reading socket: %d", errno);
@@ -159,10 +159,10 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   if (message_size == 0) {
     ESP_LOGE(TAG, "msg size of 0");
     // close(sockfd);
-    return 0;
+    return -1;
   } else if (message_size > 10000) {
     ESP_LOGE(TAG, "msg is way too big");
-    close(sockfd);
+    // close(sockfd);
     return -1;
   }
 
@@ -186,7 +186,7 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
       // may start reading in the middle of a message, resulting in undefined
       // behavior. Thus, we close the socket and return, allowing the client to
       // reconnect and resume later.
-      close(sockfd);
+      // close(sockfd);
 
       return -1;
     }

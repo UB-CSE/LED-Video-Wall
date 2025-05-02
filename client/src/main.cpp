@@ -23,7 +23,7 @@ void blocking_checkin(int *sockfd) {
       break;
     }
 
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(1 / portTICK_PERIOD_MS);
   }
 }
 
@@ -50,6 +50,7 @@ extern "C" void app_main(void) {
 
   while (true) {
     if (parse_tcp_message(sockfd, &buffer, &buffer_size) < 0) {
+      close(sockfd);
       ESP_LOGI(TAG, "Reconnecting to server...");
 
       vTaskDelay(pdMS_TO_TICKS(CHECK_IN_DELAY_MS));
@@ -65,7 +66,7 @@ extern "C" void app_main(void) {
     // }
 
     // To prevent the task watchdog timer.
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(1 / portTICK_PERIOD_MS);
   }
 
   free(buffer);
