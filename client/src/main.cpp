@@ -11,6 +11,7 @@
 
 #include "log.hpp"
 #include "network.hpp"
+#include "ota.hpp"
 #include "wifi.hpp"
 
 static const char *TAG = "Main";
@@ -40,6 +41,9 @@ extern "C" void app_main(void) {
 
   init_wifi();
   init_redraw();
+
+  // Create task for OTA updates
+  start_ota_checker();
 
   int sockfd;
   blocking_checkin(&sockfd);
