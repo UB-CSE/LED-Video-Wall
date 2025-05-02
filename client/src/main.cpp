@@ -42,8 +42,8 @@ extern "C" void app_main(void) {
   init_wifi();
   init_redraw();
 
-  // Create task for OTA updates
-  start_ota_checker();
+  // Create task for OTA updates (currently disabled)
+  // start_ota_checker();
 
   int sockfd;
   blocking_checkin(&sockfd);
