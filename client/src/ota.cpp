@@ -56,11 +56,11 @@ static esp_err_t http_download(const char *url, char *buf, size_t buf_sz,
   }
 }
 
-static esp_err_t ota_fail(esp_ota_handle_t h,
+static esp_err_t ota_fail(esp_ota_handle_t handle,
                           esp_http_client_handle_t http_client) {
   esp_http_client_close(http_client);
   esp_http_client_cleanup(http_client);
-  esp_ota_abort(h);
+  esp_ota_abort(handle);
   return ESP_FAIL;
 }
 
