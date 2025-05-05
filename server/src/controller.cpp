@@ -1,6 +1,6 @@
 #include "controller.hpp"
 #include "tcp.hpp"
-#include "canvas.h"
+#include "canvas.hpp"
 #include <cmath>
 #include <cstdint>
 #include <ctime>
@@ -85,7 +85,7 @@ void Controller::frame_wait() {
 }
 
 void Controller::frame_exec(bool debug) {
-    // Todo: send redraw command to all clients.
+    this->redraw_all();
 
     frame_wait();
     auto cur_time = std::chrono::system_clock::now();
@@ -110,16 +110,14 @@ void Controller::set_leds_all() {
     std::vector<std::pair<const Client*, int>> conns;
     this->client_conn_info->getAllConnected(conns);
     for (auto it : conns) {
-        for (MatricesConnection conn : it.first->mat_connections) {
-            uint8_t pin = conn.pin;
-            for (LEDMatrix* mat : conn.matrices) {
-                this->tcp_server.set_leds(it.first,
-                                          it.second,
-                                          this->canvas,
-                                          mat,
-                                          pin,
-                                          8);
-            }
-        }
+        this->tcp_server.set_leds(it.first, it.second, this->canvas);
+    }
+}
+
+void Controller::redraw_all() {
+    std::vector<std::pair<const Client*, int>> conns;
+    this->client_conn_info->getAllConnected(conns);
+    for (auto it : conns) {
+        this->tcp_server.redraw(it.first, it.second);
     }
 }

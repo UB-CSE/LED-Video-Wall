@@ -1,5 +1,5 @@
 #include "tcp.hpp"
-#include "canvas.h"
+#include "canvas.hpp"
 #include "client.hpp"
 #include <cstdint>
 #include <cstdio>
@@ -18,6 +18,7 @@
 #include <thread>
 #include <utility>
 #include <poll.h>
+#include <vector>
 #include "opencv2/core.hpp"
 #include "protocol.hpp"
 
@@ -40,11 +41,11 @@ void handle_conns(int socket, LEDTCPServer* server) {
         int flags = fcntl(client_socket, F_GETFL, 0);
         if (flags == -1) {
             close(client_socket);
-            break;
+            continue;
         }
         if (fcntl(client_socket, F_SETFL, flags | O_NONBLOCK) == -1) {
             close(client_socket);
-            break;
+            continue;
         }
         CheckInMessage msg;
         MessageHeader* header = &msg.header;
@@ -52,7 +53,7 @@ void handle_conns(int socket, LEDTCPServer* server) {
         if (msg.header.op_code != OP_CHECK_IN || msg.header.size != sizeof(CheckInMessage)) {
             std::cerr << "Expected check-in message, got invalid op-code or message size.\n";
             close(client_socket);
-            break;
+            continue;
         }
         server->tcp_recv(client_socket,
                          &(msg.mac_address),
@@ -95,7 +96,7 @@ void handle_conns(int socket, LEDTCPServer* server) {
             }
             const PinInfo* inf = pin_info.data();
             uint32_t out_size;
-            uint8_t* msg = encode_set_config(3, 10, num_pins, inf, &out_size);
+            uint8_t* msg = encode_set_config(3, num_pins, inf, &out_size);
             struct pollfd pfd = {client_socket, POLLOUT, -1};
             poll(&pfd, 1, -1);
             send(client_socket, msg, out_size, 0);
@@ -228,7 +229,7 @@ bool ClientConnInfo::isConnected(const Client *c) {
 void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
     int sent = send(socket, data, size, MSG_NOSIGNAL);
     if (sent != size) {
-        std::cout << "Error sending set_leds: " << strerror(errno) << "\n";
+        std::cout << "Error sending: " << strerror(errno) << "\n";
         if (errno == ECONNRESET) {
             auto socket_opt = this->conn_info->getSocket(c);
             if (socket_opt.has_value()) {
@@ -260,7 +261,6 @@ void LEDTCPServer::tcp_recv(int socket, void* data, int size) {
     poll(&pfd, 1, -1);
     int total = 0;
     while (total < size) {
-        std::cout << "test";
         poll(&pfd, 1, -1);
         int recved = recv(socket, (char*)data + total, size - total, 0);
         if (recved < 0) {
@@ -271,49 +271,81 @@ void LEDTCPServer::tcp_recv(int socket, void* data, int size) {
     }
 }
 
-void LEDTCPServer::set_leds(const Client* c, int client_socket, VirtualCanvas canvas, LEDMatrix* ledmat, uint8_t pin, uint8_t bit_depth) {
-    uint32_t width = ledmat->spec->width;
-    uint32_t height = ledmat->spec->height;
-    // swap width and height if rotated +/-90 degrees
-    rotation rot = ledmat->pos.rot;
-    if (rot == LEFT || rot == RIGHT) {
-        uint32_t temp = width;
-        height = width;
-        height = temp;
-    }
-    uint32_t x = ledmat->pos.x;
-    uint32_t y = ledmat->pos.y;
-
-    cv::Mat sub_cvmat = canvas.getPixelMatrix()(cv::Rect(x, y, width, height)).clone();
-    if (rot == LEFT) {
-        cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_CLOCKWISE);
-    } else if (rot == RIGHT) {
-        cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_COUNTERCLOCKWISE);
-    } else if (rot == DOWN) {
-        cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_180);
-    }
-
-    uint32_t array_size = ledmat->packed_pixel_array_size;
-    uint32_t msg_size;
-    SetLedsMessage* msg_buf = encode_fixed_set_leds(pin, bit_depth, array_size, &msg_size);
-    uint8_t* pixel_buf = &(msg_buf->pixel_data[0]);
-    const uint8_t* data = sub_cvmat.data;
-    const int brightness_reduction = 10;
-    for (uint32_t i = 0; (i < ledmat->packed_pixel_array_size / 3); ++i) {
-        uint32_t a = i * 3;
-        if ((i / width) % 2 != 0) {
-            pixel_buf[a + 2] = data[a] / brightness_reduction;
-            pixel_buf[a + 1] = data[a + 1] / brightness_reduction;
-            pixel_buf[a] = data[a + 2] / brightness_reduction;
-        } else {
-            uint32_t irem = i % width;
-            uint32_t b = (((width - 1) - irem) + (i - irem)) * 3;
-            pixel_buf[a + 2] = data[b] / brightness_reduction;
-            pixel_buf[a + 1] = data[b + 1] / brightness_reduction;
-            pixel_buf[a] = data[b + 2] / brightness_reduction;
+void LEDTCPServer::set_leds(const Client* c,
+                            int client_socket,
+                            VirtualCanvas canvas) {
+    std::vector<LedsBatch> leds_batches;
+    for (MatricesConnection conn : c->mat_connections) {
+        uint64_t total_size = 0;
+        for (LEDMatrix* mat : conn.matrices) {
+            total_size += mat->packed_pixel_array_size;
         }
+        // temp_buf is a buffer that will contain all the re-oriented/processed submatrices
+        // of each led strip for the client
+        uint8_t* temp_buf = (uint8_t*)malloc(total_size);
+        uint8_t pin = conn.pin;
+
+        // This loop processes each submatrix (corresponding to a ledstrip) one at a time.
+        // pixel_buf points to the next part of the temp_buf for the current submatrix.
+        // Note that pixel_buf is also updated at the end of each iteration of this loop.
+        uint8_t* pixel_buf = temp_buf;
+        for (LEDMatrix* ledmat : conn.matrices) {
+            uint32_t width = ledmat->spec->width;
+            uint32_t height = ledmat->spec->height;
+            // swap width and height if rotated +/-90 degrees
+            rotation rot = ledmat->pos.rot;
+            if (rot == LEFT || rot == RIGHT) {
+                uint32_t temp = width;
+                height = width;
+                height = temp;
+            }
+            uint32_t x = ledmat->pos.x;
+            uint32_t y = ledmat->pos.y;
+
+            cv::Mat sub_cvmat = canvas.getPixelMatrix()(cv::Rect(x, y, width, height)).clone();
+            if (rot == LEFT) {
+                cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_CLOCKWISE);
+            } else if (rot == RIGHT) {
+                cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_COUNTERCLOCKWISE);
+            } else if (rot == DOWN) {
+                cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_180);
+            }
+
+            const uint8_t* data = sub_cvmat.data;
+            // todo: brightness_reduction should be configurable!
+            const int brightness_reduction = 10;
+            uint32_t num_leds = ledmat->packed_pixel_array_size / 3;
+            for (uint32_t i = 0; (i < num_leds); ++i) {
+                uint32_t a = i * 3;
+                if ((i / width) % 2 != 0) {
+                    pixel_buf[a + 2] = data[a] / brightness_reduction;
+                    pixel_buf[a + 1] = data[a + 1] / brightness_reduction;
+                    pixel_buf[a] = data[a + 2] / brightness_reduction;
+                } else {
+                    uint32_t irem = i % width;
+                    uint32_t b = (((width - 1) - irem) + (i - irem)) * 3;
+                    pixel_buf[a + 2] = data[b] / brightness_reduction;
+                    pixel_buf[a + 1] = data[b + 1] / brightness_reduction;
+                    pixel_buf[a] = data[b + 2] / brightness_reduction;
+                }
+            }
+            pixel_buf += ledmat->packed_pixel_array_size;
+        }
+        uint32_t num_leds_total = total_size / 3;
+        leds_batches.push_back((LedsBatch){pin, num_leds_total, temp_buf});
     }
-    // uint32_t msg_size = ledmat->packed_pixel_array_size;
+    uint32_t msg_size;
+    uint8_t* msg_buf = encode_set_leds_batched(c->mat_connections.size(), leds_batches.data(), &msg_size);
+    this->tcp_send(c, client_socket, msg_buf, msg_size);
+    for (LedsBatch batch : leds_batches) {
+        free((void*)batch.pixel_data);
+    }
+    free_message_buffer(msg_buf);
+}
+
+void LEDTCPServer::redraw(const Client* c, int client_socket) {
+    uint32_t msg_size;
+    uint8_t* msg_buf = encode_redraw(&msg_size);
     this->tcp_send(c, client_socket, msg_buf, msg_size);
     free_message_buffer(msg_buf);
 }

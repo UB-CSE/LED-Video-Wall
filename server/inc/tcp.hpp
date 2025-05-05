@@ -14,7 +14,7 @@
 #include <vector>
 #include <set>
 #include <thread>
-#include "canvas.h"
+#include "canvas.hpp"
 #include "client.hpp"
 #include "protocol.hpp"
 
@@ -56,10 +56,8 @@ public:
 
     void set_leds(const Client* c,
                   int client_socket,
-                  VirtualCanvas canvas,
-                  LEDMatrix* ledmat,
-                  uint8_t pin,
-                  uint8_t bit_depth);
+                  VirtualCanvas canvas);
+    void redraw(const Client* c, int client_socket);
 };
 
 std::optional<LEDTCPServer> create_server(uint32_t addr,

@@ -1,11 +1,15 @@
-#include "driver/gpio.h"
+#include "esp_log.h"
 #include "led_strip.h"
-#include "protocol.hpp"
-#include "set_config.hpp"
-#include <Arduino.h>
+
 #include <map>
 
+#include "protocol.hpp"
+#include "set_config.hpp"
+
+static const char *TAG = "SetConfig";
+
 std::map<uint8_t, led_strip_handle_t> pin_to_handle;
+SemaphoreHandle_t pin_to_handle_mutex = xSemaphoreCreateMutex();
 
 void clear_led_strips() {
   for (auto &entry : pin_to_handle) {
@@ -14,22 +18,23 @@ void clear_led_strips() {
   pin_to_handle.clear();
 }
 
-void set_config(SetConfigMessage *msg) {
+int set_config(SetConfigMessage *msg) {
+  ESP_LOGI(TAG, "Handling set_config");
+
   if (msg == NULL) {
-    Serial.println("Error: Null set_config message pointer");
-    return;
+    ESP_LOGE(TAG, "Invalid set_config message (null)");
+    return -1;
   }
 
-  Serial.println("Handling set_config");
-
+  xSemaphoreTake(pin_to_handle_mutex, portMAX_DELAY);
   clear_led_strips();
 
-  // uint16_t brightness = msg->init_brightness;
   uint8_t num_pins = msg->pins_used;
 
   if (num_pins == 0) {
-    Serial.println("Error: num_pins cannot be zero");
-    return;
+    ESP_LOGE(TAG, "num_pins cannot be zero");
+    xSemaphoreGive(pin_to_handle_mutex);
+    return -1;
   }
 
   for (int i = 0; i < num_pins; i++) {
@@ -38,7 +43,7 @@ void set_config(SetConfigMessage *msg) {
     uint16_t num_leds = pinfo->max_leds;
 
     if (num_leds == 0) {
-      Serial.printf("Warning: num_leds is zero for pin %d\n", gpio_pin);
+      ESP_LOGE(TAG, "num_leds is zero for pin %u", (unsigned int)gpio_pin);
       continue;
     }
 
@@ -56,10 +61,14 @@ void set_config(SetConfigMessage *msg) {
 
     // TODO: check if dma is supported
     led_strip_rmt_config_t rmt_config = {
-        .clk_src = RMT_CLK_SRC_DEFAULT,
-        .resolution_hz = 10 * 1000 * 1000,
+        .clk_src = RMT_CLK_SRC_APB,
+        .resolution_hz = 80 * 1000 * 1000,
+        // TODO: assuming 4 matrices on esp32
+        .mem_block_symbols = 128,
         // TODO: read more on rmt vs spi and also dma here:
-        // https://components.espressif.com/components/espressif/led_strip/versions/3.0.0
+        //
+        // https : //
+        // components.espressif.com/components/espressif/led_strip/versions/3.0.0
         .flags = {.with_dma = false},
     };
 
@@ -67,14 +76,20 @@ void set_config(SetConfigMessage *msg) {
     esp_err_t ret =
         led_strip_new_rmt_device(&strip_config, &rmt_config, &strip);
     if (ret != ESP_OK) {
-      Serial.printf("Error: Failed to create LED strip for pin %d\n", gpio_pin);
+      ESP_LOGE(TAG, "Failed to create LED strip for pin %u",
+               (unsigned int)gpio_pin);
       clear_led_strips();
-      return;
+      xSemaphoreGive(pin_to_handle_mutex);
+      return -1;
     }
 
-    led_strip_clear(strip);
+    ESP_ERROR_CHECK(led_strip_clear(strip));
     pin_to_handle[gpio_pin] = strip;
   }
 
-  Serial.println("Configuration updated.");
+  ESP_LOGI(TAG, "Configuration updated");
+
+  xSemaphoreGive(pin_to_handle_mutex);
+
+  return 0;
 }
