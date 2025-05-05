@@ -290,19 +290,13 @@ void LEDTCPServer::set_leds(const Client* c,
         // Note that pixel_buf is also updated at the end of each iteration of this loop.
         uint8_t* pixel_buf = temp_buf;
         for (LEDMatrix* ledmat : conn.matrices) {
-            uint32_t width = ledmat->spec->width;
-            uint32_t height = ledmat->spec->height;
-            // swap width and height if rotated +/-90 degrees
-            rotation rot = ledmat->pos.rot;
-            if (rot == LEFT || rot == RIGHT) {
-                uint32_t temp = width;
-                height = width;
-                height = temp;
-            }
+            uint32_t width_on_canvas = ledmat->pos.width;
+            uint32_t height_on_canvas = ledmat->pos.height;
             uint32_t x = ledmat->pos.x;
             uint32_t y = ledmat->pos.y;
-
-            cv::Mat sub_cvmat = canvas.getPixelMatrix()(cv::Rect(x, y, width, height)).clone();
+            cv::Mat sub_cvmat =
+                canvas.getPixelMatrix()(cv::Rect(x, y, width_on_canvas, height_on_canvas)).clone();
+            rotation rot = ledmat->pos.rot;
             if (rot == LEFT) {
                 cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_CLOCKWISE);
             } else if (rot == RIGHT) {
@@ -315,6 +309,7 @@ void LEDTCPServer::set_leds(const Client* c,
             // todo: brightness_reduction should be configurable!
             const int brightness_reduction = 10;
             uint32_t num_leds = ledmat->packed_pixel_array_size / 3;
+            uint32_t width = ledmat->spec->width;
             for (uint32_t i = 0; (i < num_leds); ++i) {
                 uint32_t a = i * 3;
                 if ((i / width) % 2 != 0) {
