@@ -1,7 +1,7 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-#define SERVER_IP "yoshi.cse.buffalo.edu"
+#define SERVER_IP "192.168.1.123"
 #define SERVER_PORT_START 7070
 #define SERVER_PORT_END 7074
 
