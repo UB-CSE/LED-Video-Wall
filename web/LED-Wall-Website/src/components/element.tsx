@@ -15,8 +15,8 @@ function Element(props : UrlProps){
         sety(e.clientY - startY);
     }
     function handleDragStart(e : React.DragEvent){
-        setStartX(e.clientX);
-        setStartY(e.clientY);
+        setStartX(e.clientX - x);
+        setStartY(e.clientY - y);
     }
     function handleDragEnd(e : React.DragEvent){
         setx(e.clientX - startX);
@@ -24,13 +24,13 @@ function Element(props : UrlProps){
     }
     return (
         <div className="box" 
-        style={{position: 'absolute', left: x, top: y}}>
+        style={{position: 'fixed', left: x, top: y, width : `200px`, height : `200px`}}>
             <img src={props.url} 
             draggable
             onDrag={(e) => handleDrag(e)}
             onDragStart={(e) => handleDragStart(e)}
             onDragEnd={(e) => handleDragEnd(e)}
-            style={{width:props.size, height:props.size}}/>
+            style={{width: `${props.size}%`, height: `${props.size}%`}}/>
         </div>
     );
 }
