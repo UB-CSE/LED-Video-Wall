@@ -12,23 +12,36 @@ function Element(props : UrlProps){
     const [startX, setStartX] = useState(0);
     const [startY, setStartY] = useState(0);
     const element_id = useId();
+    const [count, setCount] = useState(0)
+
     function handleDrag(e : React.DragEvent){
         setx(e.clientX - startX);
         sety(e.clientY - startY);
+        if(count >= 50){
+            sendPosition()
+            setCount(0)
+        } else {
+            setCount(count + 1)
+        }
     }
     function handleDragStart(e : React.DragEvent){
         setStartX(e.clientX - x);
         setStartY(e.clientY - y);
     }
     function handleDragEnd(e : React.DragEvent){
-        setx(e.clientX - startX);
-        sety(e.clientY - startY);
+        var newX = e.clientX - startX
+        var newY = e.clientY - startY
+        setx(newX);
+        sety(newY);
+        sendPosition()
+    }
+    function sendPosition(){
         fetch('/api', {
             method: 'POST',
             body: JSON.stringify({
                 id: element_id,
-                x: e.clientX - startX,
-                y: e.clientY - startY
+                x: x,
+                y: y
             })})
     }
     return (
