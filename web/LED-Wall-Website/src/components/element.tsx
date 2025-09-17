@@ -38,10 +38,13 @@ function Element(props : UrlProps){
     function sendPosition(){
         fetch('/get_Data', {
             method: 'POST',
+            headers: {
+                "Content-Type": "application/json",
+            },
             body: JSON.stringify({
-                id: element_id,
-                x: x,
-                y: y
+                "id": element_id,
+                "x": x,
+                "y": y
             })})
     }
     return (

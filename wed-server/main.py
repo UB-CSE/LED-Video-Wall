@@ -10,7 +10,7 @@ def get_Data():
     data = request.get_json() #parses the data as JSON. JSON expected: {"x": 104, "y": 283, "id": "jpeg1"}
     x = data.get("x") 
     y = data.get("y")
-    imgId = data.get(id)
+    imgId = data.get("id")
     imageCoords[imgId] = {"x":x, "y":y} #stores coordinates coordinates given by the JSON message 
 
     if (x is None or y is None or imgId is None):
