@@ -36,7 +36,7 @@ function Element(props : UrlProps){
         sendPosition()
     }
     function sendPosition(){
-        fetch('/api', {
+        fetch('/get_Data', {
             method: 'POST',
             body: JSON.stringify({
                 id: element_id,

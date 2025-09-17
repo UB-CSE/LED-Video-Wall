@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/api": {
-        target: "http://127.0.01:5000"
+      "/get_Data": {
+        target: "http://127.0.0.1:5000"
       }
     }
   }
