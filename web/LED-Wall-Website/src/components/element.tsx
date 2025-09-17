@@ -21,6 +21,12 @@ function Element(props : UrlProps){
     function handleDragEnd(e : React.DragEvent){
         setx(e.clientX - startX);
         sety(e.clientY - startY);
+        fetch('/api', {
+            method: 'POST',
+            body: JSON.stringify({
+                x: e.clientX - startX,
+                y: e.clientY - startY
+            })})
     }
     return (
         <div className="box" 
