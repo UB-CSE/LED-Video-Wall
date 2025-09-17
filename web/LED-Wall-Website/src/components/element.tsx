@@ -1,5 +1,6 @@
 import type React from "react";
-import { useState } from "react";
+import { useState, useId} from "react";
+
 
 type UrlProps = {
     url: string;
@@ -10,6 +11,7 @@ function Element(props : UrlProps){
     const [y, sety] = useState(0);
     const [startX, setStartX] = useState(0);
     const [startY, setStartY] = useState(0);
+    const element_id = useId();
     function handleDrag(e : React.DragEvent){
         setx(e.clientX - startX);
         sety(e.clientY - startY);
@@ -24,6 +26,7 @@ function Element(props : UrlProps){
         fetch('/api', {
             method: 'POST',
             body: JSON.stringify({
+                id: element_id,
                 x: e.clientX - startX,
                 y: e.clientY - startY
             })})
