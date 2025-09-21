@@ -12,28 +12,29 @@ function Element(props : UrlProps){
     const [startX, setStartX] = useState(0);
     const [startY, setStartY] = useState(0);
     const element_id = useId();
-    const [count, setCount] = useState(0)
+    const [count, setCount] = useState(0);
 
     function handleDrag(e : React.DragEvent){
         setx(e.clientX - startX);
         sety(e.clientY - startY);
         if(count >= 50){
-            sendPosition()
-            setCount(0)
+            sendPosition();
+            setCount(0);
         } else {
-            setCount(count + 1)
+            setCount(count + 1);
         }
     }
     function handleDragStart(e : React.DragEvent){
+        e.dataTransfer.setDragImage(e.currentTarget, -1000, -1000);
         setStartX(e.clientX - x);
         setStartY(e.clientY - y);
     }
     function handleDragEnd(e : React.DragEvent){
-        var newX = e.clientX - startX
-        var newY = e.clientY - startY
+        var newX = e.clientX - startX;
+        var newY = e.clientY - startY;
         setx(newX);
         sety(newY);
-        sendPosition()
+        sendPosition();
     }
     function sendPosition(){
         fetch('/get_Data', {
@@ -55,7 +56,8 @@ function Element(props : UrlProps){
             onDrag={(e) => handleDrag(e)}
             onDragStart={(e) => handleDragStart(e)}
             onDragEnd={(e) => handleDragEnd(e)}
-            style={{width: `${props.size}%`, height: `${props.size}%`}}/>
+            style={{width: `${props.size}%`, height: `${props.size}%`}}
+            />
         </div>
     );
 }
