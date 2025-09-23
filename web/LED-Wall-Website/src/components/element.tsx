@@ -3,7 +3,9 @@ import { useState, useId} from "react";
 
 
 type UrlProps = {
-    url: string;
+    type: string;
+    path: string;
+    location: [number, number]
     size: number;
 };
 function Element(props : UrlProps){
@@ -50,8 +52,8 @@ function Element(props : UrlProps){
     }
     return (
         <div className="box" 
-        style={{position: 'fixed', left: x, top: y, width : `200px`, height : `200px`}}>
-            <img src={props.url} 
+        style={{position: 'fixed', left: props.location[0] + x, top: props.location[1] + y, width : `200px`, height : `200px`}}>
+            <img src={props.path} 
             draggable
             onDrag={(e) => handleDrag(e)}
             onDragStart={(e) => handleDragStart(e)}
