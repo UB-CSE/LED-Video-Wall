@@ -20,7 +20,6 @@ function App(){
     try{
       const response = await fetch('/get_yaml_Config', {'method': 'GET'})
       const config = await response.json()
-      console.log(Object.keys(config['elements']))
       const newElements = [];
       for(const key in config['elements']){
         newElements.push(
