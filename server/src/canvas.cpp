@@ -176,7 +176,6 @@ void VirtualCanvas::pushToCanvas(){
 
         cv::Size elemSize = elemMat.size();
 
-
         /*
         Overwite a region of interest with the image. If the image does not fit on the canvas,
         we derive a new size and crop the element to it before transferring it to the canvas.

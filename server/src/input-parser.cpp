@@ -83,7 +83,7 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                     std::cerr << "Location for element " << key << " malformed." << std::endl;
 
                 }
-
+                
                 cv::Point loc(locVec[0], locVec[1]);
 
                 /*

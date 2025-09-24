@@ -51,6 +51,18 @@ int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaus
         }
         return 0;
     }
+    if (cmd == "add") {
+        std::string type, filepath;
+        int id, x, y;
+        if (!(iss >> type >> filepath >> id >> x >> y) || type!="image" || x < 0 || y < 0) {
+            std::cerr << "Invalid add. Usage:\n add <type> <filepath> <ElementID> <x> <y>\n";
+        } else {
+            parseInput(vCanvas,filepath);
+            
+        }
+        return 0;
+    }
+
     std::cout << "Unknown command: " << cmd << "\n"
                  "Available: pause, resume, quit, move <id> <x> <y>\n";
     return 0;

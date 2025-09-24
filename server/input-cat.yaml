@@ -1,0 +1,8 @@
+settings:
+  gamma: 10
+elements:
+  "elem1":
+    id: 3
+    type: "image"
+    filepath: "images/img5.jpg"
+    location: [0,0]
