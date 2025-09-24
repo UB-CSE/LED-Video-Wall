@@ -6,7 +6,7 @@ imageCoords = {}
 
 app = Flask(__name__)
 
-config_File = "server/input-conway.yaml" #will change so that config_File could be any yaml file saved in the repo, not just input-conway
+config_File = "../../server/input-rainbow.yaml" #will change so that config_File could be any yaml file saved in the repo, not just input-conway
 
 @app.route('/get_Data', methods = ['GET', 'POST'])
 def get_Data():

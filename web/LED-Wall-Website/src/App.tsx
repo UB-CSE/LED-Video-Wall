@@ -1,29 +1,39 @@
 import styles from './Styles.module.css';
 import Element from './components/element';
-import {useEffect, type JSX} from 'react';
+import {useEffect, type JSX, useRef, useState} from 'react';
 
 function App(){
+  const hasRun = useRef(false);
+
   function get_image(filename: String){
     return 'http://127.0.0.1:5000/static/'+filename;
   }
   
-  const elements: JSX.Element[] = []
+  const [elements, setElements] = useState<JSX.Element[]>([]);
 
   async function get_config(){
+    if(hasRun.current){
+      return;
+    } else {
+      hasRun.current = true;
+    }
     try{
       const response = await fetch('/get_yaml_Config', {'method': 'GET'})
       const config = await response.json()
-      for(const element of config['elements']){
-        elements.push(
+      console.log(Object.keys(config['elements']))
+      const newElements = [];
+      for(const key in config['elements']){
+        newElements.push(
         <Element 
-          key={element['id']} 
-          type={element['type']} 
-          path={get_image(element['filepath'])} 
-          location={element['location']} 
+          key={config.elements[key].id}
+          type={config.elements[key].type} 
+          path={get_image(config.elements[key].filepath)} 
+          location={config.elements[key].location} 
           size={100} 
           />
         );
       }
+      setElements(newElements);
     } catch(error){
       console.log('Get Config encountered an error: ' + error)
       return
