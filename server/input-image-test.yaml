@@ -10,7 +10,7 @@ elements:
     id: 2
     type: "image"
     filepath: "images/apple.png"
-    location: [300,150]
+    location: [300,0]
   "elem3":
     id: 3
     type: "image"
