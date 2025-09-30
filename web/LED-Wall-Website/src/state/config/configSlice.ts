@@ -35,11 +35,12 @@ const configSlice = createSlice({
         updateElement: (state, action: PayloadAction<Element>) => {
             for (let i = 0; i < state.elements.length; i++) {
                 if (state.elements[i].id == action.payload.id) {
-                    state.elements[i] = action.payload
+                    state.elements[i] = action.payload;
                 }
             }
-        }
-    }
+        },
+    },
 });
+export const { setGamma, addElement, updateElement } = configSlice.actions;
 
 export default configSlice.reducer;
