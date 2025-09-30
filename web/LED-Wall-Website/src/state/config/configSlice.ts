@@ -1,4 +1,4 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 interface ConfigState {
     settings: Settings;
@@ -25,7 +25,21 @@ const initialState: ConfigState = {
 const configSlice = createSlice({
     name: "config",
     initialState,
-    reducers: {}
+    reducers: {
+        setGamma: (state, action: PayloadAction<number>) => {
+            state.settings.gamma = action.payload;
+        },
+        addElement: (state, action: PayloadAction<Element>) => {
+            state.elements.push(action.payload);
+        },
+        updateElement: (state, action: PayloadAction<Element>) => {
+            for (let i = 0; i < state.elements.length; i++) {
+                if (state.elements[i].id == action.payload.id) {
+                    state.elements[i] = action.payload
+                }
+            }
+        }
+    }
 });
 
 export default configSlice.reducer;
