@@ -1,8 +1,13 @@
 import type React from "react";
-import { useState, useId} from "react";
+import { useState} from "react";
+import { useDispatch} from 'react-redux';
+import { updateElement } from '../state/config/configSlice.ts';
 
+const dispatch = useDispatch()
 
 type UrlProps = {
+    name: string
+    id: number
     type: string;
     path: string;
     location: [number, number]
@@ -13,8 +18,18 @@ function Element(props : UrlProps){
     const [y, sety] = useState(0);
     const [startX, setStartX] = useState(0);
     const [startY, setStartY] = useState(0);
-    const element_id = useId();
+    const element_id = props.id
     const [count, setCount] = useState(0);
+
+    function updateState(){
+        dispatch(updateElement({
+            name: props.name,
+            id: props.id,
+            type: props.type,
+            filepath: props.path,
+            location: [x,y]
+        }))
+    }
 
     function handleDrag(e : React.DragEvent){
         setx(e.clientX - startX);
@@ -37,6 +52,7 @@ function Element(props : UrlProps){
         setx(newX);
         sety(newY);
         sendPosition();
+        updateState();
     }
     function sendPosition(){
         fetch('/get_Data', {

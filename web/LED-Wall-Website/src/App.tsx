@@ -1,11 +1,11 @@
 import styles from './Styles.module.css';
 import Element from './components/element';
 import { useEffect, type JSX, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import type { RootState } from './state/store';
+import { useDispatch } from 'react-redux' //, useSelector } from 'react-redux';
+//import type { RootState } from './state/store';
 import { setGamma } from './state/config/configSlice.ts';
 import { addElement } from './state/config/configSlice.ts';
-import { updateElement } from './state/config/configSlice.ts';
+//import { updateElement } from './state/config/configSlice.ts';
 
 function App(){
   //const configState = useSelector((state: RootState) => state.config);
@@ -46,7 +46,8 @@ function App(){
         //Creates a JSX element and adds it to the list
         newElements.push(
         <Element 
-          key={config.elements[key].id}
+          name={config.elements[key].name}
+          id={config.elements[key].id}
           type={config.elements[key].type} 
           path={get_image(config.elements[key].filepath)} 
           location={config.elements[key].location} 

@@ -2,12 +2,12 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 interface ConfigState {
     settings: Settings;
-    elements: Element[];
+    elements: Elem[];
 }
 interface Settings {
     gamma: number;
 }
-interface Element {
+interface Elem {
     name: string;
     id: number;
     type: string;
@@ -29,10 +29,10 @@ const configSlice = createSlice({
         setGamma: (state, action: PayloadAction<number>) => {
             state.settings.gamma = action.payload;
         },
-        addElement: (state, action: PayloadAction<Element>) => {
+        addElement: (state, action: PayloadAction<Elem>) => {
             state.elements.push(action.payload);
         },
-        updateElement: (state, action: PayloadAction<Element>) => {
+        updateElement: (state, action: PayloadAction<Elem>) => {
             for (let i = 0; i < state.elements.length; i++) {
                 if (state.elements[i].id == action.payload.id) {
                     state.elements[i] = action.payload;
