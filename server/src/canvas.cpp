@@ -143,6 +143,8 @@ void VirtualCanvas::addElementToCanvas(Element* element) {
 
     pushToCanvas();
 
+    
+
 
 }
 
@@ -176,11 +178,16 @@ void VirtualCanvas::pushToCanvas(){
 
         cv::Size elemSize = elemMat.size();
 
+        std::cout << "Element ID: " << elemPtr->getId()
+             << " at (" << loc.x << "," << loc.y << ")"
+               << " size " << elemSize.width << "x" << elemSize.height << std::endl;
+
 
         /*
         Overwite a region of interest with the image. If the image does not fit on the canvas,
         we derive a new size and crop the element to it before transferring it to the canvas.
         */
+
 
         if((loc.x <= dim.width) && (loc.y <= dim.height)){
 
@@ -204,9 +211,7 @@ void VirtualCanvas::pushToCanvas(){
         }else{
 
             printf("\n Element with ID: %d was placed out of bounds and has not been loaded", elemPtr->getId());
-        }
-
-       
+        }  
         
     }
 }
