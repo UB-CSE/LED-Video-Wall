@@ -5,6 +5,7 @@ import { useDispatch } from 'react-redux' //, useSelector } from 'react-redux';
 //import type { RootState } from './state/store';
 import { setGamma } from './state/config/configSlice.ts';
 import { addElement } from './state/config/configSlice.ts';
+import SaveButton from './components/saveButton.tsx';
 //import { updateElement } from './state/config/configSlice.ts';
 
 function App(){
@@ -84,8 +85,11 @@ function App(){
   },[]);
   //Displays all elements and the canvas
   return(
-    <div className={styles.canvas}>
-      {elements}
+    <div>
+      <SaveButton></SaveButton>
+      <div className={styles.canvas}>
+        {elements}
+      </div>
     </div>
   );
 }
