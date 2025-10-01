@@ -1,6 +1,6 @@
 import styles from './Styles.module.css';
 import Element from './components/element';
-import { useEffect, type JSX, useRef, useState } from 'react';
+import { useEffect, type JSX, useRef, useState} from 'react';
 import { useDispatch } from 'react-redux' //, useSelector } from 'react-redux';
 //import type { RootState } from './state/store';
 import { setGamma } from './state/config/configSlice.ts';
@@ -13,10 +13,7 @@ function App(){
   const dispatch = useDispatch();
 
   const hasRun = useRef(false);
-  //get image(needs to be changed to not be hard-coded)
-  function get_image(filename: String){
-    return 'http://127.0.0.1:5000/static/'+filename;
-  }
+
   //List of elements to be displayed onscreen
   const [elements, setElements] = useState<JSX.Element[]>([]);
 
@@ -38,7 +35,7 @@ function App(){
       for(const key in config['elements']){
         //Adds the element to the state
         dispatch(addElement({
-          name: config.elements[key].name,
+          name: key,
           id: config.elements[key].id,
           type: config.elements[key].type,
           filepath: config.elements[key].filepath,
@@ -47,10 +44,11 @@ function App(){
         //Creates a JSX element and adds it to the list
         newElements.push(
         <Element 
-          name={config.elements[key].name}
+          key={config.elements[key].id}
+          name={key}
           id={config.elements[key].id}
           type={config.elements[key].type} 
-          path={get_image(config.elements[key].filepath)} 
+          path={config.elements[key].filepath} 
           location={config.elements[key].location} 
           size={100} 
           />

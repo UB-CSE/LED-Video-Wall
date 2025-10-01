@@ -3,17 +3,17 @@ import { useState} from "react";
 import { useDispatch} from 'react-redux';
 import { updateElement } from '../state/config/configSlice.ts';
 
-const dispatch = useDispatch()
-
 type UrlProps = {
-    name: string
-    id: number
+    name: string;
+    id: number;
     type: string;
     path: string;
-    location: [number, number]
+    location: [number, number];
     size: number;
 };
 function Element(props : UrlProps){
+    const dispatch = useDispatch()
+
     const [x, setx] = useState(0);
     const [y, sety] = useState(0);
     const [startX, setStartX] = useState(0);
@@ -27,7 +27,7 @@ function Element(props : UrlProps){
             id: props.id,
             type: props.type,
             filepath: props.path,
-            location: [x,y]
+            location: [props.location[0] + x,props.location[1] + y]
         }))
     }
 
@@ -61,15 +61,15 @@ function Element(props : UrlProps){
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                "id": element_id,
-                "x": x,
-                "y": y
+                "id": String(element_id),
+                "x": props.location[0] + x,
+                "y": props.location[1] + y
             })})
     }
     return (
         <div className="box" 
         style={{position: 'fixed', left: props.location[0] + x, top: props.location[1] + y, width : `200px`, height : `200px`}}>
-            <img src={props.path} 
+            <img src={'http://127.0.0.1:5000/static/' + props.path} 
             draggable
             onDrag={(e) => handleDrag(e)}
             onDragStart={(e) => handleDragStart(e)}
