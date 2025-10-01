@@ -11,6 +11,12 @@ export default defineConfig({
       },
       "/get_yaml_Config": {
         target: "http://127.0.0.1:5000"
+      },
+      "/start_server":{
+        target: "http://127.0.0.1:5000"
+      },
+      "/stop_server":{
+        target: "http://127.0.0.1:5000"
       }
     }
   }

@@ -1,8 +1,10 @@
 import yaml
-
 from flask import Flask, request, jsonify
+import subprocess, os, signal
 #initialize an empty dictionary to store image coordinates, (x, y)
 imageCoords = {}
+
+server_process = None
 
 app = Flask(__name__)
 
@@ -41,7 +43,41 @@ def get_yaml_Config():
         return jsonify(config_Data) #Sends the client a JSON file that follows the YAML configuration 
     except FileNotFoundError:
         return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
+ 
+    
+@app.route('/start_server', methods = ['POST'])
+def start_server():
+    global server_process
+    if server_process is not None:  #checks if server is already running
+        return jsonify("[ERROR]: Servor is already running"), 400
+    
+    config_File = request.json.get("config_file") 
+    if (config_File is None or not os.path.exists(config_File)):
+        print("[ERROR]: Invalid or missing YAML configuration file")
+        return jsonify("[ERROR]: Invalid or missing YAML configuration file"), 400
+    
+    try:
+        server_process = subprocess.Popen(["./led-wall-server", config_File], cwd = "../../server")
+        get_yaml_Config()
+        return jsonify("Sevrer is starting")
+    except Exception as e:
+        print("[ERROR]: Server couldn't be reached")
+        return jsonify("[ERROR]: Server couldn't be reached"),500
 
+@app.route('/stop_server', methods = ['POST'])
+def stop_server():
+    global server_process
+    if server_process is None:
+        print("[ERROR]: Servor not currently running")
+        return jsonify("[ERROR]: Servor not currently running"), 400
+    
+    try: 
+        os.kill(server_process.pid, signal.SIGTERM)
+        server_process = None
+        return jsonify("Server is ending")
+    except Exception as e:
+        print("[ERROR]: Server couldn't be reached")
+        return jsonify("[ERROR]: Server couldn't be reached"),500
 
 
 if __name__ == "_main_":

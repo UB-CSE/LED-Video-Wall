@@ -1,5 +1,6 @@
 import styles from './Styles.module.css';
 import Element from './components/element';
+import Button_controls from './button_controls';
 import {useEffect, type JSX, useRef, useState} from 'react';
 
 function App(){
@@ -61,8 +62,12 @@ function App(){
   },[]);
   
   return(
+    <div>
+      <Button_controls/>
+
     <div className={styles.canvas}>
       {elements}
+    </div>
     </div>
   );
 }
