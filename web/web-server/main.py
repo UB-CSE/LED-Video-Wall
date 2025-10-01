@@ -43,6 +43,22 @@ def get_yaml_Config():
         return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
 
 
+@app.route('/set_yaml_Config', methods = ['POST'])
+def set_yaml_Config():
+    try:
+        with open(config_File, 'w') as file:
+            config = request.get_json() #parses the data as JSON. JSON expected: {'settings': {'gamma': number}, 
+                                        #                                         'elements': {'elem1': 'id': number,
+                                        #                                                               'type': string,
+                                        #                                                               'filepath': string,
+                                        #                                                               'location': number[]},
+                                        #                                                       'elem2'...}}
+            yaml_config_data = yaml.dump(config)
+            print(yaml_config_data)
+        return 'Success: config file has been updated' #Responds with success message
+    except FileNotFoundError:
+        return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
+
 
 if __name__ == "_main_":
     app.run(host="0.0.0.0")
