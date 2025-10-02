@@ -5,14 +5,14 @@ elements:
     id: 1
     type: "image"
     filepath: "images/rainbow.png"
-    location: [0,0]
+    location: [8,170]
   "elem2":
     id: 2
     type: "image"
     filepath: "images/apple.png"
-    location: [300,150]
+    location: [304,57]
   "elem3":
     id: 3
     type: "image"
     filepath: "images/img.jpg"
-    location: [400,400]
+    location: [205,350]

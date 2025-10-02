@@ -1,4 +1,5 @@
 import yaml
+import json
 
 from flask import Flask, request, jsonify
 #initialize an empty dictionary to store image coordinates, (x, y)
@@ -42,6 +43,30 @@ def get_yaml_Config():
     except FileNotFoundError:
         return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
 
+
+@app.route('/set_yaml_Config', methods = ['POST'])
+def set_yaml_Config():
+    try:
+        with open(config_File, 'w') as file:
+            config = request.get_json() #parses the data as JSON. JSON expected: {'settings': {'gamma': number}, 
+                                        #                                     'elements': {'elem1': 'id': number,
+                                        #                                                           'type': string,
+                                        #                                                           'filepath': string,
+                                        #                                                           'location': number[]},
+                                        #                                                  'elem2'...}}
+            #Converts the JSON to yaml manually in order to fit the expected yaml format
+            yaml_string = 'settings:\n  gamma: ' + str(config['settings']['gamma']) + '\nelements:'
+            for name in config['elements']:
+                element = config['elements'][name]
+                yaml_string = (yaml_string + '\n  \"' + name + 
+                               '\":\n    id: ' + str(element['id']) +
+                                '\n    type: \"' + element['type'] + '\"' +
+                                '\n    filepath: \"' + element['filepath'] + '\"' +
+                                '\n    location: [' + str(element['location'][0]) + ',' + str(element['location'][1]) + ']')
+            file.write(yaml_string)
+        return 'Success: config file has been updated' #Responds with success message
+    except FileNotFoundError:
+        return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
 
 
 if __name__ == "_main_":
