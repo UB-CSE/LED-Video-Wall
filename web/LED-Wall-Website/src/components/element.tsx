@@ -57,7 +57,7 @@ function Element(props: UrlProps) {
     updateState();
   }
   function sendPosition() {
-    fetch("/get_Data", {
+    fetch("/api/send-location", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

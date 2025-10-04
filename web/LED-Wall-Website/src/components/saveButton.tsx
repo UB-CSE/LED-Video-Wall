@@ -20,7 +20,7 @@ function SaveButton() {
       };
     }
     //Sends JSON to web server
-    fetch("/set_yaml_Config", {
+    fetch("/api/set-yaml-config", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

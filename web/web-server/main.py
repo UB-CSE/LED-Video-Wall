@@ -11,8 +11,8 @@ app = Flask(__name__)
 config_File = "../../server/input-image-test.yaml"  # will change so that config_File could be any yaml file saved in the repo, not just input-conway
 
 
-@app.route("/get_Data", methods=["GET", "POST"])
-def get_Data():
+@app.route("/api/send-location", methods=["POST"])
+def send_location():
     data = (
         request.get_json()
     )  # parses the data as JSON. JSON expected: {"x": 104, "y": 283, "id": "jpeg1"}
@@ -34,8 +34,8 @@ def get_Data():
     return "Main Communication"
 
 
-@app.route("/get_yaml_Config", methods=["GET"])
-def get_yaml_Config():
+@app.route("/api/get-yaml-config", methods=["GET"])
+def get_yaml_config():
     try:
         with open(config_File, "r") as file:
             config_Data = yaml.safe_load(file)
@@ -51,8 +51,8 @@ def get_yaml_Config():
         return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
 
 
-@app.route("/set_yaml_Config", methods=["POST"])
-def set_yaml_Config():
+@app.route("/api/set-yaml-config", methods=["POST"])
+def set_yaml_config():
     try:
         with open(config_File, "w") as file:
             config = (

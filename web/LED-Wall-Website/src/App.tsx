@@ -26,7 +26,7 @@ function App() {
       hasRun.current = true;
     }
     try {
-      const response = await fetch("/get_yaml_Config", { method: "GET" });
+      const response = await fetch("/api/get-yaml-config", { method: "GET" });
       const config = await response.json();
       const newElements = [];
       //Sets the gamma in the state

@@ -6,13 +6,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/get_Data": {
+      "/api/send-location": {
         target: "http://127.0.0.1:5000"
       },
-      "/get_yaml_Config": {
+      "/api/get-yaml-config": {
         target: "http://127.0.0.1:5000"
       },
-      "/set_yaml_Config": {
+      "/api/set-yaml-config": {
         target: "http://127.0.0.1:5000"
       }
     }
