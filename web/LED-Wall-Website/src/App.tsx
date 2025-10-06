@@ -1,4 +1,3 @@
-import styles from "./Styles.module.css";
 import Element from "./components/element";
 import { useEffect, type JSX, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
