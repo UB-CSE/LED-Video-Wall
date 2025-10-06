@@ -1,12 +1,11 @@
 import styles from "./Styles.module.css";
 import Element from "./components/element";
 import { useEffect, type JSX, useRef, useState } from "react";
-import { useDispatch } from "react-redux"; //, useSelector } from 'react-redux';
-//import type { RootState } from './state/store';
+import { useDispatch } from "react-redux";
 import { setGamma } from "./state/config/configSlice.ts";
 import { addElement } from "./state/config/configSlice.ts";
 import SaveButton from "./components/saveButton.tsx";
-//import { updateElement } from './state/config/configSlice.ts';
+import FileUpload from "./components/FileUpload.tsx";
 
 function App() {
   //const configState = useSelector((state: RootState) => state.config);
@@ -87,7 +86,7 @@ function App() {
   return (
     <div>
       <SaveButton></SaveButton>
-      <div className={styles.canvas}>{elements}</div>
+      <FileUpload elements={elements}></FileUpload>
     </div>
   );
 }
