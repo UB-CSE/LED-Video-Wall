@@ -1,7 +1,8 @@
 import React, { useState, type ChangeEvent, type JSX } from "react";
-import styles from "./Styles.module.css";
+import styles from "../Styles.module.css";
 import { useDispatch } from "react-redux";
 import { addElement } from "../state/config/configSlice.ts";
+import Element from "./element";
 
 type Props = {
   elements: JSX.Element[];
@@ -15,9 +16,9 @@ function FileUpload(props: Props) {
 
   //Adds the new element to the state and sends the file to the web server
   async function uploadFile(location: number[]) {
-    if (newFile == null || newFile.size > 5000000) {
+    if (newFile != null && newFile.size > 5000000) {
       setMessage("File must be under 5MB");
-    } else {
+    } else if (newFile != null) {
       dispatch(
         addElement({
           name: "elem" + String(props.elements.length + 1),
@@ -28,15 +29,24 @@ function FileUpload(props: Props) {
         })
       );
 
-      const bytes = await newFile.bytes();
+      const formData = new FormData();
+      formData.append("file", newFile);
       try {
-        fetch("/api/upload-file", {
+        await fetch("/api/upload-file", {
           method: "POST",
-          headers: {
-            "Content-Type": newFile.type,
-          },
-          body: bytes,
+          body: formData,
         });
+        props.elements.push(
+          <Element
+            key={props.elements.length + 1}
+            name={"elem" + String(props.elements.length + 1)}
+            id={props.elements.length + 1}
+            type={newFile.type.split("/")[0]}
+            path={"images/" + newFile.name}
+            location={[location[0], location[1]]}
+            size={100}
+          />
+        );
         setMessage("Success!");
       } catch (err) {
         setMessage("Server Error");
@@ -72,7 +82,6 @@ function FileUpload(props: Props) {
         onChange={(e) => handleChange(e)}
       />
       <button onClick={() => uploadFile([0, 0])}>Upload</button>
-      <p>{newFile && newFile.name}</p>
       <div
         className={styles.canvas}
         onDrop={(e) => handleDrop(e)}

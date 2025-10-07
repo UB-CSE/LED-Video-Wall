@@ -1,6 +1,6 @@
 import yaml
 import json
-
+import os
 from flask import Flask, request, jsonify
 
 # initialize an empty dictionary to store image coordinates, (x, y)
@@ -93,6 +93,14 @@ def set_yaml_config():
         return "Success: config file has been updated"  # Responds with success message
     except FileNotFoundError:
         return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
+
+
+@app.route("/api/upload-file", methods=["POST"])
+def upload_file():
+    file = request.files["file"]
+    filepath = os.path.join("./static/images", file.filename)
+    file.save(filepath)
+    return "Success: new file has been created"
 
 
 if __name__ == "_main_":
