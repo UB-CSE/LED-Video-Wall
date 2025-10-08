@@ -85,7 +85,7 @@ function App() {
   return (
     <div>
       <SaveButton></SaveButton>
-      <FileUpload elements={elements}></FileUpload>
+      <FileUpload elements={elements} setElements={setElements}></FileUpload>
     </div>
   );
 }

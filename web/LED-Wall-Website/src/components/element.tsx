@@ -19,7 +19,7 @@ function Element(props: UrlProps) {
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
   const element_id = props.id;
-  const [count, setCount] = useState(0);
+  //const [count, setCount] = useState(0);
 
   function updateState() {
     dispatch(
@@ -36,12 +36,12 @@ function Element(props: UrlProps) {
   function handleDrag(e: React.DragEvent) {
     setx(e.clientX - startX);
     sety(e.clientY - startY);
-    if (count >= 50) {
+    /*if (count >= 200) {
       sendPosition();
       setCount(0);
     } else {
       setCount(count + 1);
-    }
+    }*/
   }
   function handleDragStart(e: React.DragEvent) {
     e.dataTransfer.setDragImage(e.currentTarget, -1000, -1000);
@@ -56,7 +56,7 @@ function Element(props: UrlProps) {
     sendPosition();
     updateState();
   }
-  function sendPosition() {
+  async function sendPosition() {
     fetch("/api/send-location", {
       method: "POST",
       headers: {

@@ -6,6 +6,7 @@ import Element from "./element";
 
 type Props = {
   elements: JSX.Element[];
+  setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>;
 };
 
 //Creates a canvas that can be uploaded to along with a upload button
@@ -15,37 +16,37 @@ function FileUpload(props: Props) {
   const dispatch = useDispatch();
 
   //Adds the new element to the state and sends the file to the web server
-  async function uploadFile(location: number[]) {
-    if (newFile != null && newFile.size > 5000000) {
+  async function uploadFile(location: number[], file: File | null = newFile) {
+    if (file != null && file.size > 5000000) {
       setMessage("File must be under 5MB");
-    } else if (newFile != null) {
-      dispatch(
-        addElement({
-          name: "elem" + String(props.elements.length + 1),
-          id: props.elements.length + 1,
-          type: newFile.type.split("/")[0],
-          filepath: "images/" + newFile.name,
-          location: location,
-        })
-      );
-
+    } else if (file != null) {
       const formData = new FormData();
-      formData.append("file", newFile);
+      formData.append("file", file);
       try {
         await fetch("/api/upload-file", {
           method: "POST",
           body: formData,
         });
-        props.elements.push(
+        const newElement = (
           <Element
             key={props.elements.length + 1}
             name={"elem" + String(props.elements.length + 1)}
             id={props.elements.length + 1}
-            type={newFile.type.split("/")[0]}
-            path={"images/" + newFile.name}
+            type={file.type.split("/")[0]}
+            path={"images/" + file.name}
             location={[location[0], location[1]]}
             size={100}
           />
+        );
+        props.setElements([...props.elements, newElement]);
+        dispatch(
+          addElement({
+            name: "elem" + String(props.elements.length + 1),
+            id: props.elements.length + 1,
+            type: file.type.split("/")[0],
+            filepath: "images/" + file.name,
+            location: location,
+          })
         );
         setMessage("Success!");
       } catch (err) {
@@ -55,10 +56,18 @@ function FileUpload(props: Props) {
   }
 
   //Sets the file and calls upload with the current mouse location
-  function handleDrop(e: React.DragEvent) {
+  async function handleDrop(e: React.DragEvent) {
     e.preventDefault();
+    if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) {
+      return;
+    }
+    //Gets the canvas position
+    const canvasRect = e.currentTarget.getBoundingClientRect();
+    //Calculates position relative to canvas
+    const relativeX = e.clientX - canvasRect.left;
+    const relativeY = e.clientY - canvasRect.top;
     setFile(e.dataTransfer.files[0]);
-    uploadFile([e.clientX, e.clientY]);
+    uploadFile([relativeX, relativeY], e.dataTransfer.files[0]);
   }
 
   //Prevents browser not allowing dragging the image

@@ -34,7 +34,7 @@ const configSlice = createSlice({
         },
         updateElement: (state, action: PayloadAction<Elem>) => {
             for (let i = 0; i < state.elements.length; i++) {
-                if (state.elements[i].id == action.payload.id) {
+                if (state.elements[i].id === action.payload.id) {
                     state.elements[i] = action.payload;
                 }
             }
