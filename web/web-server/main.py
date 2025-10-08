@@ -1,39 +1,40 @@
+
 import yaml
 from flask import Flask, request, jsonify
 import subprocess, os, signal
-#initialize an empty dictionary to store image coordinates, (x, y)
-imageCoords = {}
-
-server_process = None
 
 app = Flask(__name__)
 
-config_File = "../../server/input-image-test.yaml" #will change so that config_File could be any yaml file saved in the repo, not just input-conway
+imageCoords = {}
+server_process = None
+config_File = "../../server/input-image-test.yaml"
+active_config = None
+CONFIG_DIR = "../../server"
 
-@app.route('/get_Data', methods = ['GET', 'POST'])
+
+@app.route('/get_Data', methods=['GET', 'POST'])
 def get_Data():
-    data = request.get_json() #parses the data as JSON. JSON expected: {"x": 104, "y": 283, "id": "jpeg1"}
-    x = data.get("x") 
-    y = data.get("y")
-    imgId = data.get("id")
-    imageCoords[imgId] = {"x":x, "y":y} #stores coordinates coordinates given by the JSON message 
+    data = request.get_json()
+    x, y, imgId = data.get("x"), data.get("y"), data.get("id")
 
-    if (x is None or y is None or imgId is None):
+    if x is None or y is None or imgId is None:
         print("[ERROR]: Invalid message received")
-        return jsonify({"[ERROR]: Invalid message received"}), 400
+        return jsonify({"error": "Invalid message received"}), 400
 
+    imageCoords[imgId] = {"x": x, "y": y}
+    print(f"Data received -> ID: {imgId}, Coordinates: ({x}, {y})")
+    return jsonify({"status": "OK"})
 
-
-    print("Data:")
-    print(f"Image Coordinates: ({x}, {y})")
-    print("Image ID: "+ imgId)
-    return "Main Communication"
 
 
 @app.route('/get_yaml_Config', methods = ['GET'])
 def get_yaml_Config():
+    global config_File, active_config
+    used_config = active_config or config_File
+
+
     try:
-        with open(config_File, "r") as file:
+        with open(used_config, "r") as file:
             config_Data = yaml.safe_load(file)
         
         if ("settings" not in config_Data or "elements" not in config_Data):
@@ -42,43 +43,78 @@ def get_yaml_Config():
         
         return jsonify(config_Data) #Sends the client a JSON file that follows the YAML configuration 
     except FileNotFoundError:
-        return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
- 
-    
-@app.route('/start_server', methods = ['POST'])
-def start_server():
-    global server_process
-    if server_process is not None:  #checks if server is already running
-        return jsonify("[ERROR]: Servor is already running"), 400
-    
-    config_File = request.json.get("config_file") 
-    if (config_File is None or not os.path.exists(config_File)):
-        print("[ERROR]: Invalid or missing YAML configuration file")
-        return jsonify("[ERROR]: Invalid or missing YAML configuration file"), 400
-    
-    try:
-        server_process = subprocess.Popen(["./led-wall-server", config_File], cwd = "../../server")
-        get_yaml_Config()
-        return jsonify("Sevrer is starting")
-    except Exception as e:
-        print("[ERROR]: Server couldn't be reached")
-        return jsonify("[ERROR]: Server couldn't be reached"),500
+        return jsonify({"[ERROR]: Configuration file, {used_file}, not found"}), 404
 
-@app.route('/stop_server', methods = ['POST'])
+
+
+@app.route('/start_server', methods=['POST'])
+def start_server():
+    global server_process, config_File
+
+    if server_process is not None:
+        return jsonify({"error": "Server is already running"}), 400
+
+    # Get config file from frontend JSON body
+    user_path = request.json.get("config_file")
+    if not user_path:
+        return jsonify({"error": "No configuration file specified"}), 400
+
+    # Convert to absolute path
+    abs_path = os.path.abspath(user_path)
+    if not os.path.exists(abs_path):
+        print(f"[ERROR]: File not found -> {abs_path}")
+        return jsonify({"error": f"Configuration file not found: {abs_path}"}), 404
+
+    config_File = abs_path  # update global
+
+    try:
+        # Important: run led-wall-server in same directory as the executable
+        exe_dir = os.path.abspath("../../server")
+        server_process = subprocess.Popen(
+            ["./led-wall-server", config_File],
+            cwd=exe_dir
+        )
+        print(f"[INFO]: Server started with config: {config_File}")
+        return jsonify({"status": "Server starting", "config_file": config_File}), 200
+    except Exception as e:
+        print(f"[ERROR]: Failed to start server -> {e}")
+        return jsonify({"error": f"Server couldn't be started: {str(e)}"}), 500
+
+
+
+@app.route('/stop_server', methods=['POST'])
 def stop_server():
     global server_process
     if server_process is None:
-        print("[ERROR]: Servor not currently running")
-        return jsonify("[ERROR]: Servor not currently running"), 400
-    
-    try: 
+        print("[ERROR]: Server not currently running")
+        return jsonify({"error": "Server not currently running"}), 400
+
+    try:
         os.kill(server_process.pid, signal.SIGTERM)
         server_process = None
-        return jsonify("Server is ending")
+        print("[INFO]: Server stopped successfully")
+        return jsonify({"status": "Server stopped"})
     except Exception as e:
-        print("[ERROR]: Server couldn't be reached")
-        return jsonify("[ERROR]: Server couldn't be reached"),500
+        print(f"[ERROR]: Server couldn't be stopped -> {e}")
+        return jsonify({"error": "Server couldn't be stopped"}), 500
+    
+
+@app.route('/list_configs', methods=['GET'])
+def list_configs():
+    try:
+        # List all .yaml files in CONFIG_DIR
+        files = [f for f in os.listdir(CONFIG_DIR) if f.endswith(".yaml") and f.lower() != "matrix.yaml"]
+        # Return full relative paths so frontend can send them to /start_server
+        files_with_path = [os.path.join(CONFIG_DIR, f) for f in files]
+                # Step 3: Debug print to see what is returned
+        print(files_with_path)
+
+        return jsonify({"configs": files_with_path})
+    except Exception as e:
+        print(f"[ERROR]: Failed to list config files -> {e}")
+        return jsonify({"error": "Could not list config files"}), 500
 
 
-if __name__ == "_main_":
-    app.run(host="0.0.0.0")
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+
