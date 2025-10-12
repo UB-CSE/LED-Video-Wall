@@ -178,9 +178,9 @@ void VirtualCanvas::pushToCanvas(){
 
         cv::Size elemSize = elemMat.size();
 
-        std::cout << "Element ID: " << elemPtr->getId()
+        /*std::cout << "Element ID: " << elemPtr->getId()
              << " at (" << loc.x << "," << loc.y << ")"
-               << " size " << elemSize.width << "x" << elemSize.height << std::endl;
+               << " size " << elemSize.width << "x" << elemSize.height << std::endl;*/
 
 
         /*

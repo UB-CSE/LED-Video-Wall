@@ -1,0 +1,8 @@
+settings:
+  gamma: 1.05
+elements:
+  "elem1":
+    id: 3
+    type: "image"
+    filepath: "images/hello-rainbow.png"
+    location: [0,0]

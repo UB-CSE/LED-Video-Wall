@@ -58,12 +58,27 @@ def set_yaml_Config():
             yaml_string = 'settings:\n  gamma: ' + str(config['settings']['gamma']) + '\nelements:'
             for name in config['elements']:
                 element = config['elements'][name]
+    
                 yaml_string = (yaml_string + '\n  \"' + name + 
                                '\":\n    id: ' + str(element['id']) +
                                 '\n    type: \"' + element['type'] + '\"' +
                                 '\n    filepath: \"' + element['filepath'] + '\"' +
                                 '\n    location: [' + str(element['location'][0]) + ',' + str(element['location'][1]) + ']')
+                
+                try:
+                    with open("/tmp/led-cmd", "w") as fp:
+                        fp.write(f"move {element['id']} {element['location'][0]} {element['location'][1]}\n")
+
+                except FileNotFoundError:
+                    print("ERROR")
+
+
             file.write(yaml_string)
+
+
+            
+
+
         return 'Success: config file has been updated' #Responds with success message
     except FileNotFoundError:
         return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404

@@ -1,0 +1,8 @@
+settings:
+  gamma: 1.0
+elements:
+  "elem1":
+    id: 2
+    type: "image"
+    filepath: "images/img4.jpg"
+    location: [0,0]
