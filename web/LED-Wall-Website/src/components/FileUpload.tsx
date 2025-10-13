@@ -20,8 +20,14 @@ function FileUpload(props: Props) {
     if (file != null && file.size > 5000000) {
       setMessage("File must be under 5MB");
     } else if (file != null) {
+      const extension = file.name.split(".").pop();
+      const fileName = String(crypto.randomUUID()) + "." + extension;
       const formData = new FormData();
-      formData.append("file", file);
+      const newFile = new File([file], fileName, {
+        type: file.type,
+        lastModified: file.lastModified,
+      });
+      formData.append("file", newFile);
       try {
         await fetch("/api/upload-file", {
           method: "POST",
@@ -32,8 +38,8 @@ function FileUpload(props: Props) {
             key={props.elements.length + 1}
             name={"elem" + String(props.elements.length + 1)}
             id={props.elements.length + 1}
-            type={file.type.split("/")[0]}
-            path={"images/" + file.name}
+            type={newFile.type.split("/")[0]}
+            path={"images/" + newFile.name}
             location={[location[0], location[1]]}
             size={100}
           />
@@ -43,8 +49,8 @@ function FileUpload(props: Props) {
           addElement({
             name: "elem" + String(props.elements.length + 1),
             id: props.elements.length + 1,
-            type: file.type.split("/")[0],
-            filepath: "images/" + file.name,
+            type: newFile.type.split("/")[0],
+            filepath: "images/" + newFile.name,
             location: location,
           })
         );
