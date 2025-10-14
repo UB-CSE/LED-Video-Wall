@@ -35,6 +35,7 @@ def send_location():
     except FileNotFoundError:
         print("ERROR")
 
+
     print("Data:")
     print(f"Image Coordinates: ({x}, {y})")
     print("Image ID: " + imgId)
