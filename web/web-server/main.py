@@ -21,8 +21,13 @@ def get_Data():
         print("[ERROR]: Invalid message received")
         return jsonify({"[ERROR]: Invalid message received"}), 400
 
+    try:
+        with open("/tmp/led-cmd", "w") as fp:
+            fp.write(f"move {imgId} {x} {y}\n")
 
-
+    except FileNotFoundError:
+        print("ERROR")
+            
     print("Data:")
     print(f"Image Coordinates: ({x}, {y})")
     print("Image ID: "+ imgId)
