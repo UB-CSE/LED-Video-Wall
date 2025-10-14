@@ -6,16 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/api/send-location": {
+      "/api": {
         target: "http://127.0.0.1:5000"
       },
-      "/api/get-yaml-config": {
-        target: "http://127.0.0.1:5000"
-      },
-      "/api/set-yaml-config": {
-        target: "http://127.0.0.1:5000"
-      },
-      "/api/upload-file": {
+      "/static": {
         target: "http://127.0.0.1:5000"
       }
     }

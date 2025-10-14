@@ -72,6 +72,10 @@ function Element(props: UrlProps) {
   return (
     <div
       className="box"
+      draggable
+      onDrag={(e) => handleDrag(e)}
+      onDragStart={(e) => handleDragStart(e)}
+      onDragEnd={(e) => handleDragEnd(e)}
       style={{
         position: "fixed",
         left: props.location[0] + x,
@@ -81,11 +85,8 @@ function Element(props: UrlProps) {
       }}
     >
       <img
-        src={"http://127.0.0.1:5000/static/" + props.path}
-        draggable
-        onDrag={(e) => handleDrag(e)}
-        onDragStart={(e) => handleDragStart(e)}
-        onDragEnd={(e) => handleDragEnd(e)}
+        src={"static/" + props.path}
+        draggable={false}
         style={{ width: `${props.size}%`, height: `${props.size}%` }}
       />
     </div>
