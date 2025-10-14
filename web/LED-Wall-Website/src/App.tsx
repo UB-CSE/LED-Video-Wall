@@ -5,6 +5,7 @@ import { setGamma } from "./state/config/configSlice.ts";
 import { addElement } from "./state/config/configSlice.ts";
 import SaveButton from "./components/saveButton.tsx";
 import FileUpload from "./components/FileUpload.tsx";
+import Buttoncontrols from './button-controls';
 
 function App() {
   //const configState = useSelector((state: RootState) => state.config);
@@ -84,6 +85,7 @@ function App() {
   //Displays all elements and the canvas
   return (
     <div>
+      <Buttoncontrols/>
       <SaveButton></SaveButton>
       <FileUpload elements={elements} setElements={setElements}></FileUpload>
     </div>

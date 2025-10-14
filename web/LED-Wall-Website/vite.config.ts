@@ -17,6 +17,15 @@ export default defineConfig({
       },
       "/api/upload-file": {
         target: "http://127.0.0.1:5000"
+      },
+      "/api/start-server": {
+        target: "http://127.0.0.1:5000" 
+      },
+      "/api/stop-server":{
+        target: "http://127.0.0.1:5000"
+      },
+      "/api/list-configs": {
+        target: "http://127.0.0.1:5000"
       }
     }
   }

@@ -1,0 +1,58 @@
+settings:
+  gamma: 1.05
+elements:
+  "elem1":
+    id: 1
+    type: "image"
+    filepath: "images/rainbow.png"
+    location: [-620,-286]
+  "elem10":
+    id: 10
+    type: "image"
+    filepath: "images/2d9df708ddc79c4e0cb50a8bcec971ff24b43bbf78550d383274bb254577ca93.jpg"
+    location: [-597,-262]
+  "elem11":
+    id: 11
+    type: "image"
+    filepath: "images/2d9df708ddc79c4e0cb50a8bcec971ff24b43bbf78550d383274bb254577ca93.jpg"
+    location: [-576,-223]
+  "elem2":
+    id: 2
+    type: "image"
+    filepath: "images/2d9df708ddc79c4e0cb50a8bcec971ff24b43bbf78550d383274bb254577ca93.jpg"
+    location: [-654,-296]
+  "elem3":
+    id: 3
+    type: "image"
+    filepath: "images/2d9df708ddc79c4e0cb50a8bcec971ff24b43bbf78550d383274bb254577ca93.jpg"
+    location: [-582,-273]
+  "elem4":
+    id: 4
+    type: "image"
+    filepath: "images/3fb0a1115bdf73a733fe1b29cc14f21af831b03bb311d2ed818676df3ce24c38.png"
+    location: [0,0]
+  "elem5":
+    id: 5
+    type: "image"
+    filepath: "images/3fb0a1115bdf73a733fe1b29cc14f21af831b03bb311d2ed818676df3ce24c38.png"
+    location: [0,0]
+  "elem6":
+    id: 6
+    type: "image"
+    filepath: "images/3fb0a1115bdf73a733fe1b29cc14f21af831b03bb311d2ed818676df3ce24c38.png"
+    location: [0,0]
+  "elem7":
+    id: 7
+    type: "image"
+    filepath: "images/3fb0a1115bdf73a733fe1b29cc14f21af831b03bb311d2ed818676df3ce24c38.png"
+    location: [0,0]
+  "elem8":
+    id: 8
+    type: "image"
+    filepath: "images/2d9df708ddc79c4e0cb50a8bcec971ff24b43bbf78550d383274bb254577ca93.jpg"
+    location: [-565,-209]
+  "elem9":
+    id: 9
+    type: "image"
+    filepath: "images/3fb0a1115bdf73a733fe1b29cc14f21af831b03bb311d2ed818676df3ce24c38.png"
+    location: [0,0]
