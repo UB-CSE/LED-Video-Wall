@@ -104,6 +104,7 @@ def upload_file():
     file.save(filepath)
     return "Success: new file has been created"
 
+
 @app.route("/api/images/<filename>", methods=["GET"])
 def get_image(filename):
     return send_from_directory("./static/images", filename)
