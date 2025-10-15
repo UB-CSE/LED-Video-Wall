@@ -85,7 +85,7 @@ function Element(props: UrlProps) {
       }}
     >
       <img
-        src={"static/" + props.path}
+        src={"/api/" + props.path}
         draggable={false}
         style={{ width: `${props.size}%`, height: `${props.size}%` }}
       />

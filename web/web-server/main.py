@@ -1,7 +1,7 @@
 import yaml
 import json
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 
 # initialize an empty dictionary to store image coordinates, (x, y)
 imageCoords = {}
@@ -101,6 +101,10 @@ def upload_file():
     filepath = os.path.join("./static/images", file.filename)
     file.save(filepath)
     return "Success: new file has been created"
+
+@app.route("/api/images/<filename>", methods=["GET"])
+def get_image(filename):
+    return send_from_directory("./static/images", filename)
 
 
 if __name__ == "_main_":
