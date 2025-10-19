@@ -13,6 +13,7 @@ Element renderTextToElement(const std::string &text,
     std::cerr << "Error: Could not initialize FreeType library" << std::endl;
     return Element(cv::Mat(), -1);
   }
+  std::cerr << "Trying to load font from: " << fontPath << std::endl;
 
   // load font
   FT_Face face;
