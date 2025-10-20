@@ -47,7 +47,7 @@ std::optional<Event> EventQueue::tryPopEvent(ns_ts cutoff_time) {
     }
 }
 
-Controller::Controller(VirtualCanvas canvas,
+Controller::Controller(VirtualCanvas &canvas,
                        std::vector<Client*> clients,
                        LEDTCPServer tcp_server,
                        int64_t ns_per_frame)

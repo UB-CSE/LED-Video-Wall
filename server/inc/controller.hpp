@@ -41,14 +41,14 @@ public:
 
 class Controller {
 public:
-    VirtualCanvas canvas;
+    VirtualCanvas &canvas;
     std::vector<Client*> clients;
     LEDTCPServer tcp_server;
     ClientConnInfo* client_conn_info;
     EventQueue event_queue;
     int64_t ns_per_frame;
 
-    Controller(VirtualCanvas canvas,
+    Controller(VirtualCanvas &canvas,
                std::vector<Client*> clients,
                LEDTCPServer tcp_server,
                int64_t ns_per_frame);

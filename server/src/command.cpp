@@ -51,6 +51,27 @@ int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaus
         }
         return 0;
     }
+    if (cmd == "add") {
+        std::string type, filepath;
+        int id, x, y;
+        if (!(iss >> type >> id >> filepath >> x >> y )|| x < 0 || y < 0) {
+            std::cerr << "Invalid add. Usage:\n add <type> <ElementID> <filepath> <x> <y>\n";
+        } else {
+            Element* newelement=new ImageElement(filepath,id,cv::Point(x,y),-1);
+            vCanvas.addElementToCanvas(newelement);
+        }
+        return 0;
+    }
+    if (cmd == "remove") {
+        int id;
+        if (!(iss >> id)) {
+            std::cerr << "Invalid remove. Usage:\n  remove <ElementID>\n";
+        } else {
+           vCanvas.removeElementFromCanvas(id);
+        return 0;
+    }
+}
+    
     std::cout << "Unknown command: " << cmd << "\n"
                  "Available: pause, resume, quit, move <id> <x> <y>\n";
     return 0;
