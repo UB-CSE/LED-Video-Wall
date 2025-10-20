@@ -9,8 +9,6 @@
 #include "input-parser.hpp"
 
 
-
-
 class Element {
 
     private:
