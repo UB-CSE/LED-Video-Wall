@@ -7,11 +7,10 @@
 #include <optional>
 #include <vector>
 #include <tuple>
+#include "text-render.hpp"
 
 // forward declarations
 cv::Scalar hexColorToScalar(const std::string &hexColor);
-
-
 
 
 void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
@@ -173,6 +172,43 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 vCanvas.addElementToCanvas(elem);
 
             }
+            /*
+            Text
+            */
+            else if (type == "text") {
+                // check for necessary values
+                if (!value["content"] || !value["font_path"] || !value["location"] || !value["color"] || !value["size"]) {
+                    std::cerr << "Missing required values for element: " << key << std::endl;
+                    continue;
+                }
+
+                std::string filepath = value["font_path"].as<std::string>();
+                std::string content  = value["content"].as<std::string>();
+                int fontSize         = value["size"].as<int>();
+
+                // parse hex color to cv::Scalar (expects "#RRGGBB" or "RRGGBB")
+                std::string hexColor = value["color"].as<std::string>();
+                cv::Scalar fontColor = hexColorToScalar(hexColor);
+
+                // convert location to cv::Point (same validation style as other branches)
+                std::vector<int> locVec = value["location"].as<std::vector<int>>();
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0) {
+                    std::cerr << "Location for element " << key << " malformed." << std::endl;
+                    continue;
+                }
+                cv::Point posPoint(locVec[0], locVec[1]);
+
+                // create the element via the renderer (returns Element* or nullptr)
+                Element* elem = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint);
+                if (!elem) {
+                    std::cerr << "Error parsing config: text failed to render (check TTF path/permissions): " 
+                                << filepath << std::endl;
+                    continue;
+                }
+
+                vCanvas.addElementToCanvas(elem);
+}
+
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
             }
