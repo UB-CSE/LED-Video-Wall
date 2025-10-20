@@ -207,7 +207,7 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 }
 
                 vCanvas.addElementToCanvas(elem);
-}
+            }
 
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
@@ -218,5 +218,18 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
         std::cerr << "Error parsing config: " << e.what() << std::endl;
 
     }
+}
+
+cv::Scalar hexColorToScalar(const std::string &hexColor) {
+  if (hexColor.length() != 7 || hexColor[0] != '#') {
+    // invalid, we'll just return black and warn (thanks nick).
+    std::cerr << "Error parsing config: Hex color \"" << hexColor << "\" invalid." << std::endl;
+    return cv::Scalar(0, 0, 0);
+  }
+
+  int r, g, b;
+  sscanf(hexColor.c_str(), "#%02x%02x%02x", &r, &g, &b);
+
+  return cv::Scalar(b, g, r);
 }
 

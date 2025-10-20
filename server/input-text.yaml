@@ -1,5 +1,7 @@
 #Beyond just the id, the id is also a weight to determine which images have layering priority
 #As of right now, we only support "image" and "text" -- "video" is planned.
+settings:
+  gamma: 1.0
 elements:
   "elem1":
     id: 1
