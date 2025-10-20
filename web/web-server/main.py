@@ -30,6 +30,14 @@ def send_location():
         print("[ERROR]: Invalid message received")
         return jsonify({"[ERROR]: Invalid message received"}), 400
 
+    try:
+        with open("/tmp/led-cmd", "w") as fp:
+            fp.write(f"move {imgId} {x} {y}\n")
+
+    except FileNotFoundError:
+        print("ERROR")
+
+
     print("Data:")
     print(f"Image Coordinates: ({x}, {y})")
     print("Image ID: " + imgId)
@@ -92,6 +100,14 @@ def set_yaml_config():
                     + "]"
                 )
             file.write(yaml_string)
+
+            try:
+                with open("/tmp/led-cmd", "w") as fp:
+                    fp.write(f"move {element['id']} {element['location'][0]} {element['location'][1]}\n")
+
+            except FileNotFoundError:
+                print("ERROR")
+            
         return "Success: config file has been updated"  # Responds with success message
     except FileNotFoundError:
         return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
