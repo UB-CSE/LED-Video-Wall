@@ -117,8 +117,10 @@ def set_yaml_config():
 @app.route("/api/upload-file", methods=["POST"])
 def upload_file():
     file = request.files["file"]
-    hashString = hashlib.sha256(file.stream).hexdigest()    # Takes a hash over the contents of the file
-    extension = file.filename.rsplit('.', 1)                # Finds the extension
+    contents = file.stream.read()
+    file.stream.seek(0)
+    hashString = hashlib.sha256(contents).hexdigest()       # Takes a hash over the contents of the file
+    extension = file.filename.rsplit('.', 1)[1]                # Finds the extension
     filename = hashString + '.' + extension
     filepath = os.path.join("./static/images", filename)    #Combines into filepath
     file.save(filepath)                                     #Saves to disk
