@@ -5,10 +5,9 @@ import { setGamma } from "./state/config/configSlice.ts";
 import { addElement } from "./state/config/configSlice.ts";
 import SaveButton from "./components/saveButton.tsx";
 import FileUpload from "./components/FileUpload.tsx";
-import Buttoncontrols from './button-controls.tsx';
+import Buttoncontrols from "./button-controls.tsx";
 
 function App() {
-  //const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
 
   const hasRun = useRef(false);
@@ -25,6 +24,7 @@ function App() {
       hasRun.current = true;
     }
     try {
+      //requests config from backend
       const response = await fetch("/api/get-yaml-config", { method: "GET" });
       const config = await response.json();
       const newElements = [];
@@ -51,7 +51,6 @@ function App() {
             type={config.elements[key].type}
             path={config.elements[key].filepath}
             location={config.elements[key].location}
-            size={100}
           />
         );
       }
@@ -61,31 +60,15 @@ function App() {
       return;
     }
   }
-  //Handles cursor image
-  const handleDrop = (e: DragEvent) => {
-    e.preventDefault();
-  };
-  //Handles cursor image
-  const handleDrag = (e: DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer!.dropEffect = "move";
-  };
-  //Adds and removes event listeners and calls get_config
+  //Calls get_config when page loads
   useEffect(() => {
-    document.addEventListener("drop", handleDrop);
-    document.addEventListener("dragover", handleDrag);
-    document.addEventListener("dragenter", handleDrag);
     get_config();
-    return () => {
-      document.removeEventListener("drop", handleDrop);
-      document.removeEventListener("dragover", handleDrag);
-      document.removeEventListener("dragenter", handleDrag);
-    };
   }, []);
-  //Displays all elements and the canvas
+  //Displays button controls, save button,
+  //and passes elements to the file upload where the canvas and elements will be
   return (
     <div>
-      <Buttoncontrols/>
+      <Buttoncontrols />
       <SaveButton></SaveButton>
       <FileUpload elements={elements} setElements={setElements}></FileUpload>
     </div>

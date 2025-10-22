@@ -17,18 +17,21 @@ function FileUpload(props: Props) {
 
   //Adds the new element to the state and sends the file to the web server
   async function uploadFile(location: number[], file: File | null = newFile) {
+    //We require that the image file must be under 5MB
     if (file != null && file.size > 5000000) {
       setMessage("File must be under 5MB");
     } else if (file != null) {
       const formData = new FormData();
       formData.append("file", file);
       try {
+        //Sends file to the server and receives a new filename from the server
         const res = await fetch("/api/upload-file", {
           method: "POST",
           body: formData,
         });
         const json = await res.json();
         const filename = json["filename"];
+        //Adds new element using the filename to the rendered Elements
         const newElement = (
           <Element
             key={props.elements.length + 1}
@@ -37,10 +40,10 @@ function FileUpload(props: Props) {
             type={file.type.split("/")[0]}
             path={"images/" + filename}
             location={[location[0], location[1]]}
-            size={100}
           />
         );
         props.setElements([...props.elements, newElement]);
+        //Adds new element using the filename to the redux config
         dispatch(
           addElement({
             name: "elem" + String(props.elements.length + 1),
@@ -73,7 +76,7 @@ function FileUpload(props: Props) {
   }
 
   //Prevents browser not allowing dragging the image
-  function handleDrag(e: React.DragEvent) {
+  function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
   }
 
@@ -96,7 +99,10 @@ function FileUpload(props: Props) {
       <div
         className={styles.canvas}
         onDrop={(e) => handleDrop(e)}
-        onDrag={(e) => handleDrag(e)}
+        onDragOver={(e) => handleDragOver(e)}
+        style={{
+          cursor: "grab",
+        }}
       >
         {props.elements}
       </div>
