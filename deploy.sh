@@ -7,8 +7,9 @@ git pull
 echo "Building new deployment..."
 npm --prefix ./web/LED-Wall-Website run build
 
-echo "Copying to distribution..."
-cp -r ./web/LED-Wall-Website/dist ./dist
+echo "Updating distribution..."
+rm -rf ../dist/*
+cp -r ./web/LED-Wall-Website/dist/* ../dist
 
 echo "Starting virtual environment..."
 source ./venv/bin/activate
