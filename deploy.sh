@@ -1,3 +1,6 @@
+echo "Reverting config file changes..."
+git restore **/*.yaml
+
 echo "Pulling from remote..."
 git pull
 
