@@ -1,7 +1,8 @@
 import yaml
-import json
 import hashlib
 import subprocess, os, signal
+import atexit
+import signal
 from flask import Flask, request, jsonify, send_from_directory
 
 # initialize an empty dictionary to store image coordinates, (x, y)
@@ -11,7 +12,7 @@ app = Flask(__name__)
 
 server_process = None
 CONFIG_DIR = "../../server"
-config_File = "../../server/input-image-test.yaml"  # will change so that config_File could be any yaml file saved in the repo, not just input-conway
+config_File = None 
 
 
 @app.route("/api/send-location", methods=["POST"])
@@ -156,13 +157,14 @@ def start_server():
         # Important: run led-wall-server in same directory as the executable
         exe_dir = os.path.abspath("../../server")
         
-        make_result = subprocess.run(
+        subprocess.run(
             ["make"], cwd=exe_dir, capture_output=True, text=True
         )
         
         server_process = subprocess.Popen(
             ["./led-wall-server", server_config_File],
-            cwd=exe_dir
+            cwd=exe_dir,
+            preexec_fn = os.setsid
         )
         print(f"[INFO]: Server started with config: {server_config_File}")
         return jsonify({"status": "Server starting", "config_file": server_config_File}), 200
@@ -180,13 +182,26 @@ def stop_server():
         return jsonify({"error": "Server not currently running"}), 400
 
     try:
-        os.kill(server_process.pid, signal.SIGTERM)
+        os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
         server_process = None
         print("[INFO]: Server stopped successfully")
         return jsonify({"status": "Server stopped"})
     except Exception as e:
         print(f"[ERROR]: Server couldn't be stopped -> {e}")
         return jsonify({"error": "Server couldn't be stopped"}), 500
+    
+def clean_server():
+    global server_process
+    if server_process is not None:
+        try:
+            os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
+            server_process = None
+        except ProcessLookupError:
+            pass
+
+atexit.register(clean_server)
+signal.signal(signal.SIGINT, clean_server)
+signal.signal(signal.SIGTERM, clean_server)
     
 
 @app.route("/api/list-configs", methods=['GET'])
@@ -201,6 +216,24 @@ def list_configs():
     except Exception as e:
         print(f"[ERROR]: Failed to list config files -> {e}")
         return jsonify({"error": "Could not list config files"}), 500
+    
+@app.route("/api/update-config", methods=["POST"])
+def update_config():
+    global config_File
+    data = request.get_json()
+    selected = data.get("config_file")
+
+    if not selected:
+        return jsonify({"error": "No configuration file provided"}), 400
+
+    abs_path = os.path.abspath(selected)
+    if not os.path.exists(abs_path):
+        return jsonify({"error": f"Configuration file not found: {abs_path}"}), 404
+
+    config_File = abs_path
+    print(f"[INFO]: Configuration file selected -> {config_File}")
+    return jsonify({"status": "Config selected", "config_file": config_File}), 200
+
 
 
 
