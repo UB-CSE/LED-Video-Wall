@@ -1,5 +1,6 @@
 import yaml
 import json
+import hashlib
 import subprocess, os, signal
 from flask import Flask, request, jsonify, send_from_directory
 
@@ -116,9 +117,14 @@ def set_yaml_config():
 @app.route("/api/upload-file", methods=["POST"])
 def upload_file():
     file = request.files["file"]
-    filepath = os.path.join("./static/images", file.filename)
-    file.save(filepath)
-    return "Success: new file has been created"
+    contents = file.stream.read()
+    file.stream.seek(0)
+    hashString = hashlib.sha256(contents).hexdigest()       # Takes a hash over the contents of the file
+    extension = file.filename.rsplit('.', 1)[1]                # Finds the extension
+    filename = hashString + '.' + extension
+    filepath = os.path.join("./static/images", filename)    #Combines into filepath
+    file.save(filepath)                                     #Saves to disk
+    return jsonify({'filename': filename})
 
 
 @app.route("/api/images/<filename>", methods=["GET"])
