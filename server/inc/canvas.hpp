@@ -9,8 +9,6 @@
 #include "input-parser.hpp"
 
 
-
-
 class Element {
 
     private:
@@ -68,6 +66,29 @@ class VideoElement : public Element {
         void reset() override;
     };
 
+class TextElement : public Element {
+public:
+    // use frameRate=0 for a static element; set >0 if your pipeline requires it
+    TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, int frameRate = 0)
+        : Element(id, loc, frameRate)
+    {
+        // keep the base pixel store in sync for callers using getPixelMatrix()
+        pixelMatrix = imgBGR.clone();
+    }
+
+    bool nextFrame(cv::Mat& frame) override {
+        if (pixelMatrix.empty()) {
+            frame.release();
+            return false;           // nothing to emit
+        }
+        pixelMatrix.copyTo(frame);  // static frame
+        return false;               // "no more frames"; change to true if you want perpetual emission
+    }
+
+    void reset() override {
+        // static text has no animated state to reset
+    }
+};
 
 //Originally, elementCount and PixelMatrix and the rest were in private, but for my MPI implementation, i needed to access them directly to init vCanvas with a default constructer
 class VirtualCanvas{        

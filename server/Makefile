@@ -18,10 +18,12 @@ CXXFLAGS := -O0 -g -Wall -std=c++17
 # Include flags
 INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
         `pkg-config --cflags opencv4` \
-	`pkg-config --cflags yaml-cpp`
+	`pkg-config --cflags yaml-cpp`\
+	`pkg-config --cflags freetype2`
 
 LDFLAGS = `pkg-config --libs opencv4` \
-	`pkg-config --libs yaml-cpp`
+	`pkg-config --libs yaml-cpp` \
+	`pkg-config --libs freetype2`
 
 .PHONY: all
 all: led-wall-server
