@@ -4,6 +4,7 @@ const ButtonControls: React.FC = () => {
   const [configFile, setConfigFile] = useState("");
   const [configs, setConfigs] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+ // const [configData, setConfigData] = useState<any>(null);
 
   const showMessage = (msg: string) => {
     setMessage(msg);
@@ -27,6 +28,35 @@ const ButtonControls: React.FC = () => {
     };
     fetchConfigs();
   }, []);
+
+
+  const handleConfigChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selected = e.target.value;
+    setConfigFile(selected);
+
+    if (!selected) return;
+
+    try {
+      // POST selected config file to backend
+      const res = await fetch("/api/update-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config_file: selected }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showMessage(`[ERROR]: ${data.error || "Failed to select config"}`);
+        return;
+      }
+
+      showMessage(`Loaded config: ${selected.split("/").pop()}`);
+
+    } catch (err) {
+      console.error(err);
+      showMessage("[ERROR]: Could not set config file");
+    }
+  };
 
   const startServer = async () => {
     if (!configFile) {
@@ -67,7 +97,8 @@ const ButtonControls: React.FC = () => {
       <div>
         <select
           value={configFile}
-          onChange={(e) => setConfigFile(e.target.value)}
+          onChange={handleConfigChange}
+          //onChange={(e) => setConfigFile(e.target.value)}
           style={{ marginRight: "10px" }}
         >
           <option value="">-- Select a Configuration --</option>
