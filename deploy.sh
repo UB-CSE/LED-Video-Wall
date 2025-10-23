@@ -17,4 +17,3 @@ source ./venv/bin/activate
 echo "Restarting server if already running or starting server otherwise..."
 cd web/web-server
 pkill -HUP gunicorn || gunicorn --bind 127.0.0.1:5000 'main:app'
-cd ../..
