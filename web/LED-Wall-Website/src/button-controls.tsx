@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from "react";
 
-const ButtonControls: React.FC = () => {
+type ButtonControlsProps = {
+  getConfig: () => Promise<void>;
+};
+
+function ButtonControls(props: ButtonControlsProps) {
   const [configFile, setConfigFile] = useState("");
   const [configs, setConfigs] = useState<string[]>([]);
   const [message, setMessage] = useState("");
- // const [configData, setConfigData] = useState<any>(null);
+  // const [configData, setConfigData] = useState<any>(null);
 
   const showMessage = (msg: string) => {
     setMessage(msg);
@@ -29,8 +33,9 @@ const ButtonControls: React.FC = () => {
     fetchConfigs();
   }, []);
 
-
-  const handleConfigChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleConfigChange = async (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
     const selected = e.target.value;
     setConfigFile(selected);
 
@@ -52,6 +57,8 @@ const ButtonControls: React.FC = () => {
 
       showMessage(`Loaded config: ${selected.split("/").pop()}`);
 
+      // Reload the elements and redux state
+      props.getConfig();
     } catch (err) {
       console.error(err);
       showMessage("[ERROR]: Could not set config file");
@@ -119,7 +126,6 @@ const ButtonControls: React.FC = () => {
       {message && <p>{message}</p>}
     </div>
   );
-};
+}
 
 export default ButtonControls;
-
