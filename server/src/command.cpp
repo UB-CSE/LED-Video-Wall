@@ -4,6 +4,7 @@
 #include <string>
 #include "canvas.hpp"
 #include "command.hpp"
+#include "text-render.hpp"
 
 /*
 inputAvailable is boilerplate code from my past projects. This is intended to allow
@@ -71,8 +72,165 @@ int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaus
         return 0;
     }
 }
-    
-    std::cout << "Unknown command: " << cmd << "\n"
+
+
+//TEXT COMMANDS/////
+if (cmd == "set_text") {
+    int id;
+    std::string newText;
+    if (!(iss >> id) || !std::getline(iss >> std::ws, newText)) {
+        std::cerr << "Invalid set-text. Usage: set-text <ElementID> <text>\n";
+    } else {
+        Element* oldElem = nullptr;
+        for (Element* e : vCanvas.getElementList()) {
+            if (e && e->getId() == id) { oldElem = e; break; }
+        }
+
+        if (!oldElem) {
+            std::cerr << "No element with id " << id << "\n";
+            return 0;
+        }
+
+        TextElement* textElem = dynamic_cast<TextElement*>(oldElem);
+        if (!textElem) {
+            std::cerr << "Element " << id << " is not a text element.\n";
+            return 0;
+        }
+        std::string fontPath = textElem->fontPath;
+        int fontSize = textElem->fontSize;
+        cv::Scalar color = textElem->color;
+        cv::Point loc = textElem->getLocation();
+
+        TextElement* newElem = dynamic_cast<TextElement*>(
+            renderTextToElement(newText, fontPath, fontSize, color, id, loc)
+        );
+
+        vCanvas.removeElementFromCanvas(id);
+        vCanvas.addElementToCanvas(newElem);
+        vCanvas.pushToCanvas();
+
+    }
+    return 0;
+}
+if (cmd == "set_font_size") {
+    int id;
+    int newSize;
+    if (!(iss >> id >> newSize)) {
+        std::cerr << "Invalid set-font-size. Usage:\n set-font-size <ElementID> <size>\n";
+    } else {
+        // Find the element
+        Element* oldElem = nullptr;
+        for (Element* e : vCanvas.getElementList()) {
+            if (e && e->getId() == id) { oldElem = e; break; }
+        }
+
+        if (!oldElem) {
+            std::cerr << "No element with id " << id << "\n";
+            return 0;
+        }
+
+        TextElement* textElem = dynamic_cast<TextElement*>(oldElem);
+        if (!textElem) {
+            std::cerr << "Element " << id << " is not a text element.\n";
+            return 0;
+        }
+        std::string text = textElem->content;  
+        std::string fontPath = textElem->fontPath;
+        cv::Scalar color = textElem->color;
+        cv::Point loc = textElem->getLocation();
+
+        TextElement* newElem = dynamic_cast<TextElement*>(
+            renderTextToElement(text, fontPath, newSize, color, id, loc)
+        );
+
+        vCanvas.removeElementFromCanvas(id);
+        vCanvas.addElementToCanvas(newElem);
+        vCanvas.pushToCanvas();
+
+    }
+    return 0;
+}
+if (cmd == "set_font") {
+    int id;
+    std::string newFontPath;
+    if (!(iss >> id >> std::ws) || !std::getline(iss, newFontPath)) {
+        std::cerr << "Invalid set-font. Usage:\n set-font <ElementID> <fontPath>\n";
+        return 0;
+    }
+
+    Element* oldElem = nullptr;
+    for (Element* e : vCanvas.getElementList()) {
+        if (e && e->getId() == id) { oldElem = e; break; }
+    }
+
+    if (!oldElem) {
+        std::cerr << "No element with id " << id << "\n";
+        return 0;
+    }
+
+    TextElement* textElem = dynamic_cast<TextElement*>(oldElem);
+    if (!textElem) {
+        std::cerr << "Element " << id << " is not a text element.\n";
+        return 0;
+    }
+
+    std::string currentText = textElem->content;
+    int fontSize = textElem->fontSize;
+    cv::Scalar color = textElem->color;
+    cv::Point loc = textElem->getLocation();
+
+    TextElement* newElem = dynamic_cast<TextElement*>(
+        renderTextToElement(currentText, newFontPath, fontSize, color, id, loc)
+    );
+    if (!newElem) {
+    std::cerr << "Failed to render new text with font: " << newFontPath << "\n";
+    return 0; 
+    }
+
+    vCanvas.removeElementFromCanvas(id);
+    vCanvas.addElementToCanvas(newElem);
+    vCanvas.pushToCanvas();
+
+}
+if (cmd == "set_font_color") {
+    int id;
+    int b, g, r;
+    if (!(iss >> id >> b >> g >> r)) {
+        std::cerr << "Invalid set-font-color. Usage:\n set-font-color <ElementID> <B> <G> <R>\n";
+    } else {
+        Element* oldElem = nullptr;
+        for (Element* e : vCanvas.getElementList()) {
+            if (e && e->getId() == id) { oldElem = e; break; }
+        }
+
+        if (!oldElem) {
+            std::cerr << "No element with id " << id << "\n";
+            return 0;
+        }
+        TextElement* textElem = dynamic_cast<TextElement*>(oldElem);
+        if (!textElem) {
+            std::cerr << "Element " << id << " is not a text element.\n";
+            return 0;
+        }
+        std::string text = textElem->content;
+        std::string fontPath = textElem->fontPath;
+        int fontSize = textElem->fontSize;
+        cv::Point loc = textElem->getLocation();
+        cv::Scalar newColor(b, g, r); 
+
+        TextElement* newElem = dynamic_cast<TextElement*>(
+            renderTextToElement(text, fontPath, fontSize, newColor, id, loc)
+        );
+
+        vCanvas.removeElementFromCanvas(id);
+        vCanvas.addElementToCanvas(newElem);
+        vCanvas.pushToCanvas();
+
+    return 0;
+}
+
+std::cout << "Unknown command: " << cmd << "\n"
                  "Available: pause, resume, quit, move <id> <x> <y>\n";
     return 0;
 }
+

@@ -112,6 +112,7 @@ void VideoElement::reset() {
 }
 
 
+
 /*
 Adds an element pointer to the virtual canvas list element pointer list
 
@@ -248,5 +249,7 @@ bool VirtualCanvas::removeElementFromCanvas(int elementId) {
     pushToCanvas();
     return 0;
 }
+
+
 
 

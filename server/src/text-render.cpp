@@ -147,5 +147,7 @@ Element* renderTextToElement(const std::string &text,
   }
 
   // return a concrete element pointer
-  return new TextElement(rgbImg, elementId, position, /*frameRate*/ 0);
+  return new TextElement(rgbImg, elementId, position,
+                       text, fontPath, fontSize, textColor, 0);
+
 }
