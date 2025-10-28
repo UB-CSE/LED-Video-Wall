@@ -67,7 +67,7 @@ function App() {
 
   async function setCanvas() {
     //Setting starting width and height to define maximum dimensions for the canvas
-    const maxWidth = window.innerWidth * 0.75;
+    const maxWidth = window.innerWidth * 0.5;
     const maxHeight = window.innerHeight * 0.9;
 
     //Fetch LED wall config
@@ -151,16 +151,19 @@ function App() {
     //The dimension that takes up the largest portion of the allotted space is chosen
     if (multiplierX > multiplierY) {
       setSizeMultiplier(multiplierY);
+      //Sets the canvas dimensions so that it will take up as much space as possible
+      //without exceeding the maximum dimensions
+      setCanvasDimensions([
+        configWidth * multiplierY,
+        configHeight * multiplierY,
+      ]);
     } else {
       setSizeMultiplier(multiplierX);
+      setCanvasDimensions([
+        configWidth * multiplierX,
+        configHeight * multiplierX,
+      ]);
     }
-
-    //Sets the canvas dimensions so that it will take up as much space as possible
-    //without exceeding the maximum dimensions
-    setCanvasDimensions([
-      configWidth * sizeMultiplier,
-      configHeight * sizeMultiplier,
-    ]);
   }
 
   //Calls get_config when page loads

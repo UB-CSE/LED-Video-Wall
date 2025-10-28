@@ -97,6 +97,9 @@ function FileUpload(props: Props) {
         onChange={(e) => handleChange(e)}
       />
       <button onClick={() => uploadFile([0, 0])}>Upload</button>
+      <p>
+        `${props.canvasDimensions[0]}, ${props.canvasDimensions[1]}`
+      </p>
       <div
         className={styles.canvas}
         onDrop={(e) => handleDrop(e)}
