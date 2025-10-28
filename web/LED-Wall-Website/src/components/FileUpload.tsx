@@ -7,6 +7,7 @@ import Element from "./element";
 type Props = {
   elements: JSX.Element[];
   setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>;
+  canvasDimensions: number[];
 };
 
 //Creates a canvas that can be uploaded to along with a upload button
@@ -102,6 +103,8 @@ function FileUpload(props: Props) {
         onDragOver={(e) => handleDragOver(e)}
         style={{
           cursor: "grab",
+          width: props.canvasDimensions[0],
+          height: props.canvasDimensions[1],
         }}
       >
         {props.elements}
