@@ -7,6 +7,7 @@
 #include <vector>
 #include <algorithm>
 #include "input-parser.hpp"
+#include "text-render.hpp"
 
 
 class Element {
@@ -67,28 +68,33 @@ class VideoElement : public Element {
     };
 
 class TextElement : public Element {
-public:
-    // use frameRate=0 for a static element; set >0 if your pipeline requires it
-    TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, int frameRate = 0)
-        : Element(id, loc, frameRate)
+
+    public:
+        std::string content;   
+        std::string fontPath;  
+        int fontSize;         
+        cv::Scalar color;      
+
+   
+        TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, const std::string& text, const std::string& font, int size, cv::Scalar col, int frameRate = 0) : Element(id, loc, frameRate),
+        content(text),
+        fontPath(font),
+        fontSize(size),
+        color(col)
     {
-        // keep the base pixel store in sync for callers using getPixelMatrix()
         pixelMatrix = imgBGR.clone();
     }
 
     bool nextFrame(cv::Mat& frame) override {
-        if (pixelMatrix.empty()) {
-            frame.release();
-            return false;           // nothing to emit
-        }
-        pixelMatrix.copyTo(frame);  // static frame
-        return false;               // "no more frames"; change to true if you want perpetual emission
+        pixelMatrix.copyTo(frame);
+        return false;
     }
 
     void reset() override {
-        // static text has no animated state to reset
+       
     }
 };
+  
 
 //Originally, elementCount and PixelMatrix and the rest were in private, but for my MPI implementation, i needed to access them directly to init vCanvas with a default constructer
 class VirtualCanvas{        

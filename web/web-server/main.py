@@ -5,6 +5,8 @@ import atexit
 import signal
 from flask import Flask, request, jsonify, send_from_directory
 
+from led_video_wall import LedVideoWall
+
 # initialize an empty dictionary to store image coordinates, (x, y)
 imageCoords = {}
 
@@ -34,9 +36,8 @@ def send_location():
 
     if server_process is not None:
         try:
-            with open("/tmp/led-cmd", "w") as fp:
-                fp.write(f"move {imgId} {x} {y}\n")
-
+            LedVideoWall.move(imgId, x, y)
+        
         except FileNotFoundError:
             print("ERROR")
 
@@ -104,13 +105,6 @@ def set_yaml_config():
                 )
             file.write(yaml_string)
 
-            try:
-                with open("/tmp/led-cmd", "w") as fp:
-                    fp.write(f"move {element['id']} {element['location'][0]} {element['location'][1]}\n")
-
-            except FileNotFoundError:
-                print("ERROR")
-            
         return "Success: config file has been updated"  # Responds with success message
     except FileNotFoundError:
         return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
