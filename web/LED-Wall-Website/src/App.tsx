@@ -54,7 +54,10 @@ function App() {
             id={config.elements[key].id}
             type={config.elements[key].type}
             path={config.elements[key].filepath}
-            location={config.elements[key].location}
+            location={[
+              config.elements[key].location[0] * multiplier,
+              config.elements[key].location[1] * multiplier,
+            ]}
             sizeMultiplier={multiplier}
           />
         );
@@ -178,7 +181,7 @@ function App() {
   return (
     <div>
       <Buttoncontrols />
-      <SaveButton></SaveButton>
+      <SaveButton sizeMultiplier={sizeMultiplier}></SaveButton>
       <FileUpload
         elements={elements}
         setElements={setElements}

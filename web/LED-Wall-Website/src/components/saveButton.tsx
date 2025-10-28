@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
 
-function SaveButton() {
+type Props = {
+  sizeMultiplier: number;
+};
+
+function SaveButton(props: Props) {
   const configState = useSelector((state: RootState) => state.config);
   const [message, setMessage] = useState("");
 
@@ -16,7 +20,10 @@ function SaveButton() {
         id: element.id,
         type: element.type,
         filepath: element.filepath,
-        location: element.location,
+        location: [
+          element.location[0] / props.sizeMultiplier,
+          element.location[1] / props.sizeMultiplier,
+        ],
       };
     }
     //Sends JSON to web server

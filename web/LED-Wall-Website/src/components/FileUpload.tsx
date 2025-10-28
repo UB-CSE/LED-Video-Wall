@@ -45,7 +45,10 @@ function FileUpload(props: Props) {
             id={props.elements.length + 1}
             type={file.type.split("/")[0]}
             path={"images/" + filename}
-            location={[location[0], location[1]]}
+            location={[
+              location[0] * sizeMultiplier,
+              location[1] * sizeMultiplier,
+            ]}
             sizeMultiplier={sizeMultiplier}
           />
         );
