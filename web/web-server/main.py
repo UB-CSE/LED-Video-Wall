@@ -199,9 +199,20 @@ def clean_server():
         except ProcessLookupError:
             pass
 
+
+def signal_handling(signum = None, frame = None):
+    clean_server()
+    os._exit(0)
+
+signal.signal(signal.SIGINT, signal_handling)
+signal.signal(signal.SIGTERM, signal_handling)
+
+try:
+    signal.signal(signal.SIGHUP, signal_handling)
+except AttributeError:
+    print("[ERROR]: SIGHUP not supported on this platform")
+
 atexit.register(clean_server)
-signal.signal(signal.SIGINT, clean_server)
-signal.signal(signal.SIGTERM, clean_server)
     
 
 @app.route("/api/list-configs", methods=['GET'])
