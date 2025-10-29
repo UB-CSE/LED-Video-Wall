@@ -1,5 +1,5 @@
 import Element from "./components/element";
-import { useEffect, type JSX, useRef, useState } from "react";
+import { useEffect, type JSX, useState } from "react";
 import { useDispatch } from "react-redux";
 import { setGamma } from "./state/config/configSlice.ts";
 import { addElement } from "./state/config/configSlice.ts";
@@ -10,8 +10,6 @@ import Buttoncontrols from "./button-controls.tsx";
 function App() {
   const dispatch = useDispatch();
 
-  const hasRun = useRef(false);
-
   //List of elements to be displayed onscreen
   const [elements, setElements] = useState<JSX.Element[]>([]);
 
@@ -20,13 +18,7 @@ function App() {
   const [sizeMultiplier, setSizeMultiplier] = useState(0);
 
   //Gets the current configuration file from the backend
-  async function get_config(multiplier: number) {
-    //prevents double running during testing
-    if (hasRun.current) {
-      return;
-    } else {
-      hasRun.current = true;
-    }
+  async function getConfig(multiplier: number) {
     try {
       //requests config from backend
       const response = await fetch("/api/get-yaml-config", { method: "GET" });
@@ -161,14 +153,14 @@ function App() {
         configWidth * multiplierY,
         configHeight * multiplierY,
       ]);
-      get_config(multiplierY);
+      getConfig(multiplierY);
     } else {
       setSizeMultiplier(multiplierX);
       setCanvasDimensions([
         configWidth * multiplierX,
         configHeight * multiplierX,
       ]);
-      get_config(multiplierX);
+      getConfig(multiplierX);
     }
   }
 
@@ -180,7 +172,7 @@ function App() {
   //and passes elements to the file upload where the canvas and elements will be
   return (
     <div>
-      <Buttoncontrols />
+      <Buttoncontrols getConfig={getConfig/>
       <SaveButton sizeMultiplier={sizeMultiplier}></SaveButton>
       <FileUpload
         elements={elements}
