@@ -20,7 +20,7 @@ function App() {
   const [sizeMultiplier, setSizeMultiplier] = useState(0);
 
   //Gets the current configuration file from the backend
-  async function get_config() {
+  async function get_config(multiplier: number) {
     //prevents double running during testing
     if (hasRun.current) {
       return;
@@ -54,7 +54,11 @@ function App() {
             id={config.elements[key].id}
             type={config.elements[key].type}
             path={config.elements[key].filepath}
-            location={config.elements[key].location}
+            location={[
+              config.elements[key].location[0] * multiplier,
+              config.elements[key].location[1] * multiplier,
+            ]}
+            sizeMultiplier={multiplier}
           />
         );
       }
@@ -157,18 +161,19 @@ function App() {
         configWidth * multiplierY,
         configHeight * multiplierY,
       ]);
+      get_config(multiplierY);
     } else {
       setSizeMultiplier(multiplierX);
       setCanvasDimensions([
         configWidth * multiplierX,
         configHeight * multiplierX,
       ]);
+      get_config(multiplierX);
     }
   }
 
   //Calls get_config when page loads
   useEffect(() => {
-    get_config();
     setCanvas();
   }, []);
   //Displays button controls, save button,
@@ -176,11 +181,12 @@ function App() {
   return (
     <div>
       <Buttoncontrols />
-      <SaveButton></SaveButton>
+      <SaveButton sizeMultiplier={sizeMultiplier}></SaveButton>
       <FileUpload
         elements={elements}
         setElements={setElements}
         canvasDimensions={canvasDimensions}
+        sizeMultiplier={sizeMultiplier}
       ></FileUpload>
     </div>
   );

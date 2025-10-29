@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { updateElement } from "../state/config/configSlice.ts";
 
@@ -8,6 +8,7 @@ type ElementProps = {
   type: string;
   path: string;
   location: [number, number];
+  sizeMultiplier: number;
 };
 //Image Element that can be dragged and dropped inside the canvas
 function Element(props: ElementProps) {
@@ -20,6 +21,8 @@ function Element(props: ElementProps) {
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  //Store current dimensions
+  const [dimensions, setDimensions] = useState([0, 0]);
 
   //Overwrites redux state of this element in the config
   function updateState() {
@@ -55,6 +58,15 @@ function Element(props: ElementProps) {
     });
   }
 
+  //Finds the size of the image and sets the new size with sizeMultiplier
+  function handleLoad(e: React.SyntheticEvent<HTMLImageElement, Event>) {
+    const { naturalHeight, naturalWidth } = e.currentTarget;
+    setDimensions([
+      naturalWidth * props.sizeMultiplier,
+      naturalHeight * props.sizeMultiplier,
+    ]);
+  }
+
   //Had to change DragEvent to MouseEvent in order to have control over cursor style
   //Not using react's built in drag event required useEffect and event listeners,
   //because otherwise, the drag would stop if the cursor outpaced the image
@@ -84,11 +96,14 @@ function Element(props: ElementProps) {
       src={"/api/" + props.path}
       draggable={false}
       onMouseDown={(e) => startDragging(e)}
+      onLoad={handleLoad}
       style={{
         position: "fixed",
         left: props.location[0] + x,
         top: props.location[1] + y,
         cursor: isDragging ? "grabbing" : "grab",
+        width: dimensions[0],
+        height: dimensions[1],
       }}
     />
   );
