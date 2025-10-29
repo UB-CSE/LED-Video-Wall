@@ -172,7 +172,7 @@ function App() {
   //and passes elements to the file upload where the canvas and elements will be
   return (
     <div>
-      <Buttoncontrols getConfig={getConfig/>
+      <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
       <SaveButton sizeMultiplier={sizeMultiplier}></SaveButton>
       <FileUpload
         elements={elements}

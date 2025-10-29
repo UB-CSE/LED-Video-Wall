@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 
 type ButtonControlsProps = {
-  getConfig: () => Promise<void>;
+  getConfig: (arg0: number) => Promise<void>;
+  sizeMultiplier: number;
 };
 
 function ButtonControls(props: ButtonControlsProps) {
@@ -58,7 +59,7 @@ function ButtonControls(props: ButtonControlsProps) {
       showMessage(`Loaded config: ${selected.split("/").pop()}`);
 
       // Reload the elements and redux state
-      props.getConfig();
+      props.getConfig(props.sizeMultiplier);
     } catch (err) {
       console.error(err);
       showMessage("[ERROR]: Could not set config file");
