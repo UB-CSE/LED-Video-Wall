@@ -7,6 +7,8 @@ import Element from "./element";
 type Props = {
   elements: JSX.Element[];
   setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>;
+  canvasDimensions: number[];
+  sizeMultiplier: number;
 };
 
 //Creates a canvas that can be uploaded to along with a upload button
@@ -16,7 +18,11 @@ function FileUpload(props: Props) {
   const dispatch = useDispatch();
 
   //Adds the new element to the state and sends the file to the web server
-  async function uploadFile(location: number[], file: File | null = newFile) {
+  async function uploadFile(
+    location: number[],
+    file: File | null = newFile,
+    sizeMultiplier: number
+  ) {
     //We require that the image file must be under 5MB
     if (file != null && file.size > 5000000) {
       setMessage("File must be under 5MB");
@@ -39,7 +45,11 @@ function FileUpload(props: Props) {
             id={props.elements.length + 1}
             type={file.type.split("/")[0]}
             path={"images/" + filename}
-            location={[location[0], location[1]]}
+            location={[
+              location[0] * sizeMultiplier,
+              location[1] * sizeMultiplier,
+            ]}
+            sizeMultiplier={sizeMultiplier}
           />
         );
         props.setElements([...props.elements, newElement]);
@@ -72,7 +82,11 @@ function FileUpload(props: Props) {
     const relativeX = e.clientX - canvasRect.left;
     const relativeY = e.clientY - canvasRect.top;
     setFile(e.dataTransfer.files[0]);
-    uploadFile([relativeX, relativeY], e.dataTransfer.files[0]);
+    uploadFile(
+      [relativeX, relativeY],
+      e.dataTransfer.files[0],
+      props.sizeMultiplier
+    );
   }
 
   //Prevents browser not allowing dragging the image
@@ -95,13 +109,17 @@ function FileUpload(props: Props) {
         accept="image/*"
         onChange={(e) => handleChange(e)}
       />
-      <button onClick={() => uploadFile([0, 0])}>Upload</button>
+      <button onClick={() => uploadFile([0, 0], null, props.sizeMultiplier)}>
+        Upload
+      </button>
       <div
         className={styles.canvas}
         onDrop={(e) => handleDrop(e)}
         onDragOver={(e) => handleDragOver(e)}
         style={{
           cursor: "grab",
+          width: props.canvasDimensions[0],
+          height: props.canvasDimensions[1],
         }}
       >
         {props.elements}
