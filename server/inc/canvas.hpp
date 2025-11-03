@@ -38,9 +38,30 @@ class Element {
 class ImageElement : public Element {
     private:
         bool provided;
+        cv::Mat original_;   
+        double  scale_ = 1.0;
+        std::string filePath_;
     
     public:
         ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate);
+
+        const std::string& getFilePath() const { return filePath_; }
+
+        void setScale(double s) {
+            if (s <= 0.0) return;
+            scale_ = s;
+            if (original_.empty()) return;
+
+            if (std::abs(scale_ - 1.0) < 1e-6) {
+                pixelMatrix = original_.clone();
+            } else {
+                cv::resize(
+                    original_, pixelMatrix, cv::Size(),
+                    scale_, scale_,
+                    (scale_ < 1.0) ? cv::INTER_AREA : cv::INTER_LINEAR
+                );
+            }
+        }
         bool nextFrame(cv::Mat& frame) override;
         void reset() override;
     };

@@ -14,6 +14,8 @@ ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, i
     if (pixelMatrix.empty()) {
         throw std::runtime_error("Failed to load image: " + filepath);
     }
+    original_ = pixelMatrix.clone();   // NEW: remember original for scaling
+    filePath_ = filepath; 
 }
 
 bool ImageElement::nextFrame(cv::Mat& frame) {

@@ -229,6 +229,54 @@ int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaus
             return 0;
         }
     }
+    if (cmd == "scale") {
+        int id;
+        double factor;
+        if (!(iss >> id >> factor) || factor <= 0.0) {
+            std::cerr << "Invalid scale. Usage:\n  scale <ElementID> <factor> (e.g., 0.5)\n";
+            return 0;
+        }
+
+        // Find existing element
+        Element* oldElem = nullptr;
+        for (Element* e : vCanvas.getElementList()) {
+            if (e && e->getId() == id) { oldElem = e; break; }
+        }
+
+        if (!oldElem) {
+            std::cerr << "No element with id " << id << "\n";
+            return 0;
+        }
+
+        // Must be an ImageElement (just like your text commands check types)
+        ImageElement* imgElem = dynamic_cast<ImageElement*>(oldElem);
+        if (!imgElem) {
+            std::cerr << "Element " << id << " is not an image element.\n";
+            return 0;
+        }
+
+        // Snapshot attributes we need to recreate
+        std::string path   = imgElem->getFilePath();
+        cv::Point   loc    = imgElem->getLocation();
+        int         fps    = oldElem->getFrameRate();
+
+        // Remove the old element, recreate a new one, apply scale, then push
+        vCanvas.removeElementFromCanvas(id);
+        Element* newElem = nullptr;
+        try {
+            newElem = new ImageElement(path, id, loc, fps);
+            static_cast<ImageElement*>(newElem)->setScale(factor);  // scale now
+            vCanvas.addElementToCanvas(newElem);
+            vCanvas.pushToCanvas();
+        } catch (const std::exception& e) {
+            std::cerr << "[scale] Failed to reload image: " << e.what() << "\n";
+            if (newElem) { delete newElem; }
+            return 0;
+        }
+
+        std::cout << "Scaled image " << id << " by factor " << factor << "\n";
+        return 0;
+    }
     std::cout << "Unknown command: " << cmd << "\n"
                     "Available: pause, resume, quit, move <id> <x> <y>\n";
         return 0;
