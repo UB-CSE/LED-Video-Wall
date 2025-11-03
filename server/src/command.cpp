@@ -237,7 +237,6 @@ int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaus
             return 0;
         }
 
-        // Find existing element
         Element* oldElem = nullptr;
         for (Element* e : vCanvas.getElementList()) {
             if (e && e->getId() == id) { oldElem = e; break; }
@@ -248,24 +247,21 @@ int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaus
             return 0;
         }
 
-        // Must be an ImageElement (just like your text commands check types)
         ImageElement* imgElem = dynamic_cast<ImageElement*>(oldElem);
         if (!imgElem) {
             std::cerr << "Element " << id << " is not an image element.\n";
             return 0;
         }
 
-        // Snapshot attributes we need to recreate
         std::string path   = imgElem->getFilePath();
         cv::Point   loc    = imgElem->getLocation();
         int         fps    = oldElem->getFrameRate();
 
-        // Remove the old element, recreate a new one, apply scale, then push
         vCanvas.removeElementFromCanvas(id);
         Element* newElem = nullptr;
         try {
             newElem = new ImageElement(path, id, loc, fps);
-            static_cast<ImageElement*>(newElem)->setScale(factor);  // scale now
+            static_cast<ImageElement*>(newElem)->setScale(factor);  
             vCanvas.addElementToCanvas(newElem);
             vCanvas.pushToCanvas();
         } catch (const std::exception& e) {
