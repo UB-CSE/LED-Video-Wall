@@ -112,6 +112,7 @@ void VideoElement::reset() {
 }
 
 
+
 /*
 Adds an element pointer to the virtual canvas list element pointer list
 
@@ -178,9 +179,9 @@ void VirtualCanvas::pushToCanvas(){
 
         cv::Size elemSize = elemMat.size();
 
-        std::cout << "Element ID: " << elemPtr->getId()
+        /*std::cout << "Element ID: " << elemPtr->getId()
              << " at (" << loc.x << "," << loc.y << ")"
-               << " size " << elemSize.width << "x" << elemSize.height << std::endl;
+               << " size " << elemSize.width << "x" << elemSize.height << std::endl;*/
 
 
         /*
@@ -248,5 +249,3 @@ bool VirtualCanvas::removeElementFromCanvas(int elementId) {
     pushToCanvas();
     return 0;
 }
-
-

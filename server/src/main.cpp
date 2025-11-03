@@ -25,7 +25,7 @@
 #include <sys/stat.h>
 
 //Change this flag as needed. Debug mode displays virtual canvas locally per update
-#define DEBUG_MODE 0
+#define DEBUG_MODE 1
 #define TMP_CMD "/tmp/led-cmd"
 
 int main(int argc, char* argv[]) {
