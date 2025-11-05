@@ -32,12 +32,13 @@ def send_location():
         print("[ERROR]: Invalid message received")
         return jsonify({"[ERROR]: Invalid message received"}), 400
 
-    try:
-        with open("/tmp/led-cmd", "w") as fp:
-            fp.write(f"move {imgId} {x} {y}\n")
+    if server_process is not None:
+        try:
+            with open("/tmp/led-cmd", "w") as fp:
+                fp.write(f"move {imgId} {x} {y}\n")
 
-    except FileNotFoundError:
-        print("ERROR")
+        except FileNotFoundError:
+            print("ERROR")
 
 
     print("Data:")
@@ -246,6 +247,21 @@ def update_config():
     return jsonify({"status": "Config selected", "config_file": config_File}), 200
 
 
+@app.route("/api/get-matrix-config", methods=["GET"])
+def get_matrix_config():
+    matrix_config_path = os.path.join(CONFIG_DIR, "config.yaml")
+    if not os.path.exists(matrix_config_path):
+        print("[ERROR]: LED matrix configuration not Found")
+        return jsonify({"[ERROR]: LED matrix configuration not Found"}), 404
+    
+    try:
+        with open(matrix_config_path, "r") as file:
+            matrix_config_data = yaml.safe_load(file)
+
+        return jsonify(matrix_config_data)
+    except Exception as e:
+        print("[ERROR]: Failed to read LED configuration")
+        return jsonify({"[ERROR]: Failed to read LED configuration"})
 
 
 if __name__ == "_main_":
