@@ -1,0 +1,141 @@
+ignore-bounds-checks: true
+
+# ns-per-frame: 100000000 # 10 fps
+# ns-per-frame: 66666666 # 15 fps
+ns-per-frame: 50000000 # 20 fps
+# ns-per-frame: 40000000 # 25 fps
+# ns-per-frame: 33333333 # 30 fps
+# ns-per-frame: 25000000 # 40 fps
+
+#
+# This is a test file to see what happens when adding fake matrices
+#
+
+matrix-specs:
+  "ws2812b:32x8":
+    power_limit_amps: 2.5
+    width-height: [8, 32]
+
+matrices:
+  mat1:
+    spec: "ws2812b:32x8"
+    pos: [0, 0]
+    rot: down
+  mat2:
+    spec: "ws2812b:32x8"
+    pos: [8, 0]
+    rot: down
+  mat3:
+    spec: "ws2812b:32x8"
+    pos: [16, 0]
+    rot: down
+  mat4:
+    spec: "ws2812b:32x8"
+    pos: [24, 0]
+    rot: down
+  mat5:
+    spec: "ws2812b:32x8"
+    pos: [0, 32]
+    rot: down
+  mat6:
+    spec: "ws2812b:32x8"
+    pos: [8, 32]
+    rot: down
+  mat7:
+    spec: "ws2812b:32x8"
+    pos: [16, 32]
+    rot: down
+  mat8:
+    spec: "ws2812b:32x8"
+    pos: [24, 32]
+    rot: down
+  mat9:
+    spec: "ws2812b:32x8"
+    pos: [32, 0]
+    rot: down
+  mat10:
+    spec: "ws2812b:32x8"
+    pos: [40, 0]
+    rot: down
+  mat11:
+    spec: "ws2812b:32x8"
+    pos: [48, 0]
+    rot: down
+  mat12:
+    spec: "ws2812b:32x8"
+    pos: [56, 0]
+    rot: down
+  mat13:
+    spec: "ws2812b:32x8"
+    pos: [32, 32]
+    rot: down
+  mat14:
+    spec: "ws2812b:32x8"
+    pos: [40, 32]
+    rot: down
+  mat15:
+    spec: "ws2812b:32x8"
+    pos: [48, 32]
+    rot: down
+  mat16:
+    spec: "ws2812b:32x8"
+    pos: [56, 32]
+    rot: down
+  mat17:
+    spec: "ws2812b:32x8"
+    pos: [100, 21]
+    rot: down
+  mat18:
+    spec: "ws2812b:32x8"
+    pos: [0, 1093]
+    rot: down
+  mat19:
+    spec: "ws2812b:32x8"
+    pos: [120, 120]
+    rot: down
+  mat20: 
+    spec: "ws2812b:32x8"
+    pos: [4000, 0]
+    rot: down
+
+clients:
+  30-C6-F7-26-05-D4:
+    matrix-connections:
+      - pin: 16
+        matrices: [mat1]
+      - pin: 17
+        matrices: [mat2]
+      - pin: 18
+        matrices: [mat3]
+      - pin: 19
+        matrices: [mat4]
+  24-0A-C4-0D-AA-F8:
+    matrix-connections:
+      - pin: 16
+        matrices: [mat8]
+      - pin: 17
+        matrices: [mat7]
+      - pin: 18
+        matrices: [mat6]
+      - pin: 19
+        matrices: [mat5]
+  30-C6-F7-25-F3-4C:
+    matrix-connections:
+      - pin: 16
+        matrices: [mat9]
+      - pin: 17
+        matrices: [mat10]
+      - pin: 18
+        matrices: [mat11]
+      - pin: 19
+        matrices: [mat12]
+  30-C6-F7-1E-74-D4:
+    matrix-connections:
+      - pin: 16
+        matrices: [mat13]
+      - pin: 17
+        matrices: [mat14]
+      - pin: 18
+        matrices: [mat15]
+      - pin: 19
+        matrices: [mat16]
