@@ -1,0 +1,5 @@
+services:
+  check-in:
+    build: .
+    ports:
+      - "127.0.0.1:5513:8000"
