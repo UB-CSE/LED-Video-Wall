@@ -39,13 +39,14 @@ class ImageElement : public Element {
     private:
         bool provided;
         cv::Mat original_;   
-        double  scale_ = 1.0;
+        double  scale_;
         std::string filePath_;
     
     public:
-        ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate);
+        ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double scale);
 
         const std::string& getFilePath() const { return filePath_; }
+        const double getScale() const {return scale_; }
 
         void setScale(double s) {
             if (s <= 0.0) return;

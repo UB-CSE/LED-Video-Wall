@@ -74,7 +74,7 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                     std::cerr << "Missing filepath or location for element: " << key << std::endl;
      
                 }
-
+                
                 std::string filepath = value["filepath"].as<std::string>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
 
@@ -89,9 +89,16 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 ELEMENT CONSTRUCTION HERE
                 
                 */
-                Element * elem = new ImageElement(filepath, id, loc, -1); //Remember to "delete elem" afterwards
+                
+                double scale = 1.0;
+                if (value["scale"]) {
+                    scale = value["scale"].as<double>();
+                    
+                } 
 
+                Element * elem = new ImageElement(filepath, id, loc, -1, scale); //Remember to "delete elem" afterwards
                 vCanvas.addElementToCanvas(elem);
+                
             }
 
             /*
