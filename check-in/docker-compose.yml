@@ -5,3 +5,4 @@ services:
       - "127.0.0.1:5513:8000"
     volumes:
       - "./hosts.csv:/app/hosts.csv"
+    restart: unless-stopped
