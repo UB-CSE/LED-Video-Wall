@@ -13,6 +13,7 @@ app = Flask(__name__)
 server_process = None
 CONFIG_DIR = "../../server"
 config_File = None 
+currently_running_file = None
 
 
 @app.route("/api/send-location", methods=["POST"])
@@ -167,6 +168,8 @@ def start_server():
             cwd=exe_dir,
             preexec_fn = os.setsid
         )
+        global currently_running_file
+        currently_running_file = config_File.rsplit("/", 1)[1]
         print(f"[INFO]: Server started with config: {server_config_File}")
         return jsonify({"status": "Server starting", "config_file": server_config_File}), 200
     except Exception as e:
@@ -251,6 +254,14 @@ def get_matrix_config():
     except Exception as e:
         print("[ERROR]: Failed to read LED configuration")
         return jsonify({"[ERROR]: Failed to read LED configuration"})
+    
+@app.route("/api/get-current-config", methods=["GET"])
+def get_current_config():
+    if currently_running_file == None:
+        print("[ERROR]: LED wall server is not running")
+        return jsonify({"[ERROR]: LED wall server is not running"})
+    else:
+        return jsonify(currently_running_file)
 
 
 if __name__ == "_main_":
