@@ -161,13 +161,20 @@ def start_server():
         subprocess.run(
             ["make"], cwd=exe_dir, capture_output=True, text=True
         )
+
+        if app.debug:
+            cmd = ["./led-wall-server", server_config_File]
+        else:
+            cmd = ["./led-wall-server", server_config_File, "--prod"]
         
         server_process = subprocess.Popen(
-            ["./led-wall-server", server_config_File],
+            cmd,
             cwd=exe_dir,
             preexec_fn = os.setsid
         )
         print(f"[INFO]: Server started with config: {server_config_File}")
+        if not app.debug:
+            print("[INFO]: Flask not in debug mode, '--prod' flag added")
         return jsonify({"status": "Server starting", "config_file": server_config_File}), 200
     except Exception as e:
         print(f"[ERROR]: Failed to start server -> {e}")
