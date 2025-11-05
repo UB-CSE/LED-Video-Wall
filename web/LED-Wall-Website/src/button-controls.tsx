@@ -6,7 +6,7 @@ type ButtonControlsProps = {
 };
 
 function ButtonControls(props: ButtonControlsProps) {
-  const [configFile, setConfigFile] = useState("");
+  const [configFile, setConfigFile] = useState("--select configuration file--");
   const [configs, setConfigs] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   const [running, setRunning] = useState("Server is not running");
@@ -20,7 +20,6 @@ function ButtonControls(props: ButtonControlsProps) {
 
   // Fetch available YAML configs from backend
   useEffect(() => {
-    getCurrentlyRunning();
     const fetchConfigs = async () => {
       try {
         const response = await fetch("/api/list-configs");
@@ -37,20 +36,20 @@ function ButtonControls(props: ButtonControlsProps) {
       }
     };
     fetchConfigs();
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    getCurrentlyRunningAndMount();
+    /*window.addEventListener("beforeunload", handleBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
+    };*/
   }, []);
 
-  function handleBeforeUnload() {
+  /*function handleBeforeUnload() {
     fetch("/api/update-config", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ config_file: configRunning }),
     });
-  }
+  }*/
 
   async function getCurrentlyRunning() {
     const response = await fetch("/api/get-current-config", { method: "GET" });
@@ -61,6 +60,26 @@ function ButtonControls(props: ButtonControlsProps) {
     } else {
       setRunning("Server currently running");
       setConfigRunning(text);
+    }
+  }
+
+  async function getCurrentlyRunningAndMount() {
+    const response = await fetch("/api/get-current-config", { method: "GET" });
+    const text = await response.text();
+    if (text == "") {
+      setRunning("Server is not running");
+      setConfigRunning(text);
+    } else {
+      setRunning("Server currently running");
+      setConfigRunning(text);
+    }
+    if (text != "") {
+      await fetch("/api/update-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config_file: text }),
+      });
+      setConfigFile(text);
     }
   }
 
@@ -146,7 +165,7 @@ function ButtonControls(props: ButtonControlsProps) {
           //onChange={(e) => setConfigFile(e.target.value)}
           style={{ marginRight: "10px" }}
         >
-          <option value="">-- Select a Configuration --</option>
+          <option value="">{configFile.split("/").pop()}</option>
           {configs.map((cfg) => {
             const fileName = cfg.split("/").pop() || cfg;
             return (
