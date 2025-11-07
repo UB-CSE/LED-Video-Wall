@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 
 type ButtonControlsProps = {
   getConfig: (arg0: number) => Promise<void>;
@@ -6,9 +6,11 @@ type ButtonControlsProps = {
 };
 
 function ButtonControls(props: ButtonControlsProps) {
-  const [configFile, setConfigFile] = useState("");
+  const [configFile, setConfigFile] = useState("--select configuration file--");
   const [configs, setConfigs] = useState<string[]>([]);
   const [message, setMessage] = useState("");
+  const [running, setRunning] = useState("Server is not running");
+  const [configRunning, setConfigRunning] = useState("");
   // const [configData, setConfigData] = useState<any>(null);
 
   const showMessage = (msg: string) => {
@@ -24,6 +26,8 @@ function ButtonControls(props: ButtonControlsProps) {
         const data = await response.json();
         if (data.configs) {
           setConfigs(data.configs);
+          console.log("Configs:", data.configs); // Debug
+          console.log("Currently running:", configRunning); // Debug
         } else if (data.error) {
           showMessage(`[ERROR]: ${data.error}`);
         }
@@ -32,12 +36,55 @@ function ButtonControls(props: ButtonControlsProps) {
       }
     };
     fetchConfigs();
+    getCurrentlyRunningAndMount();
+    /*window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };*/
   }, []);
 
-  const handleConfigChange = async (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const selected = e.target.value;
+  /*function handleBeforeUnload() {
+    fetch("/api/update-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ config_file: configRunning }),
+    });
+  }*/
+
+  async function getCurrentlyRunning() {
+    const response = await fetch("/api/get-current-config", { method: "GET" });
+    const text = await response.text();
+    if (text == "") {
+      setRunning("Server is not running");
+      setConfigRunning(text);
+    } else {
+      setRunning("Server currently running");
+      setConfigRunning(text);
+    }
+  }
+
+  async function getCurrentlyRunningAndMount() {
+    const response = await fetch("/api/get-current-config", { method: "GET" });
+    const text = await response.text();
+    if (text == "") {
+      setRunning("Server is not running");
+      setConfigRunning(text);
+    } else {
+      setRunning("Server currently running");
+      setConfigRunning(text);
+    }
+    if (text != "") {
+      await fetch("/api/update-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config_file: text }),
+      });
+      setConfigFile(text);
+    }
+  }
+
+  const handleConfigChange = async (value: string) => {
+    const selected = value;
     setConfigFile(selected);
 
     if (!selected) return;
@@ -85,6 +132,8 @@ function ButtonControls(props: ButtonControlsProps) {
     } catch (error) {
       showMessage("[ERROR]: Could not start server");
     }
+
+    getCurrentlyRunning();
   };
 
   const stopServer = async () => {
@@ -97,19 +146,26 @@ function ButtonControls(props: ButtonControlsProps) {
     } catch (error) {
       showMessage("[ERROR]: Could not stop server");
     }
+
+    getCurrentlyRunning();
   };
 
   return (
     <div style={{ padding: "20px" }}>
       <h2>LED Video Wall Controls</h2>
+      {configRunning && (
+        <button onClick={() => handleConfigChange(configRunning)}>
+          {configRunning.split("/").pop()}
+        </button>
+      )}
       <div>
         <select
           value={configFile}
-          onChange={handleConfigChange}
+          onChange={(e) => handleConfigChange(e.target.value)}
           //onChange={(e) => setConfigFile(e.target.value)}
           style={{ marginRight: "10px" }}
         >
-          <option value="">-- Select a Configuration --</option>
+          <option value="">{configFile.split("/").pop()}</option>
           {configs.map((cfg) => {
             const fileName = cfg.split("/").pop() || cfg;
             return (
@@ -125,6 +181,7 @@ function ButtonControls(props: ButtonControlsProps) {
         </button>
       </div>
       {message && <p>{message}</p>}
+      <p>{running}</p>
     </div>
   );
 }
