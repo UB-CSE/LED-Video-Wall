@@ -9,11 +9,14 @@
 
 
 //ImageElement implementation
-ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {
+ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double scale): Element(id, loc, frameRate) {
     pixelMatrix = cv::imread(filepath, cv::IMREAD_COLOR);
     if (pixelMatrix.empty()) {
         throw std::runtime_error("Failed to load image: " + filepath);
     }
+    original_ = pixelMatrix.clone();  
+    filePath_ = filepath; 
+    setScale(scale);
 }
 
 bool ImageElement::nextFrame(cv::Mat& frame) {

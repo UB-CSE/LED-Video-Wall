@@ -55,10 +55,11 @@ int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaus
     if (cmd == "add") {
         std::string type, filepath;
         int id, x, y;
-        if (!(iss >> type >> id >> filepath >> x >> y )|| x < 0 || y < 0) {
+        double scale;
+        if (!(iss >> type >> id >> filepath >> x >> y >> scale)|| x < 0 || y < 0) {
             std::cerr << "Invalid add. Usage:\n add <type> <ElementID> <filepath> <x> <y>\n";
         } else {
-            Element* newelement=new ImageElement(filepath,id,cv::Point(x,y),-1);
+            Element* newelement=new ImageElement(filepath,id,cv::Point(x,y),-1, scale);
             vCanvas.addElementToCanvas(newelement);
         }
         return 0;
@@ -228,6 +229,51 @@ int processCommand(VirtualCanvas& vCanvas, const std::string& line, bool& isPaus
 
             return 0;
         }
+    }
+    if (cmd == "scale") {
+        int id;
+        double factor;
+        if (!(iss >> id >> factor) || factor <= 0.0) {
+            std::cerr << "Invalid scale. Usage:\n  scale <ElementID> <factor> (e.g., 0.5)\n";
+            return 0;
+        }
+
+        Element* oldElem = nullptr;
+        for (Element* e : vCanvas.getElementList()) {
+            if (e && e->getId() == id) { oldElem = e; break; }
+        }
+
+        if (!oldElem) {
+            std::cerr << "No element with id " << id << "\n";
+            return 0;
+        }
+
+        ImageElement* imgElem = dynamic_cast<ImageElement*>(oldElem);
+        if (!imgElem) {
+            std::cerr << "Element " << id << " is not an image element.\n";
+            return 0;
+        }
+
+        std::string path   = imgElem->getFilePath();
+        cv::Point   loc    = imgElem->getLocation();
+        int         fps    = oldElem->getFrameRate();
+        double      scale  = imgElem->getScale();
+
+        vCanvas.removeElementFromCanvas(id);
+        Element* newElem = nullptr;
+        try {
+            newElem = new ImageElement(path, id, loc, fps, scale);
+            static_cast<ImageElement*>(newElem)->setScale(factor);  
+            vCanvas.addElementToCanvas(newElem);
+            vCanvas.pushToCanvas();
+        } catch (const std::exception& e) {
+            std::cerr << "[scale] Failed to reload image: " << e.what() << "\n";
+            if (newElem) { delete newElem; }
+            return 0;
+        }
+
+        std::cout << "Scaled image " << id << " by factor " << factor << "\n";
+        return 0;
     }
     std::cout << "Unknown command: " << cmd << "\n"
                     "Available: pause, resume, quit, move <id> <x> <y>\n";

@@ -16,3 +16,4 @@ elements:
     type: "image"
     filepath: "images/img.jpg"
     location: [19,7]
+    scale: 0.025

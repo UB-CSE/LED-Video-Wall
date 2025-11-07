@@ -22,6 +22,11 @@ class LedVideoWall:
     def remove(element_id):
         with open(LedVideoWall.CMD_FILE, "a") as fp:
             fp.write(f"remove {element_id}\n")
+    
+    @staticmethod
+    def scale(element_id, scale):
+        with open(LedVideoWall.CMD_FILE, "a") as fp:
+            fp.write(f"scale {element_id} {scale}\n")
 
     # -----------------------------
     # TEXT COMMANDS
