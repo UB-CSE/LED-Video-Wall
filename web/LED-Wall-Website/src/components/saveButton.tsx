@@ -21,8 +21,8 @@ function SaveButton(props: Props) {
         type: element.type,
         filepath: element.filepath,
         location: [
-          element.location[0] / props.sizeMultiplier,
-          element.location[1] / props.sizeMultiplier,
+          Math.trunc(element.location[0] / props.sizeMultiplier),
+          Math.trunc(element.location[1] / props.sizeMultiplier),
         ],
       };
     }

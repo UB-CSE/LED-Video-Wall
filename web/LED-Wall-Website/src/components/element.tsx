@@ -52,8 +52,8 @@ function Element(props: ElementProps) {
       },
       body: JSON.stringify({
         id: String(props.id),
-        x: props.location[0] + x,
-        y: props.location[1] + y,
+        x: Math.trunc((props.location[0] + x) / props.sizeMultiplier),
+        y: Math.trunc((props.location[1] + y) / props.sizeMultiplier),
       }),
     });
   }
