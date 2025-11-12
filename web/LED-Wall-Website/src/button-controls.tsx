@@ -17,7 +17,7 @@ function ButtonControls(props: ButtonControlsProps) {
 
   const showMessage = (msg: string) => {
     setMessage(msg);
-    setTimeout(() => setMessage(""), 2000);
+    setTimeout(() => setMessage(""), 5000);
   };
 
   // Fetch available YAML configs from backend
@@ -154,7 +154,7 @@ function ButtonControls(props: ButtonControlsProps) {
 
   return (
     <div style={{ position: "fixed", left: "0px", top: "0px" }}>
-      <div className={styles.panel} style={{ height: "150px" }}>
+      <div className={styles.panel}>
         <h2 className={styles.panelHeader}>Start/Stop Server</h2>
         <button onClick={startServer} style={{ left: "30%" }}>
           Start
@@ -162,6 +162,7 @@ function ButtonControls(props: ButtonControlsProps) {
         <button onClick={stopServer} style={{ left: "40%" }}>
           Stop
         </button>
+        <h3>Status:</h3>
         {message ? <p>{message}</p> : <p>{running}</p>}
       </div>
       <div className={styles.panel} style={{ height: "400px" }}>

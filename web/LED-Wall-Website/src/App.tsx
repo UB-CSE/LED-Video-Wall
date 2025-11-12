@@ -5,6 +5,7 @@ import { setGamma } from "./state/config/configSlice.ts";
 import { addElement } from "./state/config/configSlice.ts";
 import FileUpload from "./components/FileUpload.tsx";
 import Buttoncontrols from "./button-controls.tsx";
+import DetailsPanel from "./components/DetailsPanel.tsx";
 
 function App() {
   const dispatch = useDispatch();
@@ -179,6 +180,9 @@ function App() {
         canvasDimensions={canvasDimensions}
         sizeMultiplier={sizeMultiplier}
       ></FileUpload>
+      <div style={{ position: "fixed", right: "0%", top: "0%" }}>
+        <DetailsPanel></DetailsPanel>
+      </div>
     </div>
   );
 }
