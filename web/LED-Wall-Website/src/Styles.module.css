@@ -21,9 +21,7 @@
   font-size: 22px;
   font-style: normal;
   color: whitesmoke;
-  padding-top: 10px;
-  padding-bottom: 10px;
-  padding-right: 15px;
+  padding: 10px;
   display: block;
   margin: auto;
   margin-bottom: 5px;
@@ -35,6 +33,13 @@
   border-color: rgb(29, 41, 58);
   background-color: whitesmoke;
   padding: 5px;
+}
+.contextButton{
+  margin: 0px;
+  padding: 5px;
+  padding-left: 7px;
+  padding-right: 7px;
+  border-radius: 0px;
 }
 h1 {
   position: fixed;
@@ -70,7 +75,8 @@ button {
   position: relative;
   left: 50%;
   transform: translate(-50%, 0%);
-  margin: 5px;
+  margin-top: 5px;
+  margin-bottom: 5px;
 }
 select {
   border-style: solid;
@@ -81,5 +87,6 @@ select {
   left: 50%;
   transform: translate(-50%, 0%);
   background-color: whitesmoke;
-  margin: 5px;
+  margin-top: 5px;
+  margin-bottom: 5px;
 }

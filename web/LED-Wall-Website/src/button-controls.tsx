@@ -156,7 +156,7 @@ function ButtonControls(props: ButtonControlsProps) {
     <div style={{ position: "fixed", left: "0px", top: "0px" }}>
       <div className={styles.panel}>
         <h2 className={styles.panelHeader}>Start/Stop Server</h2>
-        <button onClick={startServer} style={{ left: "30%" }}>
+        <button onClick={startServer} style={{ left: "35%" }}>
           Start
         </button>
         <button onClick={stopServer} style={{ left: "40%" }}>
@@ -181,7 +181,6 @@ function ButtonControls(props: ButtonControlsProps) {
           value={configFile}
           onChange={(e) => handleConfigChange(e.target.value)}
           //onChange={(e) => setConfigFile(e.target.value)}
-          style={{ marginRight: "10px" }}
         >
           <option value="">{configFile.split("/").pop()}</option>
           {configs.map((cfg) => {
