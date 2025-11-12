@@ -300,7 +300,7 @@ def reorder_layers():
         
         data["elements"] = new_elements
 
-        with open(conFig_File, "w") as f:
+        with open(config_File, "w") as f:
             yaml.safe_dump(data, f, sort_keys=False)
         
         print(f"[INFO]: Layers reordered to {list(new_elements.keys())}")
