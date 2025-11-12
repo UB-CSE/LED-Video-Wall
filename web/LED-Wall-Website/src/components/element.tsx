@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { updateElement } from "../state/config/configSlice.ts";
+import {
+  setSelectedElement,
+  updateElement,
+} from "../state/config/configSlice.ts";
+import { useSelector } from "react-redux";
+import type { RootState } from "../state/store";
 
 type ElementProps = {
   name: string;
@@ -12,6 +17,8 @@ type ElementProps = {
 };
 //Image Element that can be dragged and dropped inside the canvas
 function Element(props: ElementProps) {
+  //Redux State
+  const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
 
   //Store current position
@@ -38,6 +45,7 @@ function Element(props: ElementProps) {
   }
 
   function startDragging(e: React.MouseEvent) {
+    dispatch(setSelectedElement(props.id));
     setIsDragging(true);
     setStartX(e.clientX - x);
     setStartY(e.clientY - y);
@@ -104,6 +112,10 @@ function Element(props: ElementProps) {
         cursor: isDragging ? "grabbing" : "grab",
         width: dimensions[0],
         height: dimensions[1],
+        border:
+          configState.selectedElement == props.id
+            ? "3px solid cornflowerblue"
+            : "none",
       }}
     />
   );

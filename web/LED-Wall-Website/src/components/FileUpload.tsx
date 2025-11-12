@@ -3,7 +3,6 @@ import styles from "../Styles.module.css";
 import { useDispatch } from "react-redux";
 import { addElement } from "../state/config/configSlice.ts";
 import Element from "./element";
-import SaveButton from "./saveButton.tsx";
 
 type Props = {
   elements: JSX.Element[];

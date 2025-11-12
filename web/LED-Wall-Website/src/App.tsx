@@ -177,14 +177,14 @@ function App() {
   //and passes elements to the file upload where the canvas and elements will be
   return (
     <div>
-      <h1>LED Video Wall Controls</h1>
-      <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
       <FileUpload
         elements={elements}
         setElements={setElements}
         canvasDimensions={canvasDimensions}
         sizeMultiplier={sizeMultiplier}
       ></FileUpload>
+      <h1>LED Video Wall Controls</h1>
+      <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
       <div style={{ position: "fixed", right: "0%", top: "0%" }}>
         <DetailsPanel></DetailsPanel>
         <ElementList></ElementList>

@@ -1,11 +1,19 @@
 import styles from "../Styles.module.css";
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
+import { useDispatch } from "react-redux";
+import { setSelectedElement } from "../state/config/configSlice.ts";
 
 function ElementList() {
   const configState = useSelector((state: RootState) => state.config);
+  const dispatch = useDispatch();
+
+  function handleClick(id: number) {
+    dispatch(setSelectedElement(id));
+  }
+
   return (
-    <div className={styles.panel}>
+    <div className={styles.panel} style={{ height: "800px" }}>
       <h2 className={styles.panelHeader} style={{ paddingRight: "0px" }}>
         Element List
       </h2>
@@ -15,7 +23,17 @@ function ElementList() {
       </header>
       <ul style={{ paddingLeft: "0px", paddingRight: "60px" }}>
         {configState.elements.map((element) => (
-          <li key={element.id} style={{ display: "flex" }}>
+          <li
+            onClick={() => handleClick(element.id)}
+            key={element.id}
+            style={{
+              display: "flex",
+              border:
+                configState.selectedElement == element.id
+                  ? "3px solid cornflowerblue"
+                  : "none",
+            }}
+          >
             <p className={styles.box} style={{ width: "15%" }}>
               {element.id}
             </p>
