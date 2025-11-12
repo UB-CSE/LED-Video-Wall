@@ -270,6 +270,157 @@ def get_matrix_config():
         print("[ERROR]: Failed to read LED configuration")
         return jsonify({"[ERROR]: Failed to read LED configuration"})
 
+# accepts JSON: {"layer_list": ["elem1", "elem2", ....]}   
+@app.route("/api/reorder-layers", methods = ["POST"])
+def reorder_layers():
+    global config_File
+    json_package = request.get_json()
+    new_order = json_package.get("layer_list") #expects JSON to send a list of the new order of layers: ["elem1", "elem3", "elem2"]
+
+    if not config_File:
+        return jsonify({"[ERROR]: No configuration file selected"}), 400
+    if not isinstance(new_order, list):
+        return jsonify({"[ERROR]: There must be a list of element names"}), 400
+    
+    try:
+        with open(config_File, "r") as f:
+            data = yaml.safe_load(f) or {"settings": {}, "elements": {}}
+        
+        elements = data.get("elements", {})
+        new_elements = {}
+        for name in new_order:
+            if name in elements:
+                new_elements[name] = elements[name]
+            else:
+                print(f"[WARNING]: '{name}' not found in config")
+        
+        for name, value in elements.items():
+            if name not in new_elements:
+                new_elements[name] = value
+        
+        data["elements"] = new_elements
+
+        with open(conFig_File, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+        
+        print(f"[INFO]: Layers reordered to {list(new_elements.keys())}")
+
+        return jsonify({"[STATUS]: sucess, reordered to {list(new_elements.keys()"}), 200
+    except Exception as e:
+        print(f"[ERROR]: Failed to reorder layers, {e}")
+        return jsonify({"[ERROR]: Failed to reorder layers, {e}"}), 500
+
+#accepts JSON: {"name": "elem1"}
+@app.route("/api/delete-layer", methods = ["POST"])
+def delete_layer():
+    global config_File
+    json_package = request.get_json()
+    name = json_package.get("name") #delete a layer based on the name of the element assigned to that layer
+
+    if not config_File:
+        return jsonify({"[ERROR]: No configuration file selected"}), 400
+    
+    try:
+        with open(config_File, "r") as f:
+            data = yaml.safe_load(f) or {"settings": {}, "elements": {}}
+        
+        elements = data.get("elements", {})
+        delete = None
+
+        if name:
+            if name in elements:
+                delete = elements.pop(name)
+            else:
+                return jsonify({"error": f"Element named '{name}' not found"}), 404
+            
+        data["elements"] = elements
+        with open(config_File, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+        
+        print(f"[INFO]: Deleted element '{name}' from config")
+        return jsonify({"status": "deleted", "name": name, "removed": delete}), 200
+    except Exception as e:
+        print(f"[ERROR]: Failed to delete layer -> {e}")
+        return jsonify({"error": str(e)}), 500
+    
+#can accept JSON: {"filename": newconfig.yaml} <---- this is for if the user wants to give the file a custom name
+@app.route("/api/new-config", methods = ["POST"])
+def new_config():
+    global CONFIG_DIR, config_File
+    json_package = request.get_json() or {}
+    filename = json_package.get("filename")
+
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+
+    if not filename:  # if there is no filename, then a generic name is given  
+        base = "new-config"
+        i=1
+        while True:
+            canidate = f"{base}_{i}.yaml"
+            path = os.path.join(CONFIG_DIR, canidate)
+            if not os.path.exists(path):
+                filename = canidate
+                break
+            i += 1
+
+    target_path = os.path.abspath(os.path.join(CONFIG_DIR, filename))
+
+    if os.path.exists(target_path):
+        return jsonify({"[ERROR]: File already exists: {target_path}"}), 400
+    
+    template = {"settings": {"gamma": 1.0},
+                "elements": {}
+                }
+    
+    try: 
+        with open(target_path, "w") as f:
+            yaml.safe_dump(template, f, sort_keys=False)
+        
+        config_File = target_path
+        print(f"[INFO]: Created new config -> {config_File}")
+        return jsonify({"status": "created", "config_file": config_File}), 201
+    except Exception as e:
+        print(f"[ERROR]: Failed to create new config -> {e}")
+        return jsonify({"error": str(e)}), 500
+    
+ #accepts JSON: {"new_name": "config_file.yaml"}   
+@app.route("/api/save-config-as", methods = ["POST"])
+def save_config_as():
+    global CONFIG_DIR, config_File
+    json_package = request.get_json()
+    new_name = json_package.get("new_name")
+
+    if not new_name:
+        return jsonify({"[ERROR]: No filename provided"}), 400
+    
+    if not new_name.endswith(".yaml"):
+        new_name += ".yaml"
+    
+    new_path = os.path.join(CONFIG_DIR, new_name)
+
+    if not config_File or not os.path.exists(config_File):
+        return jsonify({"[ERROR] No active configuration file to copy"}), 400
+    
+    try:
+        with open(config_File, "r") as src:
+            current_config = src.read()
+        with open(new_path, "w") as dest:
+            dest.write(current_config)
+        
+        print(f"[INFO]: Configuration copied to {new_path}")
+
+        config_File = new_path
+        return jsonify({ "status": "success",
+            "new_config_file": new_path
+        }), 200
+    except Exception as e:
+        print(f"[ERROR]: Failed to save config -> {e}")
+        return jsonify({"error": f"Failed to save config: {str(e)}"}), 500
+
+
+
+
+
 
 if __name__ == "_main_":
     app.run(host="0.0.0.0")
