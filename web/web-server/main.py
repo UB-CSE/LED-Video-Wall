@@ -4,6 +4,7 @@ import subprocess, os, signal
 import atexit
 import signal
 from flask import Flask, request, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
 
 # initialize an empty dictionary to store image coordinates, (x, y)
 imageCoords = {}
@@ -13,6 +14,10 @@ app = Flask(__name__)
 server_process = None
 CONFIG_DIR = "../../server"
 config_File = None 
+
+VIDEO_DIR = os.path.join(CONFIG_DIR, "videos")
+THUMBNAIL_DIR = os.path.join(VIDEO_DIR, "thumbnails")
+MAX_VIDEO_SIZE = 50 * 1024 * 1024
 
 
 @app.route("/api/send-location", methods=["POST"])
@@ -132,6 +137,64 @@ def upload_file():
 @app.route("/api/images/<filename>", methods=["GET"])
 def get_image(filename):
     return send_from_directory("./static/images", filename)
+
+@app.before_request
+def limit_video_upload_size():
+    if request.path == "/api/upload-video" and request.content_length:
+        if request.content_length > MAX_VIDEO_SIZE:
+            return jsonify({"error": "Video exceeds 50 MB upload limit"}), 413
+
+@app.route("/api/upload-video", methods=["POST"])
+def upload_video():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No filename provided"}), 400
+
+    filename = secure_filename(file.filename)
+    base_name, ext = os.path.splitext(filename)
+
+    if ext.lower() not in [".mp4", ".mov", ".avi", ".mkv", ".webm"]:
+        return jsonify({"error": "Unsupported video format"}), 400
+
+    video_path = os.path.join(VIDEO_DIR, filename)
+    file.save(video_path)
+
+    thumbnail_name = f"{base_name}.jpg"  # generate thumbnail name and
+    thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_name)
+
+    # extract first frame using FFmpeg
+    try:
+        subprocess.run([
+            "ffmpeg",
+            "-y",               # overwrite if exists
+            "-i", video_path,   # input video
+            "-ss", "00:00:00",  # start time (first frame)
+            "-vframes", "1",    # grab one frame
+            thumbnail_path
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR]: FFmpeg failed -> {e}")
+        return jsonify({"[ERROR]": "Failed to generate thumbnail"}), 500
+
+    print(f"[INFO]: Uploaded video saved -> {video_path}")
+    print(f"[INFO]: Thumbnail saved -> {thumbnail_path}")
+
+    return jsonify({
+        "status": "success",
+        "video_filename": filename,
+        "thumbnail_filename": thumbnail_name
+    }), 201
+
+@app.route("api/videos/<filename>", methods = ["GET"])
+def get_video(filename):
+    return send_from_directory(VIDEO_DIR, filename)
+
+@app.route("/api/video-thumbnails/<filename>", methods = ["GET"])
+def get_video_thumbnail(filename):
+    return send_from_directory(THUMBNAIL_DIR, filename)
 
 
 @app.route("/api/start-server", methods=['POST'])
@@ -300,7 +363,7 @@ def reorder_layers():
         
         data["elements"] = new_elements
 
-        with open(conFig_File, "w") as f:
+        with open(config_File, "w") as f:
             yaml.safe_dump(data, f, sort_keys=False)
         
         print(f"[INFO]: Layers reordered to {list(new_elements.keys())}")
@@ -416,6 +479,9 @@ def save_config_as():
     except Exception as e:
         print(f"[ERROR]: Failed to save config -> {e}")
         return jsonify({"error": f"Failed to save config: {str(e)}"}), 500
+    
+
+
 
 
 
