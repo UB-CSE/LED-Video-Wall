@@ -3,7 +3,6 @@ import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
 import { useDispatch } from "react-redux";
 import { setSelectedElement } from "../state/config/configSlice.ts";
-import type Option from "./ContextMenu.tsx";
 import type React from "react";
 import ContextMenu from "./ContextMenu.tsx";
 import useContextMenu from "../hooks/useContextMenu.tsx";
