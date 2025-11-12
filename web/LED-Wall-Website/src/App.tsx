@@ -172,6 +172,7 @@ function App() {
   //and passes elements to the file upload where the canvas and elements will be
   return (
     <div>
+      <h1>LED Video Wall Controls</h1>
       <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
       <SaveButton sizeMultiplier={sizeMultiplier}></SaveButton>
       <FileUpload
