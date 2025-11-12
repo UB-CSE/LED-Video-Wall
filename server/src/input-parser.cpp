@@ -96,7 +96,7 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                     
                 } 
 
-                Element * elem = new ImageElement(filepath, id, loc, -1, scale); //Remember to "delete elem" afterwards
+                Element * elem = new ImageElement(filepath, id, loc, -1, scale); 
                 vCanvas.addElementToCanvas(elem);
                 
             }

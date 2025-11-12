@@ -6,65 +6,66 @@ class LedVideoWall:
     CMD_FILE = "/tmp/led-cmd"
 
     # -----------------------------
+    # Internal helper
+    # -----------------------------
+    @staticmethod
+    def appendToFile(command: str) -> bool:
+        """
+        Write a command to the LED command file.
+        Returns True if successful, False if the file could not be opened or written.
+        """
+        try:
+            with open(LedVideoWall.CMD_FILE, "a") as fp:
+                fp.write(command + "\n")
+            return True
+        except (FileNotFoundError, OSError):
+            return False
+
+    # -----------------------------
     # BASIC COMMANDS
     # -----------------------------
     @staticmethod
     def add_image(element_id, filepath, x, y):
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write(f"add image {element_id} {filepath} {x} {y}\n")
+        return LedVideoWall.appendToFile(f"add image {element_id} {filepath} {x} {y}")
 
     @staticmethod
     def move(element_id, x, y):
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write(f"move {element_id} {x} {y}\n")
+        return LedVideoWall.appendToFile(f"move {element_id} {x} {y}")
 
     @staticmethod
     def remove(element_id):
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write(f"remove {element_id}\n")
-    
-    @staticmethod
-    def scale(element_id, scale):
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write(f"scale {element_id} {scale}\n")
+        return LedVideoWall.appendToFile(f"remove {element_id}")
 
     # -----------------------------
     # TEXT COMMANDS
     # -----------------------------
     @staticmethod
     def set_text(element_id, text):
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write(f"set_text {element_id} {text}\n")
+        return LedVideoWall.appendToFile(f"set_text {element_id} {text}")
 
     @staticmethod
     def set_font_size(element_id, size):
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write(f"set_font_size {element_id} {size}\n")
+        return LedVideoWall.appendToFile(f"set_font_size {element_id} {size}")
 
     @staticmethod
     def set_font(element_id, font_path):
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write(f"set_font {element_id} {font_path}\n")
+        return LedVideoWall.appendToFile(f"set_font {element_id} {font_path}")
 
     @staticmethod
     def set_font_color(element_id, b, g, r):
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write(f"set_font_color {element_id} {b} {g} {r}\n")
+        return LedVideoWall.appendToFile(f"set_font_color {element_id} {b} {g} {r}")
 
     # -----------------------------
     # CONTROL COMMANDS
     # -----------------------------
     @staticmethod
     def pause():
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write("pause\n")
+        return LedVideoWall.appendToFile("pause")
 
     @staticmethod
     def resume():
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write("resume\n")
+        return LedVideoWall.appendToFile("resume")
 
     @staticmethod
     def quit():
-        with open(LedVideoWall.CMD_FILE, "a") as fp:
-            fp.write("quit\n")
+        return LedVideoWall.appendToFile("quit")
