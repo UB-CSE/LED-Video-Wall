@@ -11,11 +11,13 @@
 .panel{
   position: relative;
   width: 350px;
-  height: 200px;
+  height: 250px;
   padding-bottom: 10px;
 }
 .panelHeader{
   background-color:dimgrey;
+  font-size: 22px;
+  font-style: normal;
   color: whitesmoke;
   padding-top: 10px;
   padding-bottom: 10px;
@@ -25,9 +27,16 @@
   margin-bottom: 5px;
   text-align: center;
 }
+.box{
+  border-style: solid;
+  border-width: 2px;
+  border-color: rgb(29, 41, 58);
+  background-color: whitesmoke;
+  padding: 5px;
+}
 h1 {
   position: fixed;
-  top: 2%;
+  top: 1%;
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 32px;

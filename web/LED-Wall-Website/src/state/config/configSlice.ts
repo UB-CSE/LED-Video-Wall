@@ -39,8 +39,12 @@ const configSlice = createSlice({
                 }
             }
         },
+        resetState: (state) => {
+            state.elements = [];
+            state.settings = {gamma: 0.0};
+        },
     },
 });
-export const { setGamma, addElement, updateElement } = configSlice.actions;
+export const { setGamma, addElement, updateElement, resetState } = configSlice.actions;
 
 export default configSlice.reducer;
