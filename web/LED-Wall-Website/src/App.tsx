@@ -187,11 +187,7 @@ function App() {
       ></FileUpload>
       <div style={{ position: "fixed", right: "0%", top: "0%" }}>
         <DetailsPanel></DetailsPanel>
-        <ElementList
-          elements={elements}
-          setElements={setElements}
-          sizeMultiplier={sizeMultiplier}
-        ></ElementList>
+        <ElementList></ElementList>
       </div>
     </div>
   );

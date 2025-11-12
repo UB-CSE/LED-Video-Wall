@@ -1,15 +1,8 @@
-import React, { type JSX } from "react";
 import styles from "../Styles.module.css";
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
 
-type Props = {
-  elements: JSX.Element[];
-  setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>;
-  sizeMultiplier: number;
-};
-
-function ElementList(props: Props) {
+function ElementList() {
   const configState = useSelector((state: RootState) => state.config);
   return (
     <div className={styles.panel}>
