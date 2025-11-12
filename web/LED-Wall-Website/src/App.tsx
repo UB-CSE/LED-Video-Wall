@@ -3,7 +3,6 @@ import { useEffect, type JSX, useState } from "react";
 import { useDispatch } from "react-redux";
 import { setGamma } from "./state/config/configSlice.ts";
 import { addElement } from "./state/config/configSlice.ts";
-import SaveButton from "./components/saveButton.tsx";
 import FileUpload from "./components/FileUpload.tsx";
 import Buttoncontrols from "./button-controls.tsx";
 
@@ -174,7 +173,6 @@ function App() {
     <div>
       <h1>LED Video Wall Controls</h1>
       <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
-      <SaveButton sizeMultiplier={sizeMultiplier}></SaveButton>
       <FileUpload
         elements={elements}
         setElements={setElements}

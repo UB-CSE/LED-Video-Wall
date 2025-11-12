@@ -10,17 +10,19 @@
 }
 .panel{
   position: relative;
-  background-color: aqua;
-  width: 300px;
+  width: 350px;
   height: 200px;
+  padding-bottom: 10px;
 }
 .panelHeader{
   background-color:dimgrey;
   color: whitesmoke;
   padding-top: 10px;
   padding-bottom: 10px;
+  padding-right: 15px;
   display: block;
   margin: auto;
+  margin-bottom: 5px;
   text-align: center;
 }
 h1 {
@@ -32,7 +34,11 @@ h1 {
   color:rgb(29, 41, 58)
 }
 h3 {
-  padding: 10px;
+  margin: 5px;
+  text-align: center;
+}
+p {
+  text-align: center;
   margin: auto;
 }
 body, html {
@@ -53,7 +59,7 @@ button {
   position: relative;
   left: 50%;
   transform: translate(-50%, 0%);
-  margin-top: 10px;
+  margin: 5px;
 }
 select {
   border-style: solid;
@@ -64,5 +70,5 @@ select {
   left: 50%;
   transform: translate(-50%, 0%);
   background-color: whitesmoke;
-  margin-top: 10px;
+  margin: 5px;
 }

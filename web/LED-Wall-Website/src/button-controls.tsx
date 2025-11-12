@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import styles from "./Styles.module.css";
+import SaveButton from "./components/saveButton.tsx";
 
 type ButtonControlsProps = {
   getConfig: (arg0: number) => Promise<void>;
@@ -153,23 +154,28 @@ function ButtonControls(props: ButtonControlsProps) {
 
   return (
     <div style={{ position: "fixed", left: "0px", top: "0px" }}>
-      {configRunning && (
-        <button onClick={() => handleConfigChange(configRunning)}>
-          {configRunning.split("/").pop()}
-        </button>
-      )}
       <div className={styles.panel} style={{ height: "150px" }}>
         <h2 className={styles.panelHeader}>Start/Stop Server</h2>
         <button onClick={startServer} style={{ left: "30%" }}>
           Start
         </button>
-        <button onClick={stopServer} style={{ left: "35%" }}>
+        <button onClick={stopServer} style={{ left: "40%" }}>
           Stop
         </button>
+        {message ? <p>{message}</p> : <p>{running}</p>}
       </div>
-      <div className={styles.panel}>
+      <div className={styles.panel} style={{ height: "400px" }}>
         <h2 className={styles.panelHeader}>Configuration Panel</h2>
         <h3>Select a Configuration File:</h3>
+        {configRunning && (
+          <div>
+            <p>Live edit:</p>
+            <button onClick={() => handleConfigChange(configRunning)}>
+              {configRunning.split("/").pop()}
+            </button>
+            <p>or</p>
+          </div>
+        )}
         <select
           value={configFile}
           onChange={(e) => handleConfigChange(e.target.value)}
@@ -186,9 +192,8 @@ function ButtonControls(props: ButtonControlsProps) {
             );
           })}
         </select>
+        <SaveButton sizeMultiplier={props.sizeMultiplier}></SaveButton>
       </div>
-      {message && <p>{message}</p>}
-      <p>{running}</p>
     </div>
   );
 }

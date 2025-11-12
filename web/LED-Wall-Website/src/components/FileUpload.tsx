@@ -3,6 +3,7 @@ import styles from "../Styles.module.css";
 import { useDispatch } from "react-redux";
 import { addElement } from "../state/config/configSlice.ts";
 import Element from "./element";
+import SaveButton from "./saveButton.tsx";
 
 type Props = {
   elements: JSX.Element[];
@@ -99,9 +100,7 @@ function FileUpload(props: Props) {
       setFile(e.target.files[0]);
     }
   }
-
-  return (
-    <div>
+  /*
       <p>{message}</p>
       <input
         type="file"
@@ -112,6 +111,9 @@ function FileUpload(props: Props) {
       <button onClick={() => uploadFile([0, 0], null, props.sizeMultiplier)}>
         Upload
       </button>
+  */
+  return (
+    <div>
       <div
         className={styles.canvas}
         onDrop={(e) => handleDrop(e)}

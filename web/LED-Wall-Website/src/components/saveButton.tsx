@@ -51,9 +51,9 @@ function SaveButton(props: Props) {
   //Button JSX with a description of the button functionality
   return (
     <div>
+      <h3>Save Configuration File:</h3>
+      <button onClick={() => sendToServer()}>Overwrite current file</button>
       <p>{message}</p>
-      <button onClick={() => sendToServer()}>Save</button>
-      <p>Click to save the current configuration to the yaml file</p>
     </div>
   );
 }
