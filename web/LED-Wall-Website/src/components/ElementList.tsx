@@ -3,14 +3,30 @@ import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
 import { useDispatch } from "react-redux";
 import { setSelectedElement } from "../state/config/configSlice.ts";
+import type Option from "./ContextMenu.tsx";
+import type React from "react";
+import ContextMenu from "./ContextMenu.tsx";
+import useContextMenu from "../hooks/useContextMenu.tsx";
 
 function ElementList() {
   const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
 
+  const { location, setLocation, isClicked, setIsClicked } = useContextMenu();
+
+  const contextOptions = [{ name: "delete", function: deleteElement }];
+
   function handleClick(id: number) {
     dispatch(setSelectedElement(id));
   }
+
+  function handleRightClick(e: React.MouseEvent<HTMLLIElement, MouseEvent>) {
+    e.preventDefault();
+    setLocation([e.clientX, e.clientY]);
+    setIsClicked(true);
+  }
+
+  function deleteElement() {}
 
   return (
     <div className={styles.panel} style={{ height: "800px" }}>
@@ -25,6 +41,7 @@ function ElementList() {
         {configState.elements.map((element) => (
           <li
             onClick={() => handleClick(element.id)}
+            onContextMenu={(e) => handleRightClick(e)}
             key={element.id}
             style={{
               display: "flex",
@@ -46,6 +63,9 @@ function ElementList() {
           </li>
         ))}
       </ul>
+      {isClicked && (
+        <ContextMenu options={contextOptions} location={location}></ContextMenu>
+      )}
     </div>
   );
 }
