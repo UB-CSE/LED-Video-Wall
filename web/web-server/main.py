@@ -3,6 +3,7 @@ import hashlib
 import subprocess, os, signal
 import atexit
 import signal
+import magic
 from flask import Flask, request, jsonify, send_from_directory
 
 from led_video_wall import LedVideoWall
@@ -115,6 +116,9 @@ def set_yaml_config():
 def upload_file():
     file = request.files["file"]
     contents = file.stream.read()
+    mime_type = magic.from_buffer(contents, mime=True)
+    if not mime_type.startswith("image"):
+        return "[ERROR]: Incorrect file type: {mime_type}", 415
     file.stream.seek(0)
     hashString = hashlib.sha256(contents).hexdigest()       # Takes a hash over the contents of the file
     extension = file.filename.rsplit('.', 1)[1]                # Finds the extension

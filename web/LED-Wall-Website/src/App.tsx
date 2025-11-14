@@ -1,11 +1,15 @@
 import Element from "./components/element";
 import { useEffect, type JSX, useState } from "react";
 import { useDispatch } from "react-redux";
-import { setGamma } from "./state/config/configSlice.ts";
-import { addElement } from "./state/config/configSlice.ts";
-import SaveButton from "./components/saveButton.tsx";
+import {
+  setGamma,
+  addElement,
+  resetState,
+} from "./state/config/configSlice.ts";
 import FileUpload from "./components/FileUpload.tsx";
 import Buttoncontrols from "./button-controls.tsx";
+import DetailsPanel from "./components/DetailsPanel.tsx";
+import ElementList from "./components/ElementList.tsx";
 
 function App() {
   const dispatch = useDispatch();
@@ -24,6 +28,7 @@ function App() {
       const response = await fetch("/api/get-yaml-config", { method: "GET" });
       const config = await response.json();
       const newElements = [];
+      dispatch(resetState(config));
       //Sets the gamma in the state
       dispatch(setGamma(config.settings.gamma));
       //Creates JSX elements and saves initial state
@@ -172,14 +177,18 @@ function App() {
   //and passes elements to the file upload where the canvas and elements will be
   return (
     <div>
-      <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
-      <SaveButton sizeMultiplier={sizeMultiplier}></SaveButton>
       <FileUpload
         elements={elements}
         setElements={setElements}
         canvasDimensions={canvasDimensions}
         sizeMultiplier={sizeMultiplier}
       ></FileUpload>
+      <h1>LED Video Wall Controls</h1>
+      <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
+      <div style={{ position: "fixed", right: "0%", top: "0%" }}>
+        <DetailsPanel></DetailsPanel>
+        <ElementList></ElementList>
+      </div>
     </div>
   );
 }

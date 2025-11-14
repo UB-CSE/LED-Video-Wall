@@ -99,19 +99,20 @@ function FileUpload(props: Props) {
       setFile(e.target.files[0]);
     }
   }
-
   return (
     <div>
-      <p>{message}</p>
-      <input
-        type="file"
-        name="Add Element"
-        accept="image/*"
-        onChange={(e) => handleChange(e)}
-      />
-      <button onClick={() => uploadFile([0, 0], null, props.sizeMultiplier)}>
-        Upload
-      </button>
+      <div>
+        <p>{message}</p>
+        <input
+          type="file"
+          name="Add Element"
+          accept="image/*"
+          onChange={(e) => handleChange(e)}
+        />
+        <button onClick={() => uploadFile([0, 0], null, props.sizeMultiplier)}>
+          Upload
+        </button>
+      </div>
       <div
         className={styles.canvas}
         onDrop={(e) => handleDrop(e)}
