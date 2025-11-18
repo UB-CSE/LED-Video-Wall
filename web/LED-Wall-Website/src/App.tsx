@@ -6,7 +6,7 @@ import {
   addElement,
   resetState,
 } from "./state/config/configSlice.ts";
-import FileUpload from "./components/FileUpload.tsx";
+import Canvas from "./components/Canvas.tsx";
 import Buttoncontrols from "./button-controls.tsx";
 import DetailsPanel from "./components/DetailsPanel.tsx";
 import ElementList from "./components/ElementList.tsx";
@@ -177,12 +177,12 @@ function App() {
   //and passes elements to the file upload where the canvas and elements will be
   return (
     <div>
-      <FileUpload
+      <Canvas
         elements={elements}
         setElements={setElements}
         canvasDimensions={canvasDimensions}
         sizeMultiplier={sizeMultiplier}
-      ></FileUpload>
+      ></Canvas>
       <h1>LED Video Wall Controls</h1>
       <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
       <div style={{ position: "fixed", right: "0%", top: "0%" }}>
