@@ -5,6 +5,8 @@ type Option = {
   function: Function;
 };
 
+export type { Option };
+
 type Props = {
   options: Option[];
   location: number[];

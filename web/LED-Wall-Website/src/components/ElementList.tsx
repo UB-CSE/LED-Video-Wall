@@ -4,8 +4,10 @@ import type { RootState } from "../state/store";
 import { useDispatch } from "react-redux";
 import { setSelectedElement } from "../state/config/configSlice.ts";
 import type React from "react";
+import { useState } from "react";
 import ContextMenu from "./ContextMenu.tsx";
 import useContextMenu from "../hooks/useContextMenu.tsx";
+import { type Option } from "./ContextMenu.tsx";
 
 function ElementList() {
   const configState = useSelector((state: RootState) => state.config);
@@ -13,25 +15,42 @@ function ElementList() {
 
   const { location, setLocation, isClicked, setIsClicked } = useContextMenu();
 
-  const contextOptions = [{ name: "delete", function: deleteElement }];
+  const deleteOptions = [{ name: "delete", function: deleteElement }];
+  const addOptions = [{ name: "image", function: addImage }];
+
+  const [contextOptions, setContextOptions] = useState<Option[]>(deleteOptions);
 
   function handleClick(id: number) {
     dispatch(setSelectedElement(id));
   }
 
   function handleRightClick(e: React.MouseEvent<HTMLLIElement, MouseEvent>) {
+    setContextOptions(deleteOptions);
     e.preventDefault();
+    setLocation([e.clientX, e.clientY]);
+    setIsClicked(true);
+  }
+
+  function handleAdd(e: React.MouseEvent) {
+    setContextOptions(addOptions);
+    e.preventDefault();
+    e.stopPropagation();
     setLocation([e.clientX, e.clientY]);
     setIsClicked(true);
   }
 
   function deleteElement() {}
 
+  function addImage() {}
+
   return (
     <div className={styles.panel} style={{ height: "800px" }}>
-      <h2 className={styles.panelHeader} style={{ paddingRight: "0px" }}>
-        Element List
-      </h2>
+      <div style={{ display: "flex", backgroundColor: "dimgrey" }}>
+        <button onClick={(e) => handleAdd(e)} className={styles.addButton}>
+          <span style={{ fontSize: "32px", marginTop: "-8px" }}>+</span>
+        </button>
+        <h2 className={styles.panelHeader}>Element List</h2>
+      </div>
       <header style={{ display: "flex" }}>
         <h3>back</h3>
         <h3 style={{ marginLeft: "178px" }}>type</h3>

@@ -41,6 +41,17 @@
   padding-right: 7px;
   border-radius: 0px;
 }
+.addButton{
+  border-radius: 50%;
+  display: flex;
+  left: 30px;
+  font-size: 36px;
+  align-items: center;
+  justify-content: center;
+  padding: 0px;
+  width: 48px;
+  height: 48px;
+}
 h1 {
   position: fixed;
   top: 1%;
