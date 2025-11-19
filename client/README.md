@@ -43,7 +43,7 @@ clients to connect to wifi.
 
 !!! THE CREDENTIALS FILE MUST NOT BE ADDDED TO GIT/SOURCE CONTROL !!!
 
-Here is an example of what "wifi_credentials.hpp" look like:
+Here is an example of what "wifi_credentials.hpp" should look like:
 
 ```
 #ifndef CREDENTIALS_HPP
