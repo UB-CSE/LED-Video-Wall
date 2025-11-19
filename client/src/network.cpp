@@ -19,6 +19,8 @@
 #include "network.hpp"
 #include "protocol.hpp"
 
+#include "esp_http_client.h"              // NEW: HTTP client for discovery
+
 static const char *TAG = "Network";
 
 // There should be a separate header file, "wifi_credentials.hpp", that defines
@@ -40,6 +42,75 @@ static const char *TAG = "Network";
 #define WIFI_SSID "UB_Connect"
 #define WIFI_PASSWORD ""
 #endif
+
+// NEW: URL that returns the server host/IP as plain text, e.g. "192.168.1.50"
+#define DISCOVERY_URL "http://example.com/host"   // <-- change this to your URL
+
+// NEW: Mutable server IP string; starts with compile-time SERVER_IP default
+static char g_server_ip[INET_ADDRSTRLEN] = SERVER_IP;
+
+// NEW: Minimal HTTP event handler (we don’t really need events here)
+static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
+  return ESP_OK;
+}
+
+// NEW: Fetch server IP/host from HTTP endpoint and store in g_server_ip.
+//      Returns 0 on success, -1 on error.
+static int update_server_ip_from_http(void) {
+  ESP_LOGI(TAG, "Fetching server IP from discovery URL: %s", DISCOVERY_URL);
+
+  esp_http_client_config_t config = {};
+  config.url = DISCOVERY_URL;
+  config.method = HTTP_METHOD_GET;
+  config.event_handler = _http_event_handler;
+
+  esp_http_client_handle_t client = esp_http_client_init(&config);
+  if (client == nullptr) {
+    ESP_LOGE(TAG, "Failed to initialize HTTP client");
+    return -1;
+  }
+
+  esp_err_t err = esp_http_client_perform(client);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "HTTP GET failed: %s", esp_err_to_name(err));
+    esp_http_client_cleanup(client);
+    return -1;
+  }
+
+  // Read response body (assumes short response like "192.168.1.23\n")
+  char buffer[64] = {0};
+  int read_len = esp_http_client_read(client, buffer, sizeof(buffer) - 1);
+  esp_http_client_cleanup(client);
+
+  if (read_len <= 0) {
+    ESP_LOGE(TAG, "Failed to read HTTP response body");
+    return -1;
+  }
+
+  buffer[read_len] = '\0';  // ensure null-terminated
+
+  // Strip trailing CR/LF and spaces
+  char *p = buffer;
+  while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')) {
+    ++p;  // skip leading whitespace (if any)
+  }
+  char *end = p + strlen(p);
+  while (end > p && (end[-1] == ' ' || end[-1] == '\t' || end[-1] == '\r' || end[-1] == '\n')) {
+    *--end = '\0';
+  }
+
+  if (*p == '\0') {
+    ESP_LOGE(TAG, "Discovery response was empty/whitespace");
+    return -1;
+  }
+
+  // Copy into global server IP buffer
+  strncpy(g_server_ip, p, sizeof(g_server_ip) - 1);
+  g_server_ip[sizeof(g_server_ip) - 1] = '\0';
+
+  ESP_LOGI(TAG, "Discovered server host/IP: '%s'", g_server_ip);
+  return 0;
+}
 
 int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
   uint32_t total = 0;
@@ -68,10 +139,21 @@ int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
 int checkin(int *out_sockfd) {
   ESP_LOGI(TAG, "Sending check-in message");
 
+  // NEW: Try to update server IP via HTTP discovery before connecting
+  if (update_server_ip_from_http() != 0) {
+    ESP_LOGW(TAG, "Server discovery via HTTP failed, using default IP: %s",
+             g_server_ip);
+  }
+
   int sockfd = -1;
   struct sockaddr_in dest_addr;
   dest_addr.sin_family = AF_INET;
-  inet_pton(AF_INET, SERVER_IP, &dest_addr.sin_addr.s_addr);
+
+  // CHANGED: use g_server_ip (possibly discovered) instead of hard-coded SERVER_IP
+  if (inet_pton(AF_INET, g_server_ip, &dest_addr.sin_addr.s_addr) != 1) {
+    ESP_LOGE(TAG, "Invalid server IP/host string: %s", g_server_ip);
+    return -1;
+  }
 
   // When attempting to connect to the server, there are multiple ports that it
   // may have connected to. The preprocessor constants SERVER_PORT_START and
@@ -106,7 +188,8 @@ int checkin(int *out_sockfd) {
 
     if (connect(sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) ==
         0) {
-      ESP_LOGI(TAG, "Connected to %s:%u", SERVER_IP, port);
+      // CHANGED: Log g_server_ip instead of SERVER_IP
+      ESP_LOGI(TAG, "Connected to %s:%u", g_server_ip, port);
       break;
     } else {
       ESP_LOGD(TAG, "Connect to port %u failed: %d", port, errno);
