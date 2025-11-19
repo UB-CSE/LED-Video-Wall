@@ -188,7 +188,7 @@ def upload_video():
         "thumbnail_filename": thumbnail_name
     }), 201
 
-@app.route("api/videos/<filename>", methods = ["GET"])
+@app.route("/api/videos/<filename>", methods = ["GET"])
 def get_video(filename):
     return send_from_directory(VIDEO_DIR, filename)
 
@@ -341,9 +341,9 @@ def reorder_layers():
     new_order = json_package.get("layer_list") #expects JSON to send a list of the new order of layers: ["elem1", "elem3", "elem2"]
 
     if not config_File:
-        return jsonify({"[ERROR]: No configuration file selected"}), 400
+        return jsonify({"[ERROR]": "No configuration file selected"}), 400
     if not isinstance(new_order, list):
-        return jsonify({"[ERROR]: There must be a list of element names"}), 400
+        return jsonify({"[ERROR]": "There must be a list of element names"}), 400
     
     try:
         with open(config_File, "r") as f:
@@ -368,7 +368,8 @@ def reorder_layers():
         
         print(f"[INFO]: Layers reordered to {list(new_elements.keys())}")
 
-        return jsonify({"[STATUS]: sucess, reordered to {list(new_elements.keys()"}), 200
+        return jsonify({"status": "success","reordered_to": list(new_elements.keys())}), 200
+
     except Exception as e:
         print(f"[ERROR]: Failed to reorder layers, {e}")
         return jsonify({"[ERROR]: Failed to reorder layers, {e}"}), 500
@@ -381,7 +382,7 @@ def delete_layer():
     name = json_package.get("name") #delete a layer based on the name of the element assigned to that layer
 
     if not config_File:
-        return jsonify({"[ERROR]: No configuration file selected"}), 400
+        return jsonify({"[ERROR]": "No configuration file selected"}), 400
     
     try:
         with open(config_File, "r") as f:
@@ -394,7 +395,7 @@ def delete_layer():
             if name in elements:
                 delete = elements.pop(name)
             else:
-                return jsonify({"error": f"Element named '{name}' not found"}), 404
+                return jsonify({"[ERROR]": f"Element named '{name}' not found"}), 404
             
         data["elements"] = elements
         with open(config_File, "w") as f:
@@ -404,7 +405,7 @@ def delete_layer():
         return jsonify({"status": "deleted", "name": name, "removed": delete}), 200
     except Exception as e:
         print(f"[ERROR]: Failed to delete layer -> {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"[ERROR]": str(e)}), 500
     
 #can accept JSON: {"filename": newconfig.yaml} <---- this is for if the user wants to give the file a custom name
 @app.route("/api/new-config", methods = ["POST"])
@@ -429,7 +430,7 @@ def new_config():
     target_path = os.path.abspath(os.path.join(CONFIG_DIR, filename))
 
     if os.path.exists(target_path):
-        return jsonify({"[ERROR]: File already exists: {target_path}"}), 400
+        return jsonify({"[ERROR]": f"File already exists: {target_path}"}), 400
     
     template = {"settings": {"gamma": 1.0},
                 "elements": {}
@@ -452,17 +453,20 @@ def save_config_as():
     global CONFIG_DIR, config_File
     json_package = request.get_json()
     new_name = json_package.get("new_name")
+    print(config_File)
 
     if not new_name:
-        return jsonify({"[ERROR]: No filename provided"}), 400
+        return jsonify({"[ERROR]": "No filename provided"}), 400
     
     if not new_name.endswith(".yaml"):
         new_name += ".yaml"
     
     new_path = os.path.join(CONFIG_DIR, new_name)
 
+   
+
     if not config_File or not os.path.exists(config_File):
-        return jsonify({"[ERROR] No active configuration file to copy"}), 400
+        return jsonify({"[ERROR]": "No active configuration file to copy"}), 400
     
     try:
         with open(config_File, "r") as src:
