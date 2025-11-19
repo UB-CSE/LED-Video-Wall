@@ -33,6 +33,20 @@ usbipd attach --wsl --busid <bus ID>
 ```
 *[`Attaching USB Device to WSL`](https://learn.microsoft.com/en-us/windows/wsl/connect-usb) For more information
 
+# Configure "wifi_credentials.hpp"
+
+There should be a separate header file, "wifi_credentials.hpp", that defines
+preprocessor constants, WIFI_SSID and WIFI_PASSWORD, that are used by the
+clients to connect to wifi.
+!!! THE CREDENTIALS FILE MUST NOT BE ADDDED TO GIT/SOURCE CONTROL !!!
+Here is an example of what "wifi_credentials.hpp" look like:
+-----------------------------------------------------------
+#ifndef CREDENTIALS_HPP
+#define CREDENTIALS_HPP
+#define WIFI_SSID "UB_Connect"
+#define WIFI_PASSWORD ""
+#endif
+
 # Usage
 Before running any commands, be sure to load the environment via:
 ```bash
