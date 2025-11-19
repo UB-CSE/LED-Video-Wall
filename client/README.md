@@ -10,6 +10,24 @@
 * [`clangd`](https://clangd.llvm.org/installation) (LSP)
 * [`clang-format`](https://clang.llvm.org/docs/ClangFormat.html) (Formatter)
 * [`espflash`](https://github.com/esp-rs/espflash) (Alternative to `esptool.py`)
+* [`WSL-install`](https://learn.microsoft.com/en-us/windows/wsl/install) (WSL)
+
+## For Developers using WSL
+You need to attach the ESP32 to the WSL
+*[`USPID`](https://learn.microsoft.com/en-us/windows/wsl/connect-usb) Install USBIPD on WSL
+Run in Administrator Mode in PowerShell and find and copy the bus ID of the ESP32 through:
+```PowerShell
+usbipd list
+```
+Using this bus ID share the ESP32:
+```PowerShell
+usbipd bind --busid <bus ID>
+```
+To attach the ESP32:
+```PowerShell
+usbipd attach --wsl --busid <bus ID>
+```
+*[`Attaching USB Device to WSL`](https://learn.microsoft.com/en-us/windows/wsl/connect-usb) For more information
 
 # Usage
 Before running any commands, be sure to load the environment via:
