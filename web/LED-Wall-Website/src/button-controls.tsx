@@ -180,13 +180,30 @@ function ButtonControls(props: ButtonControlsProps) {
         <select
           value={configFile}
           onChange={(e) => handleConfigChange(e.target.value)}
+          /*onMouseDown={(e) => {
+            const target = e.currentTarget as HTMLSelectElement;
+            const value = target.value;
+            if (value == configFile) {
+              props.getConfig(props.sizeMultiplier);
+            }
+          }}*/
           //onChange={(e) => setConfigFile(e.target.value)}
         >
           <option value="">{configFile.split("/").pop()}</option>
           {configs.map((cfg) => {
             const fileName = cfg.split("/").pop() || cfg;
             return (
-              <option key={cfg} value={cfg}>
+              <option
+                onClick={(e) => {
+                  const target = e.currentTarget as HTMLOptionElement;
+                  const value = target.value;
+                  if (value == configFile) {
+                    props.getConfig(props.sizeMultiplier);
+                  }
+                }}
+                key={cfg}
+                value={cfg}
+              >
                 {fileName}
               </option>
             );
