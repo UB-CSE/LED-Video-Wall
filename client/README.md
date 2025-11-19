@@ -14,6 +14,7 @@
 
 ## For Developers using WSL
 You need to attach the ESP32 to the WSL
+
 *[`USPID`](https://learn.microsoft.com/en-us/windows/wsl/connect-usb) Install USBIPD on WSL
 Run in Administrator Mode in PowerShell and find and copy the bus ID of the ESP32 through:
 ```PowerShell
