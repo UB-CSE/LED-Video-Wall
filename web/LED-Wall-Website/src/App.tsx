@@ -187,7 +187,11 @@ function App() {
       <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
       <div style={{ position: "fixed", right: "0%", top: "0%" }}>
         <DetailsPanel></DetailsPanel>
-        <ElementList></ElementList>
+        <ElementList
+          elements={elements}
+          setElements={setElements}
+          sizeMultiplier={sizeMultiplier}
+        ></ElementList>
       </div>
     </div>
   );
