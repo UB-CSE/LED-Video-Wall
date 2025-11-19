@@ -8,12 +8,21 @@ import { useState } from "react";
 import ContextMenu from "./ContextMenu.tsx";
 import useContextMenu from "../hooks/useContextMenu.tsx";
 import { type Option } from "./ContextMenu.tsx";
+import AddImagePopup from "./AddImagePopup.tsx";
 
 function ElementList() {
   const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
 
-  const { location, setLocation, isClicked, setIsClicked } = useContextMenu();
+  const {
+    location: contextLocation,
+    setLocation: setContextLocation,
+    isClicked: contextIsClicked,
+    setIsClicked: setContextIsClicked,
+  } = useContextMenu();
+
+  const { isClicked: addImageIsClicked, setIsClicked: setAddImageIsClicked } =
+    useContextMenu();
 
   const deleteOptions = [{ name: "delete", function: deleteElement }];
   const addOptions = [{ name: "image", function: addImage }];
@@ -27,21 +36,25 @@ function ElementList() {
   function handleRightClick(e: React.MouseEvent<HTMLLIElement, MouseEvent>) {
     setContextOptions(deleteOptions);
     e.preventDefault();
-    setLocation([e.clientX, e.clientY]);
-    setIsClicked(true);
+    setContextLocation([e.clientX, e.clientY]);
+    setContextIsClicked(true);
   }
 
   function handleAdd(e: React.MouseEvent) {
     setContextOptions(addOptions);
     e.preventDefault();
     e.stopPropagation();
-    setLocation([e.clientX, e.clientY]);
-    setIsClicked(true);
+    setContextLocation([e.clientX, e.clientY]);
+    setContextIsClicked(true);
   }
 
   function deleteElement() {}
 
-  function addImage() {}
+  function addImage(e: React.MouseEvent) {
+    setAddImageIsClicked(true);
+    e.preventDefault();
+    e.stopPropagation();
+  }
 
   return (
     <div className={styles.panel} style={{ height: "800px" }}>
@@ -81,9 +94,13 @@ function ElementList() {
           </li>
         ))}
       </ul>
-      {isClicked && (
-        <ContextMenu options={contextOptions} location={location}></ContextMenu>
+      {contextIsClicked && (
+        <ContextMenu
+          options={contextOptions}
+          location={contextLocation}
+        ></ContextMenu>
       )}
+      {addImageIsClicked && <AddImagePopup></AddImagePopup>}
     </div>
   );
 }

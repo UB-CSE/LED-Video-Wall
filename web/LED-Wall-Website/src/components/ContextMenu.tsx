@@ -27,7 +27,7 @@ function ContextMenu(props: Props) {
           <li>
             <button
               className={styles.contextButton}
-              onClick={option.function()}
+              onClick={(e) => option.function(e)}
             >
               {option.name}
             </button>
