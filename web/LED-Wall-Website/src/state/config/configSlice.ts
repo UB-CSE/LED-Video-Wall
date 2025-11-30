@@ -15,6 +15,7 @@ interface Elem {
     filepath: string;
     location: number[];
 }
+export type { Elem };
 
 const initialState: ConfigState = {
     selectedElement: 0,

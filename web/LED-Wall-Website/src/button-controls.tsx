@@ -13,6 +13,7 @@ function ButtonControls(props: ButtonControlsProps) {
   const [message, setMessage] = useState("");
   const [running, setRunning] = useState("Server is not running");
   const [configRunning, setConfigRunning] = useState("");
+  const [preOpen, setPreOpen] = useState<string | null>(null);
   // const [configData, setConfigData] = useState<any>(null);
 
   const showMessage = (msg: string) => {
@@ -179,31 +180,32 @@ function ButtonControls(props: ButtonControlsProps) {
         )}
         <select
           value={configFile}
-          onChange={(e) => handleConfigChange(e.target.value)}
-          /*onMouseDown={(e) => {
-            const target = e.currentTarget as HTMLSelectElement;
-            const value = target.value;
-            if (value == configFile) {
+          onClick={(e) => {
+            setPreOpen((e.currentTarget as HTMLSelectElement).value);
+            console.log("MouseDown value:", e.currentTarget.value);
+            if (
+              e.currentTarget.value.split("/").pop() ===
+              preOpen?.split("/").pop()
+            ) {
               props.getConfig(props.sizeMultiplier);
             }
-          }}*/
-          //onChange={(e) => setConfigFile(e.target.value)}
+          }}
+          onChange={(e) => {
+            const newConfig = e.target.value;
+            if (newConfig === preOpen?.split("/").pop()) {
+              props.getConfig(props.sizeMultiplier);
+            }
+            handleConfigChange(newConfig);
+            console.log("onChange fired:");
+            console.log("  newValue:", newConfig);
+            console.log("  preOpenValue:", preOpen);
+          }}
         >
           <option value="">{configFile.split("/").pop()}</option>
           {configs.map((cfg) => {
             const fileName = cfg.split("/").pop() || cfg;
             return (
-              <option
-                onClick={(e) => {
-                  const target = e.currentTarget as HTMLOptionElement;
-                  const value = target.value;
-                  if (value == configFile) {
-                    props.getConfig(props.sizeMultiplier);
-                  }
-                }}
-                key={cfg}
-                value={cfg}
-              >
+              <option key={cfg} value={cfg}>
                 {fileName}
               </option>
             );

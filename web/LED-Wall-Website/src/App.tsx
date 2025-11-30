@@ -28,13 +28,13 @@ function App() {
       const response = await fetch("/api/get-yaml-config", { method: "GET" });
       const config = await response.json();
       const newElements = [];
-      await dispatch(resetState(config));
+      dispatch(resetState(config));
       //Sets the gamma in the state
-      await dispatch(setGamma(config.settings.gamma));
+      dispatch(setGamma(config.settings.gamma));
       //Creates JSX elements and saves initial state
       for (const key in config["elements"]) {
         //Adds the element to the state
-        await dispatch(
+        dispatch(
           addElement({
             name: key,
             id: config.elements[key].id,
@@ -44,7 +44,7 @@ function App() {
           })
         );
         //Creates a JSX element and adds it to the list
-        await newElements.push(
+        newElements.push(
           <Element
             key={config.elements[key].id}
             name={key}
@@ -59,7 +59,7 @@ function App() {
           />
         );
       }
-      await setElements(newElements);
+      setElements(newElements);
     } catch (error) {
       console.log("Get Config encountered an error: " + error);
       return;
