@@ -123,14 +123,14 @@ def upload_file():
     hashString = hashlib.sha256(contents).hexdigest()       # Takes a hash over the contents of the file
     extension = file.filename.rsplit('.', 1)[1]                # Finds the extension
     filename = hashString + '.' + extension
-    filepath = os.path.join("./static/images", filename)    #Combines into filepath
+    filepath = os.path.join("../../server/images", filename)    #Combines into filepath
     file.save(filepath)                                     #Saves to disk
     return jsonify({'filename': filename})
 
 
 @app.route("/api/images/<filename>", methods=["GET"])
 def get_image(filename):
-    return send_from_directory("./static/images", filename)
+    return send_from_directory("../../server/images", filename)
 
 
 @app.route("/api/start-server", methods=['POST'])
