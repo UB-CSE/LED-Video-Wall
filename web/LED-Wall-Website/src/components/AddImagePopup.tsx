@@ -44,6 +44,8 @@ function AddImagePopup(props: Props) {
 
   function handleClose() {
     setPreview(false);
+    setImageUrl("");
+    setFile(null);
   }
 
   function handleChange(e: ChangeEvent<HTMLInputElement>) {
@@ -53,15 +55,17 @@ function AddImagePopup(props: Props) {
   }
 
   function handleUpload() {
-    uploadFile(
-      [0, 0],
-      newFile,
-      props.sizeMultiplier,
-      props.elements,
-      props.setElements,
-      dispatch
-    );
-    props.setAddImageIsClicked(false);
+    if (newFile) {
+      uploadFile(
+        [0, 0],
+        newFile,
+        props.sizeMultiplier,
+        props.elements,
+        props.setElements,
+        dispatch
+      );
+      props.setAddImageIsClicked(false);
+    }
   }
 
   const uploadContent = (
