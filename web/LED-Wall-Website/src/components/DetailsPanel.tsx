@@ -59,6 +59,18 @@ function DetailsPanel(props: Props) {
           scale: scale,
         })
       );
+      //Send updated position to server
+      fetch("/api/send-location", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: String(id),
+          x: location[0],
+          y: location[1],
+        }),
+      });
     }
   }
 
@@ -179,6 +191,8 @@ function DetailsPanel(props: Props) {
       ]);
       setPath(element.filepath);
       setScale(element.scale);
+    } else {
+      setType("");
     }
   }, [configState.selectedElement, configState.elements]);
 

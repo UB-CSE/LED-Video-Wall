@@ -101,6 +101,12 @@ function Element(props: ElementProps) {
       sendPosition();
     }
   }, [isDragging]);
+
+  useEffect(() => {
+    setX(0);
+    setY(0);
+  }, [props.location[0], props.location[1]]);
+
   return (
     <img
       src={"/api/" + props.path}
