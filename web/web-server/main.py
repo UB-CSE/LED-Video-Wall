@@ -87,24 +87,27 @@ def set_yaml_config():
             )
             for name in config["elements"]:
                 element = config["elements"][name]
-                yaml_string = (
-                    yaml_string
-                    + '\n  "'
-                    + name
-                    + '":\n    id: '
-                    + str(element["id"])
-                    + '\n    type: "'
-                    + element["type"]
-                    + '"'
-                    + '\n    filepath: "'
-                    + element["filepath"]
-                    + '"'
-                    + "\n    location: ["
-                    + str(element["location"][0])
-                    + ","
-                    + str(element["location"][1])
-                    + "]"
-                )
+                if element["type"] == "image":
+                    yaml_string = (
+                        yaml_string
+                        + '\n  "'
+                        + name
+                        + '":\n    id: '
+                        + str(element["id"])
+                        + '\n    type: "'
+                        + element["type"]
+                        + '"'
+                        + '\n    filepath: "'
+                        + element["filepath"]
+                        + '"'
+                        + "\n    location: ["
+                        + str(element["location"][0])
+                        + ","
+                        + str(element["location"][1])
+                        + "]"
+                        + "\n    scale: "
+                        + str(element["scale"])
+                    )
             file.write(yaml_string)
 
         return "Success: config file has been updated"  # Responds with success message

@@ -5,4 +5,5 @@ elements:
     id: 1
     type: "image"
     filepath: "images/rainbow.png"
-    location: [0,0]
+    location: [22,22]
+    scale: 0.5
