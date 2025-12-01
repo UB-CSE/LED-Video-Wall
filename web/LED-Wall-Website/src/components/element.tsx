@@ -114,6 +114,7 @@ function Element(props: ElementProps) {
         cursor: isDragging ? "grabbing" : "grab",
         width: dimensions[0] * props.scale,
         height: dimensions[1] * props.scale,
+        margin: "0px",
         border:
           configState.selectedElement == props.id
             ? "3px solid cornflowerblue"

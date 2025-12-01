@@ -295,6 +295,28 @@ function DetailsPanel(props: Props) {
             </div>
           </li>
         )}
+        {type && (
+          <li
+            key={5}
+            style={{
+              display: "flex",
+            }}
+          >
+            <p className={styles.box} style={{ width: "25%" }}>
+              scale
+            </p>
+            <input
+              className={styles.box}
+              style={{ width: "75%" }}
+              onChange={(e) => {
+                setScale(e.target.valueAsNumber);
+              }}
+              onKeyDown={(e) => handleChange(e)}
+              type="number"
+              value={scale}
+            />
+          </li>
+        )}
       </ul>
     </div>
   );
