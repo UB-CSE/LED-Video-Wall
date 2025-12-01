@@ -5,6 +5,8 @@ type Option = {
   function: Function;
 };
 
+export type { Option };
+
 type Props = {
   options: Option[];
   location: number[];
@@ -25,7 +27,7 @@ function ContextMenu(props: Props) {
           <li>
             <button
               className={styles.contextButton}
-              onClick={option.function()}
+              onClick={(e) => option.function(e)}
             >
               {option.name}
             </button>

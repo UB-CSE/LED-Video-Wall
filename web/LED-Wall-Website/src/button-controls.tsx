@@ -13,7 +13,7 @@ function ButtonControls(props: ButtonControlsProps) {
   const [message, setMessage] = useState("");
   const [running, setRunning] = useState("Server is not running");
   const [configRunning, setConfigRunning] = useState("");
-  // const [configData, setConfigData] = useState<any>(null);
+  const [preOpen, setPreOpen] = useState<string | null>(null);
 
   const showMessage = (msg: string) => {
     setMessage(msg);
@@ -28,8 +28,6 @@ function ButtonControls(props: ButtonControlsProps) {
         const data = await response.json();
         if (data.configs) {
           setConfigs(data.configs);
-          console.log("Configs:", data.configs); // Debug
-          console.log("Currently running:", configRunning); // Debug
         } else if (data.error) {
           showMessage(`[ERROR]: ${data.error}`);
         }
@@ -39,19 +37,7 @@ function ButtonControls(props: ButtonControlsProps) {
     };
     fetchConfigs();
     getCurrentlyRunningAndMount();
-    /*window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };*/
   }, []);
-
-  /*function handleBeforeUnload() {
-    fetch("/api/update-config", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ config_file: configRunning }),
-    });
-  }*/
 
   async function getCurrentlyRunning() {
     const response = await fetch("/api/get-current-config", { method: "GET" });
@@ -179,11 +165,27 @@ function ButtonControls(props: ButtonControlsProps) {
         )}
         <select
           value={configFile}
-          onChange={(e) => handleConfigChange(e.target.value)}
-          //onChange={(e) => setConfigFile(e.target.value)}
+          onClick={(e) => {
+            setPreOpen((e.currentTarget as HTMLSelectElement).value);
+            console.log("MouseDown value:", e.currentTarget.value);
+            if (
+              e.currentTarget.value.split("/").pop() ===
+              preOpen?.split("/").pop()
+            ) {
+              props.getConfig(props.sizeMultiplier);
+            }
+          }}
+          onChange={(e) => {
+            const newConfig = e.target.value;
+            if (newConfig === preOpen?.split("/").pop()) {
+              props.getConfig(props.sizeMultiplier);
+            }
+            handleConfigChange(newConfig);
+          }}
         >
-          <option value="">{configFile.split("/").pop()}</option>
+          <option value={configFile}>{configFile.split("/").pop()}</option>
           {configs.map((cfg) => {
+            if (cfg === configFile) return null;
             const fileName = cfg.split("/").pop() || cfg;
             return (
               <option key={cfg} value={cfg}>

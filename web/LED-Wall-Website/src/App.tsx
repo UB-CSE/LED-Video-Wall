@@ -6,7 +6,7 @@ import {
   addElement,
   resetState,
 } from "./state/config/configSlice.ts";
-import FileUpload from "./components/FileUpload.tsx";
+import Canvas from "./components/Canvas.tsx";
 import Buttoncontrols from "./button-controls.tsx";
 import DetailsPanel from "./components/DetailsPanel.tsx";
 import ElementList from "./components/ElementList.tsx";
@@ -28,25 +28,27 @@ function App() {
       const response = await fetch("/api/get-yaml-config", { method: "GET" });
       const config = await response.json();
       const newElements = [];
-      dispatch(resetState(config));
+      await dispatch(resetState(config));
       //Sets the gamma in the state
-      dispatch(setGamma(config.settings.gamma));
+      await dispatch(setGamma(config.settings.gamma));
       //Creates JSX elements and saves initial state
       for (const key in config["elements"]) {
         //Adds the element to the state
-        dispatch(
+        await dispatch(
           addElement({
             name: key,
             id: config.elements[key].id,
             type: config.elements[key].type,
             filepath: config.elements[key].filepath,
             location: config.elements[key].location,
+            scale: config.elements[key].scale,
           })
         );
         //Creates a JSX element and adds it to the list
+        //Uses randomized key to fix issue where moves made to elements in one yaml file would carry onto elements in another yaml file
         newElements.push(
           <Element
-            key={config.elements[key].id}
+            key={Date.now() + Math.random()}
             name={key}
             id={config.elements[key].id}
             type={config.elements[key].type}
@@ -56,6 +58,7 @@ function App() {
               config.elements[key].location[1] * multiplier,
             ]}
             sizeMultiplier={multiplier}
+            scale={config.elements[key].scale}
           />
         );
       }
@@ -177,17 +180,25 @@ function App() {
   //and passes elements to the file upload where the canvas and elements will be
   return (
     <div>
-      <FileUpload
+      <Canvas
         elements={elements}
         setElements={setElements}
         canvasDimensions={canvasDimensions}
         sizeMultiplier={sizeMultiplier}
-      ></FileUpload>
+      ></Canvas>
       <h1>LED Video Wall Controls</h1>
       <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
       <div style={{ position: "fixed", right: "0%", top: "0%" }}>
-        <DetailsPanel></DetailsPanel>
-        <ElementList></ElementList>
+        <DetailsPanel
+          elements={elements}
+          setElements={setElements}
+          sizeMultiplier={sizeMultiplier}
+        ></DetailsPanel>
+        <ElementList
+          elements={elements}
+          setElements={setElements}
+          sizeMultiplier={sizeMultiplier}
+        ></ElementList>
       </div>
     </div>
   );

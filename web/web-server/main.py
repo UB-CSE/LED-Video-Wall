@@ -87,24 +87,27 @@ def set_yaml_config():
             )
             for name in config["elements"]:
                 element = config["elements"][name]
-                yaml_string = (
-                    yaml_string
-                    + '\n  "'
-                    + name
-                    + '":\n    id: '
-                    + str(element["id"])
-                    + '\n    type: "'
-                    + element["type"]
-                    + '"'
-                    + '\n    filepath: "'
-                    + element["filepath"]
-                    + '"'
-                    + "\n    location: ["
-                    + str(element["location"][0])
-                    + ","
-                    + str(element["location"][1])
-                    + "]"
-                )
+                if element["type"] == "image":
+                    yaml_string = (
+                        yaml_string
+                        + '\n  "'
+                        + name
+                        + '":\n    id: '
+                        + str(element["id"])
+                        + '\n    type: "'
+                        + element["type"]
+                        + '"'
+                        + '\n    filepath: "'
+                        + element["filepath"]
+                        + '"'
+                        + "\n    location: ["
+                        + str(element["location"][0])
+                        + ","
+                        + str(element["location"][1])
+                        + "]"
+                        + "\n    scale: "
+                        + str(element["scale"])
+                    )
             file.write(yaml_string)
 
         return "Success: config file has been updated"  # Responds with success message
@@ -123,14 +126,14 @@ def upload_file():
     hashString = hashlib.sha256(contents).hexdigest()       # Takes a hash over the contents of the file
     extension = file.filename.rsplit('.', 1)[1]                # Finds the extension
     filename = hashString + '.' + extension
-    filepath = os.path.join("./static/images", filename)    #Combines into filepath
+    filepath = os.path.join("../../server/images", filename)    #Combines into filepath
     file.save(filepath)                                     #Saves to disk
     return jsonify({'filename': filename})
 
 
 @app.route("/api/images/<filename>", methods=["GET"])
 def get_image(filename):
-    return send_from_directory("./static/images", filename)
+    return send_from_directory("../../server/images", filename)
 
 
 @app.route("/api/start-server", methods=['POST'])
@@ -211,10 +214,46 @@ signal.signal(signal.SIGTERM, clean_server)
 @app.route("/api/list-configs", methods=['GET'])
 def list_configs():
     try:
-        # List all .yaml files in CONFIG_DIR
+        # List all .yaml files in CONFIG_DIR that start with "input"
         files = [f for f in os.listdir(CONFIG_DIR) if f.endswith(".yaml") and f.lower() != "matrix.yaml"]
+
+        valid_files = []
+        #Exclude incompatible yaml files
+        for f in files:
+            try:
+                with open(os.path.join(CONFIG_DIR, f), "r") as file:
+                    is_valid = True
+                    config_Data = yaml.safe_load(file)
+                    # Exclude yaml files missing the settings or elements sections
+                    if "settings" not in config_Data or "elements" not in config_Data:
+                        is_valid = False
+                    # Exclude yaml files missing required fields
+                    for name in config_Data["elements"]:
+                        element = config_Data["elements"][name]
+                        if "type" not in element:
+                            is_valid = False
+                            break
+                        if element["type"] == "image":
+                            if "id" not in element or "filepath" not in element or "location" not in element or "scale" not in element:
+                                is_valid = False
+                        elif element["type"] == "text":
+                            if "id" not in element or "content" not in element or "size" not in element or "color" not in element or "font_path" not in element or "location" not in element:
+                                is_valid = False
+                    # Exclude yaml files with incompatible element types
+                    for name in config_Data["elements"]:
+                        element = config_Data["elements"][name]
+                        # WHEN ADDING NEW ELEMENT TYPES, UPDATE THIS LIST
+                        if element["type"] not in ["image", "text"]:
+                            is_valid = False
+                            break
+                    if is_valid:
+                        valid_files.append(f)
+            except Exception as e:
+                continue
+            
+
         # Return full relative paths so frontend can send them to /start_server
-        files_with_path = [os.path.join(CONFIG_DIR, f) for f in files]
+        files_with_path = [os.path.join(CONFIG_DIR, f) for f in valid_files]
         print(files_with_path)
         return jsonify({"configs": files_with_path})
     except Exception as e:

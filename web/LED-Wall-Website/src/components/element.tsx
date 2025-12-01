@@ -14,6 +14,7 @@ type ElementProps = {
   path: string;
   location: [number, number];
   sizeMultiplier: number;
+  scale: number;
 };
 //Image Element that can be dragged and dropped inside the canvas
 function Element(props: ElementProps) {
@@ -40,6 +41,7 @@ function Element(props: ElementProps) {
         type: props.type,
         filepath: props.path,
         location: [props.location[0] + x, props.location[1] + y],
+        scale: props.scale,
       })
     );
   }
@@ -110,8 +112,9 @@ function Element(props: ElementProps) {
         left: props.location[0] + x,
         top: props.location[1] + y,
         cursor: isDragging ? "grabbing" : "grab",
-        width: dimensions[0],
-        height: dimensions[1],
+        width: dimensions[0] * props.scale,
+        height: dimensions[1] * props.scale,
+        margin: "0px",
         border:
           configState.selectedElement == props.id
             ? "3px solid cornflowerblue"
