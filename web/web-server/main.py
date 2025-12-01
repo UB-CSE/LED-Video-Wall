@@ -214,10 +214,46 @@ signal.signal(signal.SIGTERM, clean_server)
 @app.route("/api/list-configs", methods=['GET'])
 def list_configs():
     try:
-        # List all .yaml files in CONFIG_DIR
+        # List all .yaml files in CONFIG_DIR that start with "input"
         files = [f for f in os.listdir(CONFIG_DIR) if f.endswith(".yaml") and f.lower() != "matrix.yaml"]
+
+        valid_files = []
+        #Exclude incompatible yaml files
+        for f in files:
+            try:
+                with open(os.path.join(CONFIG_DIR, f), "r") as file:
+                    is_valid = True
+                    config_Data = yaml.safe_load(file)
+                    # Exclude yaml files missing the settings or elements sections
+                    if "settings" not in config_Data or "elements" not in config_Data:
+                        is_valid = False
+                    # Exclude yaml files missing required fields
+                    for name in config_Data["elements"]:
+                        element = config_Data["elements"][name]
+                        if "type" not in element:
+                            is_valid = False
+                            break
+                        if element["type"] == "image":
+                            if "id" not in element or "filepath" not in element or "location" not in element or "scale" not in element:
+                                is_valid = False
+                        elif element["type"] == "text":
+                            if "id" not in element or "content" not in element or "size" not in element or "color" not in element or "font_path" not in element or "location" not in element:
+                                is_valid = False
+                    # Exclude yaml files with incompatible element types
+                    for name in config_Data["elements"]:
+                        element = config_Data["elements"][name]
+                        # WHEN ADDING NEW ELEMENT TYPES, UPDATE THIS LIST
+                        if element["type"] not in ["image", "text"]:
+                            is_valid = False
+                            break
+                    if is_valid:
+                        valid_files.append(f)
+            except Exception as e:
+                continue
+            
+
         # Return full relative paths so frontend can send them to /start_server
-        files_with_path = [os.path.join(CONFIG_DIR, f) for f in files]
+        files_with_path = [os.path.join(CONFIG_DIR, f) for f in valid_files]
         print(files_with_path)
         return jsonify({"configs": files_with_path})
     except Exception as e:
