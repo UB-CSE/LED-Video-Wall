@@ -28,13 +28,13 @@ function App() {
       const response = await fetch("/api/get-yaml-config", { method: "GET" });
       const config = await response.json();
       const newElements = [];
-      dispatch(resetState(config));
+      await dispatch(resetState(config));
       //Sets the gamma in the state
-      dispatch(setGamma(config.settings.gamma));
+      await dispatch(setGamma(config.settings.gamma));
       //Creates JSX elements and saves initial state
       for (const key in config["elements"]) {
         //Adds the element to the state
-        dispatch(
+        await dispatch(
           addElement({
             name: key,
             id: config.elements[key].id,
@@ -44,9 +44,10 @@ function App() {
           })
         );
         //Creates a JSX element and adds it to the list
+        //Uses randomized key to fix issue where moves made to elements in one yaml file would carry onto elements in another yaml file
         newElements.push(
           <Element
-            key={config.elements[key].id}
+            key={Date.now() + Math.random()}
             name={key}
             id={config.elements[key].id}
             type={config.elements[key].type}
