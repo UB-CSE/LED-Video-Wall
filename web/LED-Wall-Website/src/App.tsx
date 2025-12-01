@@ -41,6 +41,7 @@ function App() {
             type: config.elements[key].type,
             filepath: config.elements[key].filepath,
             location: config.elements[key].location,
+            scale: config.elements[key].scale,
           })
         );
         //Creates a JSX element and adds it to the list
@@ -57,6 +58,7 @@ function App() {
               config.elements[key].location[1] * multiplier,
             ]}
             sizeMultiplier={multiplier}
+            scale={config.elements[key].scale}
           />
         );
       }

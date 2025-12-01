@@ -14,6 +14,7 @@ interface Elem {
     type: string;
     filepath: string;
     location: number[];
+    scale: number;
 }
 export type { Elem };
 

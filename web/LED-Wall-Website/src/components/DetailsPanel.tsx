@@ -20,6 +20,7 @@ function DetailsPanel(props: Props) {
   const [path, setPath] = useState("");
   const [layer, setLayer] = useState(0);
   const [location, setLocation] = useState<number[]>([0, 0]);
+  const [scale, setScale] = useState(1);
   //const [size, setSize] = useState([0, 0]);
   const dispatch = useDispatch();
 
@@ -41,6 +42,7 @@ function DetailsPanel(props: Props) {
             location[1] * props.sizeMultiplier,
           ]}
           sizeMultiplier={props.sizeMultiplier}
+          scale={scale}
         />
       );
       props.setElements(newElements);
@@ -54,6 +56,7 @@ function DetailsPanel(props: Props) {
             location[0] * props.sizeMultiplier,
             location[1] * props.sizeMultiplier,
           ],
+          scale: scale,
         })
       );
     }
@@ -90,6 +93,7 @@ function DetailsPanel(props: Props) {
               location[0] * props.sizeMultiplier,
               location[1] * props.sizeMultiplier,
             ],
+            scale: scale,
           };
 
           newElements.push(
@@ -101,6 +105,7 @@ function DetailsPanel(props: Props) {
               path={movedElement.filepath}
               location={[movedElement.location[0], movedElement.location[1]]}
               sizeMultiplier={props.sizeMultiplier}
+              scale={scale}
             />
           );
           dispatch(updateElement(movedElement));
@@ -121,6 +126,7 @@ function DetailsPanel(props: Props) {
             path={element.filepath}
             location={[element.location[0], element.location[1]]}
             sizeMultiplier={props.sizeMultiplier}
+            scale={element.scale}
           />
         );
         dispatch(updateElement(element));
@@ -136,6 +142,7 @@ function DetailsPanel(props: Props) {
             location[0] * props.sizeMultiplier,
             location[1] * props.sizeMultiplier,
           ],
+          scale: scale,
         };
 
         newElements.push(
@@ -147,6 +154,7 @@ function DetailsPanel(props: Props) {
             path={movedElement.filepath}
             location={[movedElement.location[0], movedElement.location[1]]}
             sizeMultiplier={props.sizeMultiplier}
+            scale={movedElement.scale}
           />
         );
         dispatch(updateElement(movedElement));
@@ -170,6 +178,7 @@ function DetailsPanel(props: Props) {
         Math.trunc(element.location[1] / props.sizeMultiplier),
       ]);
       setPath(element.filepath);
+      setScale(element.scale);
     }
   }, [configState.selectedElement, configState.elements]);
 

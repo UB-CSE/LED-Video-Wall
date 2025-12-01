@@ -24,6 +24,7 @@ function SaveButton(props: Props) {
           Math.trunc(element.location[0] / props.sizeMultiplier),
           Math.trunc(element.location[1] / props.sizeMultiplier),
         ],
+        scale: element.scale,
       };
     }
     //Sends JSON to web server
