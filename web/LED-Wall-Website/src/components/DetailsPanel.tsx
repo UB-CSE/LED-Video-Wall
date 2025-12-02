@@ -29,7 +29,13 @@ function DetailsPanel(props: Props) {
 
   const dispatch = useDispatch();
 
-  function handleChange(e: React.KeyboardEvent<HTMLInputElement>) {
+  async function handleChange(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (scale < 0) {
+      await setScale(0);
+    }
+    if (fontSize < 0) {
+      await setFontSize(0);
+    }
     if (e.key === "Enter") {
       if (type === "image") {
         dispatch(
@@ -371,7 +377,11 @@ function DetailsPanel(props: Props) {
                 className={styles.box}
                 style={{ width: "75%" }}
                 onChange={(e) => {
-                  setScale(e.target.valueAsNumber);
+                  if (e.target.valueAsNumber >= 0) {
+                    setScale(e.target.valueAsNumber);
+                  } else {
+                    setScale(0);
+                  }
                 }}
                 onKeyDown={(e) => handleChange(e)}
                 type="number"
