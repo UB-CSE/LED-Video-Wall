@@ -4,15 +4,13 @@ import type { RootState } from "../state/store";
 import { useDispatch } from "react-redux";
 import { setSelectedElement } from "../state/config/configSlice.ts";
 import type React from "react";
-import { useState, type JSX } from "react";
+import { useState } from "react";
 import ContextMenu from "./ContextMenu.tsx";
 import useContextMenu from "../hooks/useContextMenu.tsx";
 import { type Option } from "./ContextMenu.tsx";
 import AddImagePopup from "./AddImagePopup.tsx";
 
 type Props = {
-  elements: JSX.Element[];
-  setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>;
   sizeMultiplier: number;
 };
 
@@ -108,8 +106,6 @@ function ElementList(props: Props) {
       )}
       {addImageIsClicked && (
         <AddImagePopup
-          elements={props.elements}
-          setElements={props.setElements}
           sizeMultiplier={props.sizeMultiplier}
           setAddImageIsClicked={setAddImageIsClicked}
         ></AddImagePopup>

@@ -1,15 +1,13 @@
-import React, { type Dispatch, type JSX } from "react";
+import { type Dispatch } from "react";
 import { addElement } from "../state/config/configSlice.ts";
-import Element from "./element";
 import type { UnknownAction } from "@reduxjs/toolkit";
+import type { RootState } from "../state/store.ts";
 
 async function uploadFile(
   location: number[],
   file: File | null,
-  sizeMultiplier: number,
-  elements: JSX.Element[],
-  setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>,
-  dispatch: Dispatch<UnknownAction>
+  dispatch: Dispatch<UnknownAction>,
+  configState: RootState["config"]
 ) {
   //We require that the image file must be under 5MB
   if (file != null && file.size > 5000000) {
@@ -26,30 +24,16 @@ async function uploadFile(
       });
       const json = await res.json();
       const filename = json["filename"];
-      //Adds new element using the filename to the rendered Elements
-      const newElement = (
-        <Element
-          key={elements.length + 1}
-          name={"elem" + String(elements.length + 1)}
-          id={elements.length + 1}
-          type={file.type.split("/")[0]}
-          path={"images/" + filename}
-          location={[
-            location[0] * sizeMultiplier,
-            location[1] * sizeMultiplier,
-          ]}
-          sizeMultiplier={sizeMultiplier}
-        />
-      );
-      setElements([...elements, newElement]);
+
       //Adds new element using the filename to the redux config
       dispatch(
         addElement({
-          name: "elem" + String(elements.length + 1),
-          id: elements.length + 1,
-          type: file.type.split("/")[0],
+          name: "elem" + String(configState.elements.length + 1),
+          id: configState.elements.length + 1,
+          type: "image",
           filepath: "images/" + filename,
           location: location,
+          scale: 1,
         })
       );
       //setMessage("Success!");

@@ -108,6 +108,32 @@ def set_yaml_config():
                         + "\n    scale: "
                         + str(element["scale"])
                     )
+                elif element["type"] == "text":
+                    yaml_string = (
+                        yaml_string
+                        + '\n  "'
+                        + name
+                        + '":\n    id: '
+                        + str(element["id"])
+                        + '\n    type: "'
+                        + element["type"]
+                        + '"'
+                        + '\n    content: "'
+                        + element["content"]
+                        + '"'
+                        + "\n    size: "
+                        + str(element["size"])
+                        + "\n    color: "
+                        + str(element["color"])
+                        + '\n    font_path: "'
+                        + element["font_path"]
+                        + '"'
+                        + "\n    location: ["
+                        + str(element["location"][0])
+                        + ","
+                        + str(element["location"][1])
+                        + "]"
+                    )
             file.write(yaml_string)
 
         return "Success: config file has been updated"  # Responds with success message

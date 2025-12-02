@@ -8,15 +8,27 @@ interface ConfigState {
 interface Settings {
     gamma: number;
 }
-interface Elem {
+interface BaseElem {
     name: string;
     id: number;
-    type: string;
-    filepath: string;
     location: number[];
+}
+interface ImageElem extends BaseElem {
+    type: "image";
+    filepath: string;
     scale: number;
 }
+interface TextElem extends BaseElem {
+    type: "text";
+    content: string;
+    size: number;
+    color: string;
+    font_path: string;
+}
+type Elem = ImageElem | TextElem;
 export type { Elem };
+export type { ImageElem };
+export type { TextElem };
 
 const initialState: ConfigState = {
     selectedElement: 0,
@@ -46,6 +58,13 @@ const configSlice = createSlice({
                 }
             }
         },
+        updateLocation: (state, action: PayloadAction<{id: number, location: number[]}>) => {
+            for (let i = 0; i < state.elements.length; i++) {
+                if (state.elements[i].id === action.payload.id) {
+                    state.elements[i].location = action.payload.location;
+                }
+            }
+        },
         resetState: (state) => {
             state.selectedElement = 0;
             state.elements = [];
@@ -53,6 +72,6 @@ const configSlice = createSlice({
         },
     },
 });
-export const { setGamma, setSelectedElement, addElement, updateElement, resetState } = configSlice.actions;
+export const { setGamma, setSelectedElement, addElement, updateElement, resetState, updateLocation} = configSlice.actions;
 
 export default configSlice.reducer;

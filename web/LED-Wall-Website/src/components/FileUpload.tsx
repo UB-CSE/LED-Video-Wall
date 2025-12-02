@@ -3,10 +3,10 @@ import styles from "../Styles.module.css";
 import { useDispatch } from "react-redux";
 import { addElement } from "../state/config/configSlice.ts";
 import Element from "./element";
+import { useSelector } from "react-redux";
+import type { RootState } from "../state/store";
 
 type Props = {
-  elements: JSX.Element[];
-  setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>;
   canvasDimensions: number[];
   sizeMultiplier: number;
 };
@@ -16,6 +16,7 @@ function FileUpload(props: Props) {
   const [newFile, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const dispatch = useDispatch();
+  const configState = useSelector((state: RootState) => state.config);
 
   //Adds the new element to the state and sends the file to the web server
   async function uploadFile(

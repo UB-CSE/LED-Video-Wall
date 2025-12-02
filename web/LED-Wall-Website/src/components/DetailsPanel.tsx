@@ -1,14 +1,11 @@
 import styles from "../Styles.module.css";
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
-import { type JSX, useEffect, useState } from "react";
-import Element from "./element";
+import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { setSelectedElement, updateElement } from "../state/config/configSlice";
 
 type Props = {
-  elements: JSX.Element[];
-  setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>;
   sizeMultiplier: number;
 };
 
@@ -26,31 +23,11 @@ function DetailsPanel(props: Props) {
 
   function handleChange(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
-      const newElements = [];
-      for (const key in props.elements) {
-        newElements.push(props.elements[key]);
-      }
-      newElements[configState.selectedElement - 1] = (
-        <Element
-          key={id}
-          name={name}
-          id={id}
-          type={type}
-          path={path}
-          location={[
-            location[0] * props.sizeMultiplier,
-            location[1] * props.sizeMultiplier,
-          ]}
-          sizeMultiplier={props.sizeMultiplier}
-          scale={scale}
-        />
-      );
-      props.setElements(newElements);
       dispatch(
         updateElement({
           name: name,
           id: id,
-          type: type,
+          type: "image",
           filepath: path,
           location: [
             location[0] * props.sizeMultiplier,
@@ -76,7 +53,6 @@ function DetailsPanel(props: Props) {
 
   async function handleLayerChange(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
-      const newElements = [];
       const oldElements = configState.elements;
 
       //Clamp layer value to 1-length of elements and if the layer is the same as current, return early
@@ -96,31 +72,19 @@ function DetailsPanel(props: Props) {
       for (let oldLayer = 1; oldLayer <= oldElements.length; oldLayer++) {
         // When we reach the desired layer, insert the moved element
         if (newLayer === layer) {
-          const movedElement = {
-            name: name,
-            id: newLayer,
-            type: type,
-            filepath: path,
-            location: [
-              location[0] * props.sizeMultiplier,
-              location[1] * props.sizeMultiplier,
-            ],
-            scale: scale,
-          };
-
-          newElements.push(
-            <Element
-              key={newLayer}
-              name={movedElement.name}
-              id={newLayer}
-              type={movedElement.type}
-              path={movedElement.filepath}
-              location={[movedElement.location[0], movedElement.location[1]]}
-              sizeMultiplier={props.sizeMultiplier}
-              scale={scale}
-            />
+          dispatch(
+            updateElement({
+              name: name,
+              id: newLayer,
+              type: "image",
+              filepath: path,
+              location: [
+                location[0] * props.sizeMultiplier,
+                location[1] * props.sizeMultiplier,
+              ],
+              scale: scale,
+            })
           );
-          dispatch(updateElement(movedElement));
           newLayer++;
         }
         if (oldLayer === id) {
@@ -128,52 +92,25 @@ function DetailsPanel(props: Props) {
         }
         const element = { ...oldElements[oldLayer - 1] };
         element.id = newLayer;
-
-        newElements.push(
-          <Element
-            key={element.id}
-            name={element.name}
-            id={element.id}
-            type={element.type}
-            path={element.filepath}
-            location={[element.location[0], element.location[1]]}
-            sizeMultiplier={props.sizeMultiplier}
-            scale={element.scale}
-          />
-        );
         dispatch(updateElement(element));
         newLayer++;
       }
       if (newLayer === layer) {
-        const movedElement = {
-          name: name,
-          id: newLayer,
-          type: type,
-          filepath: path,
-          location: [
-            location[0] * props.sizeMultiplier,
-            location[1] * props.sizeMultiplier,
-          ],
-          scale: scale,
-        };
-
-        newElements.push(
-          <Element
-            key={newLayer}
-            name={movedElement.name}
-            id={newLayer}
-            type={movedElement.type}
-            path={movedElement.filepath}
-            location={[movedElement.location[0], movedElement.location[1]]}
-            sizeMultiplier={props.sizeMultiplier}
-            scale={movedElement.scale}
-          />
+        dispatch(
+          updateElement({
+            name: name,
+            id: newLayer,
+            type: "image",
+            filepath: path,
+            location: [
+              location[0] * props.sizeMultiplier,
+              location[1] * props.sizeMultiplier,
+            ],
+            scale: scale,
+          })
         );
-        dispatch(updateElement(movedElement));
       }
-
       dispatch(setSelectedElement(layer));
-      props.setElements(newElements);
       setId(layer);
     }
   }
@@ -189,8 +126,11 @@ function DetailsPanel(props: Props) {
         Math.trunc(element.location[0] / props.sizeMultiplier),
         Math.trunc(element.location[1] / props.sizeMultiplier),
       ]);
-      setPath(element.filepath);
-      setScale(element.scale);
+      if (element.type === "image") {
+        setPath(element.filepath);
+        setScale(element.scale);
+      } else if (element.type === "text") {
+      }
     } else {
       setType("");
     }

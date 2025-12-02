@@ -11,10 +11,12 @@ type ElementProps = {
   name: string;
   id: number;
   type: string;
-  path: string;
+  content: string;
+  size: number;
+  color: string;
+  font_path: string;
   location: [number, number];
   sizeMultiplier: number;
-  scale: number;
 };
 //Image Element that can be dragged and dropped inside the canvas
 function Element(props: ElementProps) {
@@ -38,7 +40,7 @@ function Element(props: ElementProps) {
       updateElement({
         name: props.name,
         id: props.id,
-        type: "image",
+        type: props.type,
         filepath: props.path,
         location: [props.location[0] + x, props.location[1] + y],
         scale: props.scale,

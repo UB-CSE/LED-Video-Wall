@@ -16,16 +16,31 @@ function SaveButton(props: Props) {
     const elements: Record<string, any> = {};
     for (let i = 0; i < configState.elements.length; i++) {
       let element = configState.elements[i];
-      elements[element.name] = {
-        id: element.id,
-        type: element.type,
-        filepath: element.filepath,
-        location: [
-          Math.trunc(element.location[0] / props.sizeMultiplier),
-          Math.trunc(element.location[1] / props.sizeMultiplier),
-        ],
-        scale: element.scale,
-      };
+      if (element.type === "image") {
+        elements[element.name] = {
+          id: element.id,
+          type: element.type,
+          filepath: element.filepath,
+          location: [
+            Math.trunc(element.location[0] / props.sizeMultiplier),
+            Math.trunc(element.location[1] / props.sizeMultiplier),
+          ],
+          scale: element.scale,
+        };
+      } else if (element.type === "text") {
+        elements[element.name] = {
+          id: element.id,
+          type: element.type,
+          content: element.content,
+          size: element.size,
+          color: element.color,
+          font_path: element.font_path,
+          location: [
+            Math.trunc(element.location[0] / props.sizeMultiplier),
+            Math.trunc(element.location[1] / props.sizeMultiplier),
+          ],
+        };
+      }
     }
     //Sends JSON to web server
     fetch("/api/set-yaml-config", {
