@@ -57,7 +57,20 @@ function Canvas(props: Props) {
         />
       );
     } else if (element.type === "text") {
-      return <p key={element.id}>placeholder</p>;
+      return (
+        <Element
+          key={element.id}
+          name={element.name}
+          id={element.id}
+          type={element.type}
+          content={element.content}
+          size={element.size}
+          color={element.color}
+          font_path={element.font_path}
+          location={[element.location[0], element.location[1]]}
+          sizeMultiplier={props.sizeMultiplier}
+        />
+      );
     }
   }
 

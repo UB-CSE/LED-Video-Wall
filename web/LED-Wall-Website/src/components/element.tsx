@@ -7,15 +7,28 @@ import {
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
 
-type ElementProps = {
+type ImageProps = {
   name: string;
   id: number;
-  type: string;
+  type: "image";
   path: string;
   location: [number, number];
   sizeMultiplier: number;
   scale: number;
 };
+type TextProps = {
+  name: string;
+  id: number;
+  type: "text";
+  content: string;
+  size: number;
+  color: string;
+  font_path: string;
+  location: [number, number];
+  sizeMultiplier: number;
+};
+type ElementProps = ImageProps | TextProps;
+
 //Image Element that can be dragged and dropped inside the canvas
 function Element(props: ElementProps) {
   //Redux State
@@ -34,16 +47,31 @@ function Element(props: ElementProps) {
 
   //Overwrites redux state of this element in the config
   function updateState() {
-    dispatch(
-      updateElement({
-        name: props.name,
-        id: props.id,
-        type: "image",
-        filepath: props.path,
-        location: [props.location[0] + x, props.location[1] + y],
-        scale: props.scale,
-      })
-    );
+    if (props.type === "image") {
+      dispatch(
+        updateElement({
+          name: props.name,
+          id: props.id,
+          type: "image",
+          filepath: props.path,
+          location: [props.location[0] + x, props.location[1] + y],
+          scale: props.scale,
+        })
+      );
+    } else if (props.type === "text") {
+      dispatch(
+        updateElement({
+          name: props.name,
+          id: props.id,
+          type: "text",
+          content: props.content,
+          size: props.size,
+          color: props.color,
+          font_path: props.font_path,
+          location: [props.location[0] + x, props.location[1] + y],
+        })
+      );
+    }
   }
 
   function startDragging(e: React.MouseEvent) {
@@ -107,26 +135,61 @@ function Element(props: ElementProps) {
     setY(0);
   }, [props.location[0], props.location[1]]);
 
-  return (
-    <img
-      src={"/api/" + props.path}
-      draggable={false}
-      onMouseDown={(e) => startDragging(e)}
-      onLoad={handleLoad}
-      style={{
-        position: "fixed",
-        left: props.location[0] + x,
-        top: props.location[1] + y,
-        cursor: isDragging ? "grabbing" : "grab",
-        width: dimensions[0] * props.scale,
-        height: dimensions[1] * props.scale,
-        margin: "0px",
-        border:
-          configState.selectedElement == props.id
-            ? "3px solid cornflowerblue"
-            : "none",
-      }}
-    />
-  );
+  function createJSXElement() {
+    if (props.type === "image") {
+      return (
+        <img
+          src={"/api/" + props.path}
+          draggable={false}
+          onMouseDown={(e) => startDragging(e)}
+          onLoad={handleLoad}
+          style={{
+            position: "fixed",
+            left: props.location[0] + x,
+            top: props.location[1] + y,
+            cursor: isDragging ? "grabbing" : "grab",
+            width: dimensions[0] * props.scale,
+            height: dimensions[1] * props.scale,
+            margin: "0px",
+            border:
+              configState.selectedElement == props.id
+                ? "3px solid cornflowerblue"
+                : "none",
+          }}
+        />
+      );
+    } else if (props.type === "text") {
+      return (
+        <div
+          draggable={false}
+          onMouseDown={(e) => startDragging(e)}
+          style={{
+            position: "fixed",
+            left: props.location[0] + x,
+            top: props.location[1] + y,
+            cursor: isDragging ? "grabbing" : "grab",
+            margin: "0px",
+            border:
+              configState.selectedElement == props.id
+                ? "3px solid cornflowerblue"
+                : "none",
+          }}
+        >
+          <p
+            style={{
+              color: props.color,
+              fontSize: props.size * props.sizeMultiplier,
+              fontFamily: props.font_path,
+              userSelect: "none",
+            }}
+          >
+            {props.content}
+          </p>
+        </div>
+      );
+    }
+  }
+
+  return <>{createJSXElement()}</>;
 }
 export default Element;
