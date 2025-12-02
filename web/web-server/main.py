@@ -161,6 +161,10 @@ def upload_file():
 def get_image(filename):
     return send_from_directory("../../server/images", filename)
 
+@app.route("/api/fonts/<filename>", methods=["GET"])
+def get_font(filename):
+    return send_from_directory("../../server/ttf", filename, mimetype='font/ttf')
+
 
 @app.route("/api/start-server", methods=['POST'])
 def start_server():

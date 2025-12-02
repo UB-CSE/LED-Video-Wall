@@ -175,12 +175,22 @@ function Element(props: ElementProps) {
                 : "none",
           }}
         >
+          <style>
+            {`
+              @font-face {
+                font-family: 'customFont#${props.id}';
+                src: url('/api/fonts/${props.font_path
+                  .split("/")
+                  .pop()}') format('truetype');
+              }
+          `}
+          </style>
           <p
             style={{
               color: props.color,
               fontSize: props.size * props.sizeMultiplier,
-              fontFamily: props.font_path,
               userSelect: "none",
+              fontFamily: `customFont#${props.id}`,
             }}
           >
             {props.content}
