@@ -9,6 +9,7 @@ import ContextMenu from "./ContextMenu.tsx";
 import useContextMenu from "../hooks/useContextMenu.tsx";
 import { type Option } from "./ContextMenu.tsx";
 import AddImagePopup from "./AddImagePopup.tsx";
+import AddTextPopup from "./AddTextPopup.tsx";
 
 type Props = {
   sizeMultiplier: number;
@@ -28,8 +29,14 @@ function ElementList(props: Props) {
   const { isClicked: addImageIsClicked, setIsClicked: setAddImageIsClicked } =
     useContextMenu();
 
+  const { isClicked: addTextIsClicked, setIsClicked: setAddTextIsClicked } =
+    useContextMenu();
+
   const deleteOptions = [{ name: "delete", function: deleteElement }];
-  const addOptions = [{ name: "image", function: addImage }];
+  const addOptions = [
+    { name: "image", function: addImage },
+    { name: "text", function: addText },
+  ];
 
   const [contextOptions, setContextOptions] = useState<Option[]>(deleteOptions);
 
@@ -56,6 +63,12 @@ function ElementList(props: Props) {
 
   function addImage(e: React.MouseEvent) {
     setAddImageIsClicked(true);
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  function addText(e: React.MouseEvent) {
+    setAddTextIsClicked(true);
     e.preventDefault();
     e.stopPropagation();
   }
@@ -114,6 +127,12 @@ function ElementList(props: Props) {
           sizeMultiplier={props.sizeMultiplier}
           setAddImageIsClicked={setAddImageIsClicked}
         ></AddImagePopup>
+      )}
+      {addTextIsClicked && (
+        <AddTextPopup
+          sizeMultiplier={props.sizeMultiplier}
+          setAddTextIsClicked={setAddTextIsClicked}
+        ></AddTextPopup>
       )}
     </div>
   );

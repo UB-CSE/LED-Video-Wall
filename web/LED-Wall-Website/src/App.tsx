@@ -62,10 +62,6 @@ function App() {
               font_path: config.elements[key].font_path,
             })
           );
-          //Creates a JSX element and adds it to the list
-          //newElements.push(
-
-          //);
         }
       }
     } catch (error) {
