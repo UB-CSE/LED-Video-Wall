@@ -25,6 +25,7 @@ function DetailsPanel(props: Props) {
   const [fontSize, setFontSize] = useState(0);
   const [color, setColor] = useState("");
   const [content, setContent] = useState("");
+  const [fonts, setFonts] = useState<string[]>([]);
 
   const dispatch = useDispatch();
 
@@ -53,7 +54,7 @@ function DetailsPanel(props: Props) {
             content: content,
             size: fontSize,
             color: color,
-            font_path: "",
+            font_path: path,
             location: [
               location[0] * props.sizeMultiplier,
               location[1] * props.sizeMultiplier,
@@ -120,7 +121,7 @@ function DetailsPanel(props: Props) {
                 content: content,
                 size: fontSize,
                 color: color,
-                font_path: "",
+                font_path: path,
                 location: [
                   location[0] * props.sizeMultiplier,
                   location[1] * props.sizeMultiplier,
@@ -162,7 +163,7 @@ function DetailsPanel(props: Props) {
               content: content,
               size: fontSize,
               color: color,
-              font_path: "",
+              font_path: path,
               location: [
                 location[0] * props.sizeMultiplier,
                 location[1] * props.sizeMultiplier,
@@ -174,6 +175,26 @@ function DetailsPanel(props: Props) {
       dispatch(setSelectedElement(layer));
       setId(layer);
     }
+  }
+
+  function handleFontChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const path = e.target.value;
+    setPath(path);
+    dispatch(
+      updateElement({
+        name: name,
+        id: id,
+        type: "text",
+        content: content,
+        size: fontSize,
+        color: color,
+        font_path: path,
+        location: [
+          location[0] * props.sizeMultiplier,
+          location[1] * props.sizeMultiplier,
+        ],
+      })
+    );
   }
 
   useEffect(() => {
@@ -200,6 +221,24 @@ function DetailsPanel(props: Props) {
       setType("");
     }
   }, [configState.selectedElement, configState.elements]);
+
+  //Fetch list of available fonts on component mount
+  useEffect(() => {
+    async function fetchFonts() {
+      try {
+        const response = await fetch("/api/list-fonts", { method: "GET" });
+        const data = await response.json();
+        if (data.fonts) {
+          setFonts(data.fonts);
+        } else if (data.error) {
+          console.log(`[ERROR]: ${data.error}`);
+        }
+      } catch (error) {
+        console.log("[ERROR]: Could not fetch fonts");
+      }
+    }
+    fetchFonts();
+  }, []);
 
   return (
     <div className={styles.panel}>
@@ -387,6 +426,46 @@ function DetailsPanel(props: Props) {
               />
             </li>
           )}
+          {/* ADD BACK IN WHEN FONTS ARE FIXED type == "text" && (
+            <li
+              key={7}
+              style={{
+                display: "flex",
+              }}
+            >
+              <p
+                className={styles.box}
+                style={{
+                  width: "24%",
+                }}
+              >
+                font
+              </p>
+              <select
+                className={styles.box}
+                value={path}
+                onChange={handleFontChange}
+                style={{
+                  width: "76%",
+                  margin: "0px",
+                  position: "static",
+                  left: "0",
+                  transform: "none",
+                  padding: "5px",
+                  boxShadow: "none",
+                }}
+              >
+                {fonts.map((font) => {
+                  const fileName = font.split("/").pop() || font;
+                  return (
+                    <option key={font} value={font}>
+                      {fileName}
+                    </option>
+                  );
+                })}
+              </select>
+            </li>
+          )*/}
         </ul>
       </div>
     </div>

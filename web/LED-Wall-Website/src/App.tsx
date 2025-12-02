@@ -30,12 +30,6 @@ function App() {
       for (const key in config["elements"]) {
         //Adds the element to the state
         if (config.elements[key].type === "image") {
-          console.log(
-            "elem" +
-              String(config.elements[key].id) +
-              " Location: " +
-              String(config.elements[key].location)
-          );
           dispatch(
             addElement({
               name: key,
@@ -50,12 +44,25 @@ function App() {
             })
           );
         } else if (config.elements[key].type === "text") {
+          console.log(
+            "elem" +
+              String(config.elements[key].id) +
+              " Color: " +
+              String(config.elements[key].color) +
+              " Location: " +
+              String(config.elements[key].location) +
+              " Font Path: " +
+              String(config.elements[key].font_path)
+          );
           dispatch(
             addElement({
               name: key,
               id: config.elements[key].id,
               type: config.elements[key].type,
-              location: config.elements[key].location,
+              location: [
+                config.elements[key].location[0] * multiplier,
+                config.elements[key].location[1] * multiplier,
+              ],
               content: config.elements[key].content,
               size: config.elements[key].size,
               color: config.elements[key].color,

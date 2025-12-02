@@ -15,6 +15,7 @@ app = Flask(__name__)
 
 server_process = None
 CONFIG_DIR = "../../server"
+FONT_DIR = "../../server/ttf"
 config_File = None 
 currently_running_file = ""
 
@@ -123,9 +124,12 @@ def set_yaml_config():
                         + '"'
                         + "\n    size: "
                         + str(element["size"])
-                        + "\n    color: "
+                        + "\n    color: " 
+                        + '"'
                         + str(element["color"])
-                        + '\n    font_path: "'
+                        + '"'
+                        + "\n    font_path: " 
+                        + '"'
                         + element["font_path"]
                         + '"'
                         + "\n    location: ["
@@ -163,6 +167,7 @@ def get_image(filename):
 
 @app.route("/api/fonts/<filename>", methods=["GET"])
 def get_font(filename):
+    print("font filename: "+filename)
     return send_from_directory("../../server/ttf", filename, mimetype='font/ttf')
 
 
@@ -289,6 +294,20 @@ def list_configs():
     except Exception as e:
         print(f"[ERROR]: Failed to list config files -> {e}")
         return jsonify({"error": "Could not list config files"}), 500
+
+
+@app.route("/api/list-fonts", methods=['GET'])
+def list_fonts():
+    try:
+        # List all .ttf files in FONT_DIR
+        files = [f for f in os.listdir(FONT_DIR) if f.endswith(".ttf")]
+
+        file_paths = [os.path.join("ttf", f) for f in files]
+
+        return jsonify({"fonts": file_paths})
+    except Exception as e:
+        print(f"[ERROR]: Failed to list font files -> {e}")
+        return jsonify({"error": "Could not list font files"}), 500
     
 @app.route("/api/update-config", methods=["POST"])
 def update_config():

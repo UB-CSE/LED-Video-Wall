@@ -40,6 +40,7 @@ function SaveButton(props: Props) {
             Math.trunc(element.location[1] / props.sizeMultiplier),
           ],
         };
+        console.log("font_path: " + element.font_path);
       }
     }
     //Sends JSON to web server

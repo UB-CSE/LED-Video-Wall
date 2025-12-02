@@ -135,6 +135,26 @@ function Element(props: ElementProps) {
     setY(0);
   }, [props.location[0], props.location[1]]);
 
+  function getFont() {
+    const element = configState.elements[props.id - 1];
+    if (element.type === "text") {
+      console.log("/api/fonts/" + (element.font_path.split("/").pop() || ""));
+      displayFont();
+      return "/api/fonts/" + (element.font_path.split("/").pop() || "");
+    }
+    return "";
+  }
+  async function displayFont() {
+    const element = configState.elements[props.id - 1];
+    if (element.type === "text") {
+      console.log("/api/fonts/" + (element.font_path.split("/").pop() || ""));
+      const response = await fetch(
+        "/api/fonts/" + (element.font_path.split("/").pop() || "")
+      );
+      console.log("Font fetch response:", response);
+    }
+  }
+
   function createJSXElement() {
     if (props.type === "image") {
       return (
@@ -177,13 +197,12 @@ function Element(props: ElementProps) {
         >
           <style>
             {`
-              @font-face {
+              @font-face 
+              {
                 font-family: 'customFont#${props.id}';
-                src: url('/api/fonts/${props.font_path
-                  .split("/")
-                  .pop()}') format('truetype');
+                src: url('/api/fonts/${getFont()}') format('truetype');
               }
-          `}
+            `}
           </style>
           <p
             style={{
@@ -191,6 +210,7 @@ function Element(props: ElementProps) {
               fontSize: props.size * props.sizeMultiplier,
               userSelect: "none",
               fontFamily: `customFont#${props.id}`,
+              visibility: getFont() != "" ? "visible" : "hidden",
             }}
           >
             {props.content}
