@@ -17,25 +17,50 @@ function DetailsPanel(props: Props) {
   const [path, setPath] = useState("");
   const [layer, setLayer] = useState(0);
   const [location, setLocation] = useState<number[]>([0, 0]);
+
+  //image only
   const [scale, setScale] = useState(1);
-  //const [size, setSize] = useState([0, 0]);
+
+  //text only
+  const [fontSize, setFontSize] = useState(0);
+  const [color, setColor] = useState("");
+  const [content, setContent] = useState("");
+
   const dispatch = useDispatch();
 
   function handleChange(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
-      dispatch(
-        updateElement({
-          name: name,
-          id: id,
-          type: "image",
-          filepath: path,
-          location: [
-            location[0] * props.sizeMultiplier,
-            location[1] * props.sizeMultiplier,
-          ],
-          scale: scale,
-        })
-      );
+      if (type === "image") {
+        dispatch(
+          updateElement({
+            name: name,
+            id: id,
+            type: "image",
+            filepath: path,
+            location: [
+              location[0] * props.sizeMultiplier,
+              location[1] * props.sizeMultiplier,
+            ],
+            scale: scale,
+          })
+        );
+      } else if (type === "text") {
+        dispatch(
+          updateElement({
+            name: name,
+            id: id,
+            type: "text",
+            content: content,
+            size: fontSize,
+            color: color,
+            font_path: "",
+            location: [
+              location[0] * props.sizeMultiplier,
+              location[1] * props.sizeMultiplier,
+            ],
+          })
+        );
+      }
       //Send updated position to server
       fetch("/api/send-location", {
         method: "POST",
@@ -72,19 +97,37 @@ function DetailsPanel(props: Props) {
       for (let oldLayer = 1; oldLayer <= oldElements.length; oldLayer++) {
         // When we reach the desired layer, insert the moved element
         if (newLayer === layer) {
-          dispatch(
-            updateElement({
-              name: name,
-              id: newLayer,
-              type: "image",
-              filepath: path,
-              location: [
-                location[0] * props.sizeMultiplier,
-                location[1] * props.sizeMultiplier,
-              ],
-              scale: scale,
-            })
-          );
+          if (type === "image") {
+            dispatch(
+              updateElement({
+                name: name,
+                id: newLayer,
+                type: type,
+                filepath: path,
+                location: [
+                  location[0] * props.sizeMultiplier,
+                  location[1] * props.sizeMultiplier,
+                ],
+                scale: scale,
+              })
+            );
+          } else if (type === "text") {
+            dispatch(
+              updateElement({
+                name: name,
+                id: newLayer,
+                type: type,
+                content: content,
+                size: fontSize,
+                color: color,
+                font_path: "",
+                location: [
+                  location[0] * props.sizeMultiplier,
+                  location[1] * props.sizeMultiplier,
+                ],
+              })
+            );
+          }
           newLayer++;
         }
         if (oldLayer === id) {
@@ -96,19 +139,37 @@ function DetailsPanel(props: Props) {
         newLayer++;
       }
       if (newLayer === layer) {
-        dispatch(
-          updateElement({
-            name: name,
-            id: newLayer,
-            type: "image",
-            filepath: path,
-            location: [
-              location[0] * props.sizeMultiplier,
-              location[1] * props.sizeMultiplier,
-            ],
-            scale: scale,
-          })
-        );
+        if (type === "image") {
+          dispatch(
+            updateElement({
+              name: name,
+              id: newLayer,
+              type: type,
+              filepath: path,
+              location: [
+                location[0] * props.sizeMultiplier,
+                location[1] * props.sizeMultiplier,
+              ],
+              scale: scale,
+            })
+          );
+        } else if (type === "text") {
+          dispatch(
+            updateElement({
+              name: name,
+              id: newLayer,
+              type: type,
+              content: content,
+              size: fontSize,
+              color: color,
+              font_path: "",
+              location: [
+                location[0] * props.sizeMultiplier,
+                location[1] * props.sizeMultiplier,
+              ],
+            })
+          );
+        }
       }
       dispatch(setSelectedElement(layer));
       setId(layer);
@@ -130,6 +191,10 @@ function DetailsPanel(props: Props) {
         setPath(element.filepath);
         setScale(element.scale);
       } else if (element.type === "text") {
+        setPath(element.font_path);
+        setFontSize(element.size);
+        setColor(element.color);
+        setContent(element.content);
       }
     } else {
       setType("");
@@ -144,134 +209,186 @@ function DetailsPanel(props: Props) {
       >
         Details Panel
       </h2>
-      <ul
-        style={{ paddingLeft: "0px", paddingRight: "60px", marginTop: "0px" }}
-      >
-        {type && (
-          <li
-            key={1}
-            style={{
-              display: "flex",
-            }}
-          >
-            <p className={styles.box} style={{ width: "25%" }}>
-              type
-            </p>
-            <p className={styles.box} style={{ width: "75%" }}>
-              {type}
-            </p>
-          </li>
-        )}
-        {type && (
-          <li
-            key={2}
-            style={{
-              display: "flex",
-            }}
-          >
-            <p className={styles.box} style={{ width: "25%" }}>
-              name
-            </p>
-            <input
-              className={styles.box}
-              style={{ width: "75%" }}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => handleChange(e)}
-              type="text"
-              value={name}
-            />
-          </li>
-        )}
-        {type && (
-          <li
-            key={3}
-            style={{
-              display: "flex",
-            }}
-          >
-            <p className={styles.box} style={{ width: "25%" }}>
-              layer
-            </p>
-            <input
-              className={styles.box}
-              style={{ width: "75%" }}
-              onChange={(e) => {
-                setLayer(e.target.valueAsNumber);
+      <div style={{ width: "350px", height: "220px", overflowY: "scroll" }}>
+        <ul
+          style={{
+            paddingLeft: "0px",
+            marginTop: "0px",
+          }}
+        >
+          {type && (
+            <li
+              key={1}
+              style={{
+                display: "flex",
               }}
-              onKeyDown={(e) => handleLayerChange(e)}
-              type="number"
-              value={layer}
-            />
-          </li>
-        )}
-        {type && (
-          <li
-            key={4}
-            style={{
-              display: "flex",
-            }}
-          >
-            <p className={styles.box} style={{ width: "24.5%" }}>
-              location
-            </p>
-            <div
-              className={styles.box}
-              style={{ width: "75.5%", display: "flex", padding: "3px" }}
             >
-              <p>x:</p>
-              <input
-                onChange={(e) => {
-                  setLocation([e.target.valueAsNumber, location[1]]);
-                }}
-                onKeyDown={(e) => handleChange(e)}
-                type="number"
-                value={location[0]}
-                style={{
-                  width: "20%",
-                  backgroundColor: "whitesmoke",
-                  margin: "auto",
-                }}
-              />
-              <p>y:</p>
-              <input
-                onChange={(e) => {
-                  setLocation([location[0], e.target.valueAsNumber]);
-                }}
-                onKeyDown={(e) => handleChange(e)}
-                type="number"
-                value={location[1]}
-                style={{
-                  width: "20%",
-                  backgroundColor: "whitesmoke",
-                  margin: "auto",
-                }}
-              />
-            </div>
-          </li>
-        )}
-        {type && (
-          <li
-            key={5}
-            style={{
-              display: "flex",
-            }}
-          >
-            <p className={styles.box} style={{ width: "25%" }}>
-              scale
-            </p>
-            <input
-              className={styles.box}
-              style={{ width: "75%" }}
-              onChange={(e) => {
-                setScale(e.target.valueAsNumber);
+              <p className={styles.box} style={{ width: "25%" }}>
+                type
+              </p>
+              <p className={styles.box} style={{ width: "75%" }}>
+                {type}
+              </p>
+            </li>
+          )}
+          {type && (
+            <li
+              key={2}
+              style={{
+                display: "flex",
               }}
-              onKeyDown={(e) => handleChange(e)}
-              type="number"
-              value={scale}
-            />
-          </li>
-        )}
-      </ul>
+            >
+              <p className={styles.box} style={{ width: "25%" }}>
+                name
+              </p>
+              <input
+                className={styles.box}
+                style={{ width: "75%" }}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => handleChange(e)}
+                type="text"
+                value={name}
+              />
+            </li>
+          )}
+          {type && (
+            <li
+              key={3}
+              style={{
+                display: "flex",
+              }}
+            >
+              <p className={styles.box} style={{ width: "25%" }}>
+                layer
+              </p>
+              <input
+                className={styles.box}
+                style={{ width: "75%" }}
+                onChange={(e) => {
+                  setLayer(e.target.valueAsNumber);
+                }}
+                onKeyDown={(e) => handleLayerChange(e)}
+                type="number"
+                value={layer}
+              />
+            </li>
+          )}
+          {type && (
+            <li
+              key={4}
+              style={{
+                display: "flex",
+              }}
+            >
+              <p className={styles.box} style={{ width: "24.5%" }}>
+                location
+              </p>
+              <div
+                className={styles.box}
+                style={{ width: "75.5%", display: "flex", padding: "3px" }}
+              >
+                <p>x:</p>
+                <input
+                  onChange={(e) => {
+                    setLocation([e.target.valueAsNumber, location[1]]);
+                  }}
+                  onKeyDown={(e) => handleChange(e)}
+                  type="number"
+                  value={location[0]}
+                  style={{
+                    width: "20%",
+                    backgroundColor: "whitesmoke",
+                    margin: "auto",
+                  }}
+                />
+                <p>y:</p>
+                <input
+                  onChange={(e) => {
+                    setLocation([location[0], e.target.valueAsNumber]);
+                  }}
+                  onKeyDown={(e) => handleChange(e)}
+                  type="number"
+                  value={location[1]}
+                  style={{
+                    width: "20%",
+                    backgroundColor: "whitesmoke",
+                    margin: "auto",
+                  }}
+                />
+              </div>
+            </li>
+          )}
+          {type == "image" && (
+            <li
+              key={5}
+              style={{
+                display: "flex",
+              }}
+            >
+              <p className={styles.box} style={{ width: "25%" }}>
+                scale
+              </p>
+              <input
+                className={styles.box}
+                style={{ width: "75%" }}
+                onChange={(e) => {
+                  setScale(e.target.valueAsNumber);
+                }}
+                onKeyDown={(e) => handleChange(e)}
+                type="number"
+                value={scale}
+              />
+            </li>
+          )}
+          {type == "text" && (
+            <li
+              key={5}
+              style={{
+                display: "flex",
+              }}
+            >
+              <p className={styles.box} style={{ width: "25%" }}>
+                content
+              </p>
+              <input
+                className={styles.box}
+                style={{ width: "75%" }}
+                onChange={(e) => setContent(e.target.value)}
+                onKeyDown={(e) => handleChange(e)}
+                type="text"
+                value={content}
+              />
+            </li>
+          )}
+          {type == "text" && (
+            <li
+              key={6}
+              style={{
+                display: "flex",
+              }}
+            >
+              <p
+                className={styles.box}
+                style={{
+                  width: "25%",
+                }}
+              >
+                font size
+              </p>
+              <input
+                className={styles.box}
+                style={{ width: "75%" }}
+                onChange={(e) => {
+                  setFontSize(e.target.valueAsNumber);
+                }}
+                onKeyDown={(e) => handleChange(e)}
+                type="number"
+                value={fontSize}
+              />
+            </li>
+          )}
+        </ul>
+      </div>
     </div>
   );
 }

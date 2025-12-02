@@ -61,7 +61,7 @@ function ElementList(props: Props) {
   }
 
   return (
-    <div className={styles.panel} style={{ height: "800px" }}>
+    <div className={styles.panel} style={{ height: "325px" }}>
       <div style={{ display: "flex", backgroundColor: "dimgrey" }}>
         <button onClick={(e) => handleAdd(e)} className={styles.addButton}>
           <span style={{ fontSize: "32px", marginTop: "-8px" }}>+</span>
@@ -72,32 +72,37 @@ function ElementList(props: Props) {
         <h3>back</h3>
         <h3 style={{ marginLeft: "178px" }}>type</h3>
       </header>
-      <ul style={{ paddingLeft: "0px", paddingRight: "60px" }}>
-        {configState.elements.map((element) => (
-          <li
-            onClick={() => handleClick(element.id)}
-            onContextMenu={(e) => handleRightClick(e)}
-            key={element.id}
-            style={{
-              display: "flex",
-              border:
-                configState.selectedElement == element.id
-                  ? "3px solid cornflowerblue"
-                  : "none",
-            }}
-          >
-            <p className={styles.box} style={{ width: "15%" }}>
-              {element.id}
-            </p>
-            <p className={styles.box} style={{ width: "55%" }}>
-              {element.name}
-            </p>
-            <p className={styles.box} style={{ width: "30%" }}>
-              {element.type}
-            </p>
-          </li>
-        ))}
-      </ul>
+      <div style={{ width: "100%", height: "100%", overflowY: "scroll" }}>
+        <ul style={{ paddingLeft: "0px" }}>
+          {configState.elements.map((element) => (
+            <li
+              onClick={() => handleClick(element.id)}
+              onContextMenu={(e) => handleRightClick(e)}
+              key={element.id}
+              style={{
+                display: "flex",
+                border:
+                  configState.selectedElement == element.id
+                    ? "3px solid cornflowerblue"
+                    : "none",
+              }}
+            >
+              <p className={styles.box} style={{ width: "15%" }}>
+                {element.id}
+              </p>
+              <p className={styles.box} style={{ width: "55%" }}>
+                {element.name}
+              </p>
+              <p className={styles.box} style={{ width: "30%" }}>
+                {element.type}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <header style={{ display: "flex" }}>
+        <h3>front</h3>
+      </header>
       {contextIsClicked && (
         <ContextMenu
           options={contextOptions}
