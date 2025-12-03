@@ -1,11 +1,12 @@
-import React, { type JSX } from "react";
+import React from "react";
 import styles from "../Styles.module.css";
 import uploadFile from "./Upload.tsx";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState } from "../state/store";
+import type { Elem } from "../state/config/configSlice.ts";
+import Element from "./element.tsx";
 
 type Props = {
-  elements: JSX.Element[];
-  setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>;
   canvasDimensions: number[];
   sizeMultiplier: number;
 };
@@ -13,6 +14,7 @@ type Props = {
 //Creates a canvas that can be uploaded to along with a upload button
 function Canvas(props: Props) {
   const dispatch = useDispatch();
+  const configState = useSelector((state: RootState) => state.config);
 
   //Sets the file and calls upload with the current mouse location
   async function handleDrop(e: React.DragEvent) {
@@ -30,16 +32,46 @@ function Canvas(props: Props) {
     uploadFile(
       [relativeX, relativeY],
       e.dataTransfer.files[0],
-      props.sizeMultiplier,
-      props.elements,
-      props.setElements,
-      dispatch
+      dispatch,
+      configState
     );
   }
 
   //Prevents browser not allowing dragging the image
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
+  }
+
+  function createJSXElement(element: Elem) {
+    if (element.type === "image") {
+      return (
+        <Element
+          key={element.id}
+          name={element.name}
+          id={element.id}
+          type={element.type}
+          path={element.filepath}
+          location={[element.location[0], element.location[1]]}
+          sizeMultiplier={props.sizeMultiplier}
+          scale={element.scale}
+        />
+      );
+    } else if (element.type === "text") {
+      return (
+        <Element
+          key={element.id}
+          name={element.name}
+          id={element.id}
+          type={element.type}
+          content={element.content}
+          size={element.size}
+          color={element.color}
+          font_path={element.font_path}
+          location={[element.location[0], element.location[1]]}
+          sizeMultiplier={props.sizeMultiplier}
+        />
+      );
+    }
   }
 
   return (
@@ -53,7 +85,7 @@ function Canvas(props: Props) {
         height: props.canvasDimensions[1],
       }}
     >
-      {props.elements}
+      {configState.elements.map(createJSXElement)}
     </div>
   );
 }

@@ -1,10 +1,9 @@
-import Element from "./components/element";
-import { useEffect, type JSX, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import {
   setGamma,
-  addElement,
   resetState,
+  addElement,
 } from "./state/config/configSlice.ts";
 import Canvas from "./components/Canvas.tsx";
 import Buttoncontrols from "./button-controls.tsx";
@@ -13,9 +12,6 @@ import ElementList from "./components/ElementList.tsx";
 
 function App() {
   const dispatch = useDispatch();
-
-  //List of elements to be displayed onscreen
-  const [elements, setElements] = useState<JSX.Element[]>([]);
 
   const [canvasDimensions, setCanvasDimensions] = useState([0, 0]);
 
@@ -27,42 +23,54 @@ function App() {
       //requests config from backend
       const response = await fetch("/api/get-yaml-config", { method: "GET" });
       const config = await response.json();
-      const newElements = [];
-      await dispatch(resetState(config));
+      dispatch(resetState(config));
       //Sets the gamma in the state
-      await dispatch(setGamma(config.settings.gamma));
+      dispatch(setGamma(config.settings.gamma));
       //Creates JSX elements and saves initial state
       for (const key in config["elements"]) {
         //Adds the element to the state
-        await dispatch(
-          addElement({
-            name: key,
-            id: config.elements[key].id,
-            type: config.elements[key].type,
-            filepath: config.elements[key].filepath,
-            location: config.elements[key].location,
-            scale: config.elements[key].scale,
-          })
-        );
-        //Creates a JSX element and adds it to the list
-        //Uses randomized key to fix issue where moves made to elements in one yaml file would carry onto elements in another yaml file
-        newElements.push(
-          <Element
-            key={Date.now() + Math.random()}
-            name={key}
-            id={config.elements[key].id}
-            type={config.elements[key].type}
-            path={config.elements[key].filepath}
-            location={[
-              config.elements[key].location[0] * multiplier,
-              config.elements[key].location[1] * multiplier,
-            ]}
-            sizeMultiplier={multiplier}
-            scale={config.elements[key].scale}
-          />
-        );
+        if (config.elements[key].type === "image") {
+          dispatch(
+            addElement({
+              name: key,
+              id: config.elements[key].id,
+              type: config.elements[key].type,
+              location: [
+                config.elements[key].location[0] * multiplier,
+                config.elements[key].location[1] * multiplier,
+              ],
+              filepath: config.elements[key].filepath,
+              scale: config.elements[key].scale,
+            })
+          );
+        } else if (config.elements[key].type === "text") {
+          console.log(
+            "elem" +
+              String(config.elements[key].id) +
+              " Color: " +
+              String(config.elements[key].color) +
+              " Location: " +
+              String(config.elements[key].location) +
+              " Font Path: " +
+              String(config.elements[key].font_path)
+          );
+          dispatch(
+            addElement({
+              name: key,
+              id: config.elements[key].id,
+              type: config.elements[key].type,
+              location: [
+                config.elements[key].location[0] * multiplier,
+                config.elements[key].location[1] * multiplier,
+              ],
+              content: config.elements[key].content,
+              size: config.elements[key].size,
+              color: config.elements[key].color,
+              font_path: config.elements[key].font_path,
+            })
+          );
+        }
       }
-      setElements(newElements);
     } catch (error) {
       console.log("Get Config encountered an error: " + error);
       return;
@@ -181,24 +189,14 @@ function App() {
   return (
     <div>
       <Canvas
-        elements={elements}
-        setElements={setElements}
         canvasDimensions={canvasDimensions}
         sizeMultiplier={sizeMultiplier}
       ></Canvas>
       <h1>LED Video Wall Controls</h1>
       <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
       <div style={{ position: "fixed", right: "0%", top: "0%" }}>
-        <DetailsPanel
-          elements={elements}
-          setElements={setElements}
-          sizeMultiplier={sizeMultiplier}
-        ></DetailsPanel>
-        <ElementList
-          elements={elements}
-          setElements={setElements}
-          sizeMultiplier={sizeMultiplier}
-        ></ElementList>
+        <DetailsPanel sizeMultiplier={sizeMultiplier}></DetailsPanel>
+        <ElementList sizeMultiplier={sizeMultiplier}></ElementList>
       </div>
     </div>
   );

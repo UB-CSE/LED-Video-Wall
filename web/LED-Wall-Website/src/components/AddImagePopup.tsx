@@ -1,11 +1,11 @@
 import styles from "../Styles.module.css";
-import { useState, type ChangeEvent, type JSX } from "react";
+import { useState, type ChangeEvent } from "react";
 import uploadFile from "./Upload.tsx";
 import { useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
+import type { RootState } from "../state/store";
 
 type Props = {
-  elements: JSX.Element[];
-  setElements: React.Dispatch<React.SetStateAction<JSX.Element[]>>;
   sizeMultiplier: number;
   setAddImageIsClicked: React.Dispatch<React.SetStateAction<boolean>>;
 };
@@ -15,6 +15,7 @@ function AddImagePopup(props: Props) {
   const [imageUrl, setImageUrl] = useState("");
   const [newFile, setFile] = useState<File | null>(null);
   const dispatch = useDispatch();
+  const configState = useSelector((state: RootState) => state.config);
 
   //Sets the file
   async function handleDrop(e: React.DragEvent) {
@@ -56,14 +57,7 @@ function AddImagePopup(props: Props) {
 
   function handleUpload() {
     if (newFile) {
-      uploadFile(
-        [0, 0],
-        newFile,
-        props.sizeMultiplier,
-        props.elements,
-        props.setElements,
-        dispatch
-      );
+      uploadFile([0, 0], newFile, dispatch, configState);
       props.setAddImageIsClicked(false);
     }
   }
