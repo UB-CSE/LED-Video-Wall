@@ -5,6 +5,7 @@ import atexit
 import signal
 import magic
 from flask import Flask, request, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
 
 from led_video_wall import LedVideoWall
 
@@ -18,6 +19,10 @@ CONFIG_DIR = "../../server"
 FONT_DIR = "../../server/ttf"
 config_File = None 
 currently_running_file = ""
+
+VIDEO_DIR = os.path.join(CONFIG_DIR, "videos")
+THUMBNAIL_DIR = os.path.join(VIDEO_DIR, "thumbnails")
+MAX_VIDEO_SIZE = 50 * 1024 * 1024
 
 
 @app.route("/api/send-location", methods=["POST"])
@@ -170,6 +175,64 @@ def get_font(filename):
     print("font filename: "+filename)
     return send_from_directory("../../server/ttf", filename, mimetype='font/ttf')
 
+@app.before_request
+def limit_video_upload_size():
+    if request.path == "/api/upload-video" and request.content_length:
+        if request.content_length > MAX_VIDEO_SIZE:
+            return jsonify({"error": "Video exceeds 50 MB upload limit"}), 413
+
+@app.route("/api/upload-video", methods=["POST"])
+def upload_video():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No filename provided"}), 400
+
+    filename = secure_filename(file.filename)
+    base_name, ext = os.path.splitext(filename)
+
+    if ext.lower() not in [".mp4", ".mov", ".avi", ".mkv", ".webm"]:
+        return jsonify({"error": "Unsupported video format"}), 400
+
+    video_path = os.path.join(VIDEO_DIR, filename)
+    file.save(video_path)
+
+    thumbnail_name = f"{base_name}.jpg"  # generate thumbnail name and
+    thumbnail_path = os.path.join(THUMBNAIL_DIR, thumbnail_name)
+
+    # extract first frame using FFmpeg
+    try:
+        subprocess.run([
+            "ffmpeg",
+            "-y",               # overwrite if exists
+            "-i", video_path,   # input video
+            "-ss", "00:00:00",  # start time (first frame)
+            "-vframes", "1",    # grab one frame
+            thumbnail_path
+        ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR]: FFmpeg failed -> {e}")
+        return jsonify({"[ERROR]": "Failed to generate thumbnail"}), 500
+
+    print(f"[INFO]: Uploaded video saved -> {video_path}")
+    print(f"[INFO]: Thumbnail saved -> {thumbnail_path}")
+
+    return jsonify({
+        "status": "success",
+        "video_filename": filename,
+        "thumbnail_filename": thumbnail_name
+    }), 201
+
+@app.route("/api/videos/<filename>", methods = ["GET"])
+def get_video(filename):
+    return send_from_directory(VIDEO_DIR, filename)
+
+@app.route("/api/video-thumbnails/<filename>", methods = ["GET"])
+def get_video_thumbnail(filename):
+    return send_from_directory(THUMBNAIL_DIR, filename)
+
 
 @app.route("/api/start-server", methods=['POST'])
 def start_server():
@@ -198,15 +261,22 @@ def start_server():
         subprocess.run(
             ["make"], cwd=exe_dir, capture_output=True, text=True
         )
+
+        if app.debug:
+            cmd = ["./led-wall-server", server_config_File]
+        else:
+            cmd = ["./led-wall-server", server_config_File, "--prod"]
         
         server_process = subprocess.Popen(
-            ["./led-wall-server", server_config_File],
+            cmd,
             cwd=exe_dir,
             preexec_fn = os.setsid
         )
         global currently_running_file
         currently_running_file = config_File
         print(f"[INFO]: Server started with config: {server_config_File}")
+        if not app.debug:
+            print("[INFO]: Flask not in debug mode, '--prod' flag added")
         return jsonify({"status": "Server starting", "config_file": server_config_File}), 200
     except Exception as e:
         print(f"[ERROR]: Failed to start server -> {e}")
@@ -241,9 +311,20 @@ def clean_server():
         except ProcessLookupError:
             pass
 
+
+def signal_handling(signum = None, frame = None):
+    clean_server()
+    os._exit(0)
+
+signal.signal(signal.SIGINT, signal_handling)
+signal.signal(signal.SIGTERM, signal_handling)
+
+try:
+    signal.signal(signal.SIGHUP, signal_handling)
+except AttributeError:
+    print("[ERROR]: SIGHUP not supported on this platform")
+
 atexit.register(clean_server)
-signal.signal(signal.SIGINT, clean_server)
-signal.signal(signal.SIGTERM, clean_server)
     
 
 @app.route("/api/list-configs", methods=['GET'])
@@ -346,6 +427,164 @@ def get_matrix_config():
 @app.route("/api/get-current-config", methods=["GET"])
 def get_current_config():
     return currently_running_file
+
+# accepts JSON: {"layer_list": ["elem1", "elem2", ....]}   
+@app.route("/api/reorder-layers", methods = ["POST"])
+def reorder_layers():
+    global config_File
+    json_package = request.get_json()
+    new_order = json_package.get("layer_list") #expects JSON to send a list of the new order of layers: ["elem1", "elem3", "elem2"]
+
+    if not config_File:
+        return jsonify({"[ERROR]": "No configuration file selected"}), 400
+    if not isinstance(new_order, list):
+        return jsonify({"[ERROR]": "There must be a list of element names"}), 400
+    
+    try:
+        with open(config_File, "r") as f:
+            data = yaml.safe_load(f) or {"settings": {}, "elements": {}}
+        
+        elements = data.get("elements", {})
+        new_elements = {}
+        for name in new_order:
+            if name in elements:
+                new_elements[name] = elements[name]
+            else:
+                print(f"[WARNING]: '{name}' not found in config")
+        
+        for name, value in elements.items():
+            if name not in new_elements:
+                new_elements[name] = value
+        
+        data["elements"] = new_elements
+
+        with open(config_File, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+        
+        print(f"[INFO]: Layers reordered to {list(new_elements.keys())}")
+
+        return jsonify({"status": "success","reordered_to": list(new_elements.keys())}), 200
+
+    except Exception as e:
+        print(f"[ERROR]: Failed to reorder layers, {e}")
+        return jsonify({"[ERROR]: Failed to reorder layers, {e}"}), 500
+
+#accepts JSON: {"name": "elem1"}
+@app.route("/api/delete-layer", methods = ["POST"])
+def delete_layer():
+    global config_File
+    json_package = request.get_json()
+    name = json_package.get("name") #delete a layer based on the name of the element assigned to that layer
+
+    if not config_File:
+        return jsonify({"[ERROR]": "No configuration file selected"}), 400
+    
+    try:
+        with open(config_File, "r") as f:
+            data = yaml.safe_load(f) or {"settings": {}, "elements": {}}
+        
+        elements = data.get("elements", {})
+        delete = None
+
+        if name:
+            if name in elements:
+                delete = elements.pop(name)
+            else:
+                return jsonify({"[ERROR]": f"Element named '{name}' not found"}), 404
+            
+        data["elements"] = elements
+        with open(config_File, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+        
+        print(f"[INFO]: Deleted element '{name}' from config")
+        return jsonify({"status": "deleted", "name": name, "removed": delete}), 200
+    except Exception as e:
+        print(f"[ERROR]: Failed to delete layer -> {e}")
+        return jsonify({"[ERROR]": str(e)}), 500
+    
+#can accept JSON: {"filename": newconfig.yaml} <---- this is for if the user wants to give the file a custom name
+@app.route("/api/new-config", methods = ["POST"])
+def new_config():
+    global CONFIG_DIR, config_File
+    json_package = request.get_json() or {}
+    filename = json_package.get("filename")
+
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+
+    if not filename:  # if there is no filename, then a generic name is given  
+        base = "new-config"
+        i=1
+        while True:
+            canidate = f"{base}_{i}.yaml"
+            path = os.path.join(CONFIG_DIR, canidate)
+            if not os.path.exists(path):
+                filename = canidate
+                break
+            i += 1
+
+    target_path = os.path.abspath(os.path.join(CONFIG_DIR, filename))
+
+    if os.path.exists(target_path):
+        return jsonify({"[ERROR]": f"File already exists: {target_path}"}), 400
+    
+    template = {"settings": {"gamma": 1.0},
+                "elements": {}
+                }
+    
+    try: 
+        with open(target_path, "w") as f:
+            yaml.safe_dump(template, f, sort_keys=False)
+        
+        config_File = target_path
+        print(f"[INFO]: Created new config -> {config_File}")
+        return jsonify({"status": "created", "config_file": config_File}), 201
+    except Exception as e:
+        print(f"[ERROR]: Failed to create new config -> {e}")
+        return jsonify({"error": str(e)}), 500
+    
+ #accepts JSON: {"new_name": "config_file.yaml"}   
+@app.route("/api/save-config-as", methods = ["POST"])
+def save_config_as():
+    global CONFIG_DIR, config_File
+    json_package = request.get_json()
+    new_name = json_package.get("new_name")
+    print(config_File)
+
+    if not new_name:
+        return jsonify({"[ERROR]": "No filename provided"}), 400
+    
+    if not new_name.endswith(".yaml"):
+        new_name += ".yaml"
+    
+    new_path = os.path.join(CONFIG_DIR, new_name)
+
+   
+
+    if not config_File or not os.path.exists(config_File):
+        return jsonify({"[ERROR]": "No active configuration file to copy"}), 400
+    
+    try:
+        with open(config_File, "r") as src:
+            current_config = src.read()
+        with open(new_path, "w") as dest:
+            dest.write(current_config)
+        
+        print(f"[INFO]: Configuration copied to {new_path}")
+
+        config_File = new_path
+        return jsonify({ "status": "success",
+            "new_config_file": new_path
+        }), 200
+    except Exception as e:
+        print(f"[ERROR]: Failed to save config -> {e}")
+        return jsonify({"error": f"Failed to save config: {str(e)}"}), 500
+    
+
+
+
+
+
+
 
 
 if __name__ == "__main__":
