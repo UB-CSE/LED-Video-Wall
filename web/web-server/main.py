@@ -57,6 +57,11 @@ def send_location():
 
 @app.route("/api/get-yaml-config", methods=["GET"])
 def get_yaml_config():
+    if not config_File:
+        return jsonify({"[ERROR]": "No configuration file selected"}), 400
+
+    if not os.path.exists(config_File):
+        return jsonify({"[ERROR]": f"Configuration file not found: {config_File}"}), 404
     try:
         with open(config_File, "r") as file:
             config_Data = yaml.safe_load(file)
@@ -74,6 +79,11 @@ def get_yaml_config():
 
 @app.route("/api/set-yaml-config", methods=["POST"])
 def set_yaml_config():
+    if not config_File:
+        return jsonify({"[ERROR]": "No configuration file selected"}), 400
+
+    if not os.path.exists(config_File):
+        return jsonify({"[ERROR]": f"Configuration file not found: {config_File}"}), 404
     try:
         with open(config_File, "w") as file:
             config = (
@@ -144,22 +154,22 @@ def get_image(filename):
 def limit_video_upload_size():
     if request.path == "/api/upload-video" and request.content_length:
         if request.content_length > MAX_VIDEO_SIZE:
-            return jsonify({"error": "Video exceeds 50 MB upload limit"}), 413
+            return jsonify({"[ERROR]": "Video exceeds 50 MB upload limit"}), 413
 
 @app.route("/api/upload-video", methods=["POST"])
 def upload_video():
     if "file" not in request.files:
-        return jsonify({"error": "No file provided"}), 400
+        return jsonify({"[ERROR]": "No file provided"}), 400
 
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No filename provided"}), 400
+        return jsonify({"[ERROR]": "No filename provided"}), 400
 
     filename = secure_filename(file.filename)
     base_name, ext = os.path.splitext(filename)
 
     if ext.lower() not in [".mp4", ".mov", ".avi", ".mkv", ".webm"]:
-        return jsonify({"error": "Unsupported video format"}), 400
+        return jsonify({"[ERROR]": "Unsupported video format"}), 400
 
     video_path = os.path.join(VIDEO_DIR, filename)
     file.save(video_path)
@@ -204,18 +214,20 @@ def start_server():
     global server_process
 
     if server_process is not None:
-        return jsonify({"error": "Server is already running"}), 400
+        return jsonify({"[ERROR]": "Server is already running"}), 400
 
     # Get config file from frontend JSON body
     user_path = request.json.get("config_file")
     if not user_path:
-        return jsonify({"error": "No configuration file specified"}), 400
+        return jsonify({"[ERROR]": "No configuration file specified"}), 400
 
     # Convert to absolute path
     abs_path = os.path.abspath(user_path)
     if not os.path.exists(abs_path):
         print(f"[ERROR]: File not found -> {abs_path}")
-        return jsonify({"error": f"Configuration file not found: {abs_path}"}), 404
+        return jsonify({"[ERROR]": "Configuration file not found "
+        " please select a valid configuration file"}), 404
+    #f"Configuration file not found: {abs_path}"
 
     server_config_File = abs_path  
 
@@ -245,7 +257,7 @@ def start_server():
         return jsonify({"status": "Server starting", "config_file": server_config_File}), 200
     except Exception as e:
         print(f"[ERROR]: Failed to start server -> {e}")
-        return jsonify({"error": f"Server couldn't be started: {str(e)}"}), 500
+        return jsonify({"[ERROR]": f"Server couldn't be started: {str(e)}"}), 500
 
 
 
@@ -254,7 +266,7 @@ def stop_server():
     global server_process
     if server_process is None:
         print("[ERROR]: Server not currently running")
-        return jsonify({"error": "Server not currently running"}), 400
+        return jsonify({"[ERROR]": "Server not currently running"}), 400
 
     try:
         os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
@@ -265,7 +277,7 @@ def stop_server():
         return jsonify({"status": "Server stopped"})
     except Exception as e:
         print(f"[ERROR]: Server couldn't be stopped -> {e}")
-        return jsonify({"error": "Server couldn't be stopped"}), 500
+        return jsonify({"[ERROR]": "Server couldn't be stopped"}), 500
     
 def clean_server():
     global server_process
@@ -339,7 +351,7 @@ def list_configs():
         return jsonify({"configs": files_with_path})
     except Exception as e:
         print(f"[ERROR]: Failed to list config files -> {e}")
-        return jsonify({"error": "Could not list config files"}), 500
+        return jsonify({"[ERROR]": "Could not list config files"}), 500
     
 @app.route("/api/update-config", methods=["POST"])
 def update_config():
@@ -348,11 +360,11 @@ def update_config():
     selected = data.get("config_file")
 
     if not selected:
-        return jsonify({"error": "No configuration file provided"}), 400
+        return jsonify({"[ERROR]": "No configuration file provided"}), 400
 
     abs_path = os.path.abspath(selected)
     if not os.path.exists(abs_path):
-        return jsonify({"error": f"Configuration file not found: {abs_path}"}), 404
+        return jsonify({"[ERROR]": f"Configuration file not found: {abs_path}"}), 404
 
     config_File = abs_path
     print(f"[INFO]: Configuration file selected -> {config_File}")
@@ -388,6 +400,10 @@ def reorder_layers():
 
     if not config_File:
         return jsonify({"[ERROR]": "No configuration file selected"}), 400
+
+    if not os.path.exists(config_File):
+        return jsonify({"[ERROR]": f"Configuration file missing: {config_File}"}), 404
+    
     if not isinstance(new_order, list):
         return jsonify({"[ERROR]": "There must be a list of element names"}), 400
     
@@ -429,6 +445,9 @@ def delete_layer():
 
     if not config_File:
         return jsonify({"[ERROR]": "No configuration file selected"}), 400
+
+    if not os.path.exists(config_File):
+        return jsonify({"[ERROR]": f"Configuration file missing: {config_File}"}), 404
     
     try:
         with open(config_File, "r") as f:
@@ -491,7 +510,7 @@ def new_config():
         return jsonify({"status": "created", "config_file": config_File}), 201
     except Exception as e:
         print(f"[ERROR]: Failed to create new config -> {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"[ERROR]": str(e)}), 500
     
  #accepts JSON: {"new_name": "config_file.yaml"}   
 @app.route("/api/save-config-as", methods = ["POST"])
@@ -528,7 +547,7 @@ def save_config_as():
         }), 200
     except Exception as e:
         print(f"[ERROR]: Failed to save config -> {e}")
-        return jsonify({"error": f"Failed to save config: {str(e)}"}), 500
+        return jsonify({"[ERROR]": f"Failed to save config: {str(e)}"}), 500
     
 
 
