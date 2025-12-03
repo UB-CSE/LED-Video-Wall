@@ -200,7 +200,7 @@ def start_server():
         )
         
         server_process = subprocess.Popen(
-            ["./led-wall-server", server_config_File, "--port", "7070"],
+            ["./led-wall-server", server_config_File],
             cwd=exe_dir,
             preexec_fn = os.setsid
         )
