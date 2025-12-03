@@ -10,6 +10,49 @@
 * [`clangd`](https://clangd.llvm.org/installation) (LSP)
 * [`clang-format`](https://clang.llvm.org/docs/ClangFormat.html) (Formatter)
 * [`espflash`](https://github.com/esp-rs/espflash) (Alternative to `esptool.py`)
+* [`WSL-install`](https://learn.microsoft.com/en-us/windows/wsl/install) (WSL)
+
+## For Developers using WSL
+You need to attach the ESP32 to the WSL
+
+*[`USPID`](https://learn.microsoft.com/en-us/windows/wsl/connect-usb) Install USBIPD on WSL
+
+The following commands must be done in Administrator Mode in PowerShell
+
+Find and copy the bus ID of the ESP32 through:
+```PowerShell
+usbipd list
+```
+Using this bus ID share the ESP32:
+```PowerShell
+usbipd bind --busid <bus ID>
+```
+To attach the ESP32:
+```PowerShell
+usbipd attach --wsl --busid <bus ID>
+```
+*[`Attaching USB Device to WSL`](https://learn.microsoft.com/en-us/windows/wsl/connect-usb) For more information
+
+# Configure "wifi_credentials.hpp"
+
+There should be a separate header file, "wifi_credentials.hpp", that defines
+
+preprocessor constants, WIFI_SSID and WIFI_PASSWORD, that are used by the
+
+clients to connect to wifi.
+
+!!! THE CREDENTIALS FILE MUST NOT BE ADDDED TO GIT/SOURCE CONTROL !!!
+
+Here is an example of what "wifi_credentials.hpp" should look like:
+
+```
+#ifndef CREDENTIALS_HPP
+#define CREDENTIALS_HPP
+#define WIFI_SSID ""
+#define WIFI_PASSWORD ""
+#endif
+```
+WIFI_SSID and WIFIF_PASSWORD will be provided to you
 
 # Usage
 Before running any commands, be sure to load the environment via:
