@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:15
+    container_name: pg_container
+    restart: always
+    environment:
+      POSTGRES_USER: LED_user
+      POSTGRES_PASSWORD: LED_password
+      POSTGRES_DB: LED_database
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
