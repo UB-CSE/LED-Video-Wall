@@ -9,11 +9,14 @@
 
 
 //ImageElement implementation
-ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {
+ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double scale): Element(id, loc, frameRate) {
     pixelMatrix = cv::imread(filepath, cv::IMREAD_COLOR);
     if (pixelMatrix.empty()) {
         throw std::runtime_error("Failed to load image: " + filepath);
     }
+    original_ = pixelMatrix.clone();  
+    filePath_ = filepath; 
+    setScale(scale);
 }
 
 bool ImageElement::nextFrame(cv::Mat& frame) {
@@ -112,6 +115,7 @@ void VideoElement::reset() {
 }
 
 
+
 /*
 Adds an element pointer to the virtual canvas list element pointer list
 
@@ -178,9 +182,9 @@ void VirtualCanvas::pushToCanvas(){
 
         cv::Size elemSize = elemMat.size();
 
-        std::cout << "Element ID: " << elemPtr->getId()
+        /*std::cout << "Element ID: " << elemPtr->getId()
              << " at (" << loc.x << "," << loc.y << ")"
-               << " size " << elemSize.width << "x" << elemSize.height << std::endl;
+               << " size " << elemSize.width << "x" << elemSize.height << std::endl;*/
 
 
         /*
@@ -248,5 +252,3 @@ bool VirtualCanvas::removeElementFromCanvas(int elementId) {
     pushToCanvas();
     return 0;
 }
-
-

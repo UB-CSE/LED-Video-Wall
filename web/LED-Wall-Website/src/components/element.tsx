@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { updateElement } from "../state/config/configSlice.ts";
+import {
+  setSelectedElement,
+  updateElement,
+} from "../state/config/configSlice.ts";
+import { useSelector } from "react-redux";
+import type { RootState } from "../state/store";
 
 type ElementProps = {
   name: string;
@@ -9,9 +14,12 @@ type ElementProps = {
   path: string;
   location: [number, number];
   sizeMultiplier: number;
+  scale: number;
 };
 //Image Element that can be dragged and dropped inside the canvas
 function Element(props: ElementProps) {
+  //Redux State
+  const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
 
   //Store current position
@@ -33,11 +41,13 @@ function Element(props: ElementProps) {
         type: props.type,
         filepath: props.path,
         location: [props.location[0] + x, props.location[1] + y],
+        scale: props.scale,
       })
     );
   }
 
   function startDragging(e: React.MouseEvent) {
+    dispatch(setSelectedElement(props.id));
     setIsDragging(true);
     setStartX(e.clientX - x);
     setStartY(e.clientY - y);
@@ -52,8 +62,8 @@ function Element(props: ElementProps) {
       },
       body: JSON.stringify({
         id: String(props.id),
-        x: props.location[0] + x,
-        y: props.location[1] + y,
+        x: Math.trunc((props.location[0] + x) / props.sizeMultiplier),
+        y: Math.trunc((props.location[1] + y) / props.sizeMultiplier),
       }),
     });
   }
@@ -102,8 +112,13 @@ function Element(props: ElementProps) {
         left: props.location[0] + x,
         top: props.location[1] + y,
         cursor: isDragging ? "grabbing" : "grab",
-        width: dimensions[0],
-        height: dimensions[1],
+        width: dimensions[0] * props.scale,
+        height: dimensions[1] * props.scale,
+        margin: "0px",
+        border:
+          configState.selectedElement == props.id
+            ? "3px solid cornflowerblue"
+            : "none",
       }}
     />
   );

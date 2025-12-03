@@ -1,14 +1,23 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import styles from "./Styles.module.css";
+import SaveButton from "./components/saveButton.tsx";
 
-const ButtonControls: React.FC = () => {
-  const [configFile, setConfigFile] = useState("");
+type ButtonControlsProps = {
+  getConfig: (arg0: number) => Promise<void>;
+  sizeMultiplier: number;
+};
+
+function ButtonControls(props: ButtonControlsProps) {
+  const [configFile, setConfigFile] = useState("--select configuration file--");
   const [configs, setConfigs] = useState<string[]>([]);
   const [message, setMessage] = useState("");
- // const [configData, setConfigData] = useState<any>(null);
+  const [running, setRunning] = useState("Server is not running");
+  const [configRunning, setConfigRunning] = useState("");
+  const [preOpen, setPreOpen] = useState<string | null>(null);
 
   const showMessage = (msg: string) => {
     setMessage(msg);
-    setTimeout(() => setMessage(""), 2000);
+    setTimeout(() => setMessage(""), 5000);
   };
 
   // Fetch available YAML configs from backend
@@ -27,11 +36,43 @@ const ButtonControls: React.FC = () => {
       }
     };
     fetchConfigs();
+    getCurrentlyRunningAndMount();
   }, []);
 
+  async function getCurrentlyRunning() {
+    const response = await fetch("/api/get-current-config", { method: "GET" });
+    const text = await response.text();
+    if (text == "") {
+      setRunning("Server is not running");
+      setConfigRunning(text);
+    } else {
+      setRunning("Server currently running");
+      setConfigRunning(text);
+    }
+  }
 
-  const handleConfigChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selected = e.target.value;
+  async function getCurrentlyRunningAndMount() {
+    const response = await fetch("/api/get-current-config", { method: "GET" });
+    const text = await response.text();
+    if (text == "") {
+      setRunning("Server is not running");
+      setConfigRunning(text);
+    } else {
+      setRunning("Server currently running");
+      setConfigRunning(text);
+    }
+    if (text != "") {
+      await fetch("/api/update-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config_file: text }),
+      });
+      setConfigFile(text);
+    }
+  }
+
+  const handleConfigChange = async (value: string) => {
+    const selected = value;
     setConfigFile(selected);
 
     if (!selected) return;
@@ -52,6 +93,8 @@ const ButtonControls: React.FC = () => {
 
       showMessage(`Loaded config: ${selected.split("/").pop()}`);
 
+      // Reload the elements and redux state
+      props.getConfig(props.sizeMultiplier);
     } catch (err) {
       console.error(err);
       showMessage("[ERROR]: Could not set config file");
@@ -77,6 +120,8 @@ const ButtonControls: React.FC = () => {
     } catch (error) {
       showMessage("[ERROR]: Could not start server");
     }
+
+    getCurrentlyRunning();
   };
 
   const stopServer = async () => {
@@ -89,20 +134,58 @@ const ButtonControls: React.FC = () => {
     } catch (error) {
       showMessage("[ERROR]: Could not stop server");
     }
+
+    getCurrentlyRunning();
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>LED Video Wall Controls</h2>
-      <div>
+    <div style={{ position: "fixed", left: "0px", top: "0px" }}>
+      <div className={styles.panel}>
+        <h2 className={styles.panelHeader}>Start/Stop Server</h2>
+        <button onClick={startServer} style={{ left: "35%" }}>
+          Start
+        </button>
+        <button onClick={stopServer} style={{ left: "40%" }}>
+          Stop
+        </button>
+        <h3>Status:</h3>
+        {message ? <p>{message}</p> : <p>{running}</p>}
+      </div>
+      <div className={styles.panel} style={{ height: "400px" }}>
+        <h2 className={styles.panelHeader}>Configuration Panel</h2>
+        <h3>Select a Configuration File:</h3>
+        {configRunning && (
+          <div>
+            <p>Live edit:</p>
+            <button onClick={() => handleConfigChange(configRunning)}>
+              {configRunning.split("/").pop()}
+            </button>
+            <p>or</p>
+          </div>
+        )}
         <select
           value={configFile}
-          onChange={handleConfigChange}
-          //onChange={(e) => setConfigFile(e.target.value)}
-          style={{ marginRight: "10px" }}
+          onClick={(e) => {
+            setPreOpen((e.currentTarget as HTMLSelectElement).value);
+            console.log("MouseDown value:", e.currentTarget.value);
+            if (
+              e.currentTarget.value.split("/").pop() ===
+              preOpen?.split("/").pop()
+            ) {
+              props.getConfig(props.sizeMultiplier);
+            }
+          }}
+          onChange={(e) => {
+            const newConfig = e.target.value;
+            if (newConfig === preOpen?.split("/").pop()) {
+              props.getConfig(props.sizeMultiplier);
+            }
+            handleConfigChange(newConfig);
+          }}
         >
-          <option value="">-- Select a Configuration --</option>
+          <option value={configFile}>{configFile.split("/").pop()}</option>
           {configs.map((cfg) => {
+            if (cfg === configFile) return null;
             const fileName = cfg.split("/").pop() || cfg;
             return (
               <option key={cfg} value={cfg}>
@@ -111,15 +194,10 @@ const ButtonControls: React.FC = () => {
             );
           })}
         </select>
-        <button onClick={startServer}>Start</button>
-        <button onClick={stopServer} style={{ marginLeft: "10px" }}>
-          Stop
-        </button>
+        <SaveButton sizeMultiplier={props.sizeMultiplier}></SaveButton>
       </div>
-      {message && <p>{message}</p>}
     </div>
   );
-};
+}
 
 export default ButtonControls;
-

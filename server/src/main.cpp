@@ -25,7 +25,6 @@
 #include <sys/stat.h>
 
 //Change this flag as needed. Debug mode displays virtual canvas locally per update
-#define DEBUG_MODE 0
 #define TMP_CMD "/tmp/led-cmd"
 
 int main(int argc, char* argv[]) {
@@ -50,12 +49,19 @@ int main(int argc, char* argv[]) {
      vCanvas.pixelMatrix = cv::Mat::zeros(vCanvas.dim, CV_8UC3);
  
      std::string inputFilePath;
-     if (argc == 2) {
+     bool debug_mode = true;
+     if (argc >= 2) {
          inputFilePath = std::string(argv[1]);
+         if ( (argc == 3) && (std::string(argv[2]) == "--prod") ) {
+            debug_mode = 0;
+         };
      } else {
          std::cerr << "Error, no image input file specified!" << "\n";
          exit(-1);
      }
+
+     
+
  
      try {
          parseInput(vCanvas, inputFilePath);
@@ -132,7 +138,7 @@ int main(int argc, char* argv[]) {
         */
 
         if (!isPaused) {
-            cont.frame_exec(DEBUG_MODE);
+            cont.frame_exec(debug_mode);
         }
      }
 

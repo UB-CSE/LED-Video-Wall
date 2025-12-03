@@ -3,8 +3,11 @@ import hashlib
 import subprocess, os, signal
 import atexit
 import signal
+import magic
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
+
+from led_video_wall import LedVideoWall
 
 # initialize an empty dictionary to store image coordinates, (x, y)
 imageCoords = {}
@@ -14,6 +17,7 @@ app = Flask(__name__)
 server_process = None
 CONFIG_DIR = "../../server"
 config_File = None 
+currently_running_file = ""
 
 VIDEO_DIR = os.path.join(CONFIG_DIR, "videos")
 THUMBNAIL_DIR = os.path.join(VIDEO_DIR, "thumbnails")
@@ -39,9 +43,8 @@ def send_location():
 
     if server_process is not None:
         try:
-            with open("/tmp/led-cmd", "w") as fp:
-                fp.write(f"move {imgId} {x} {y}\n")
-
+            LedVideoWall.move(imgId, x, y)
+        
         except FileNotFoundError:
             print("ERROR")
 
@@ -89,33 +92,29 @@ def set_yaml_config():
             )
             for name in config["elements"]:
                 element = config["elements"][name]
-                yaml_string = (
-                    yaml_string
-                    + '\n  "'
-                    + name
-                    + '":\n    id: '
-                    + str(element["id"])
-                    + '\n    type: "'
-                    + element["type"]
-                    + '"'
-                    + '\n    filepath: "'
-                    + element["filepath"]
-                    + '"'
-                    + "\n    location: ["
-                    + str(element["location"][0])
-                    + ","
-                    + str(element["location"][1])
-                    + "]"
-                )
+                if element["type"] == "image":
+                    yaml_string = (
+                        yaml_string
+                        + '\n  "'
+                        + name
+                        + '":\n    id: '
+                        + str(element["id"])
+                        + '\n    type: "'
+                        + element["type"]
+                        + '"'
+                        + '\n    filepath: "'
+                        + element["filepath"]
+                        + '"'
+                        + "\n    location: ["
+                        + str(element["location"][0])
+                        + ","
+                        + str(element["location"][1])
+                        + "]"
+                        + "\n    scale: "
+                        + str(element["scale"])
+                    )
             file.write(yaml_string)
 
-            try:
-                with open("/tmp/led-cmd", "w") as fp:
-                    fp.write(f"move {element['id']} {element['location'][0]} {element['location'][1]}\n")
-
-            except FileNotFoundError:
-                print("ERROR")
-            
         return "Success: config file has been updated"  # Responds with success message
     except FileNotFoundError:
         return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
@@ -125,18 +124,21 @@ def set_yaml_config():
 def upload_file():
     file = request.files["file"]
     contents = file.stream.read()
+    mime_type = magic.from_buffer(contents, mime=True)
+    if not mime_type.startswith("image"):
+        return "[ERROR]: Incorrect file type: {mime_type}", 415
     file.stream.seek(0)
     hashString = hashlib.sha256(contents).hexdigest()       # Takes a hash over the contents of the file
     extension = file.filename.rsplit('.', 1)[1]                # Finds the extension
     filename = hashString + '.' + extension
-    filepath = os.path.join("./static/images", filename)    #Combines into filepath
+    filepath = os.path.join("../../server/images", filename)    #Combines into filepath
     file.save(filepath)                                     #Saves to disk
     return jsonify({'filename': filename})
 
 
 @app.route("/api/images/<filename>", methods=["GET"])
 def get_image(filename):
-    return send_from_directory("./static/images", filename)
+    return send_from_directory("../../server/images", filename)
 
 @app.before_request
 def limit_video_upload_size():
@@ -235,6 +237,8 @@ def start_server():
             cwd=exe_dir,
             preexec_fn = os.setsid
         )
+        global currently_running_file
+        currently_running_file = config_File
         print(f"[INFO]: Server started with config: {server_config_File}")
         if not app.debug:
             print("[INFO]: Flask not in debug mode, '--prod' flag added")
@@ -256,6 +260,8 @@ def stop_server():
         os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
         server_process = None
         print("[INFO]: Server stopped successfully")
+        global currently_running_file
+        currently_running_file = ""
         return jsonify({"status": "Server stopped"})
     except Exception as e:
         print(f"[ERROR]: Server couldn't be stopped -> {e}")
@@ -289,10 +295,46 @@ atexit.register(clean_server)
 @app.route("/api/list-configs", methods=['GET'])
 def list_configs():
     try:
-        # List all .yaml files in CONFIG_DIR
+        # List all .yaml files in CONFIG_DIR that start with "input"
         files = [f for f in os.listdir(CONFIG_DIR) if f.endswith(".yaml") and f.lower() != "matrix.yaml"]
+
+        valid_files = []
+        #Exclude incompatible yaml files
+        for f in files:
+            try:
+                with open(os.path.join(CONFIG_DIR, f), "r") as file:
+                    is_valid = True
+                    config_Data = yaml.safe_load(file)
+                    # Exclude yaml files missing the settings or elements sections
+                    if "settings" not in config_Data or "elements" not in config_Data:
+                        is_valid = False
+                    # Exclude yaml files missing required fields
+                    for name in config_Data["elements"]:
+                        element = config_Data["elements"][name]
+                        if "type" not in element:
+                            is_valid = False
+                            break
+                        if element["type"] == "image":
+                            if "id" not in element or "filepath" not in element or "location" not in element or "scale" not in element:
+                                is_valid = False
+                        elif element["type"] == "text":
+                            if "id" not in element or "content" not in element or "size" not in element or "color" not in element or "font_path" not in element or "location" not in element:
+                                is_valid = False
+                    # Exclude yaml files with incompatible element types
+                    for name in config_Data["elements"]:
+                        element = config_Data["elements"][name]
+                        # WHEN ADDING NEW ELEMENT TYPES, UPDATE THIS LIST
+                        if element["type"] not in ["image", "text"]:
+                            is_valid = False
+                            break
+                    if is_valid:
+                        valid_files.append(f)
+            except Exception as e:
+                continue
+            
+
         # Return full relative paths so frontend can send them to /start_server
-        files_with_path = [os.path.join(CONFIG_DIR, f) for f in files]
+        files_with_path = [os.path.join(CONFIG_DIR, f) for f in valid_files]
         print(files_with_path)
         return jsonify({"configs": files_with_path})
     except Exception as e:
@@ -332,6 +374,10 @@ def get_matrix_config():
     except Exception as e:
         print("[ERROR]: Failed to read LED configuration")
         return jsonify({"[ERROR]: Failed to read LED configuration"})
+    
+@app.route("/api/get-current-config", methods=["GET"])
+def get_current_config():
+    return currently_running_file
 
 # accepts JSON: {"layer_list": ["elem1", "elem2", ....]}   
 @app.route("/api/reorder-layers", methods = ["POST"])

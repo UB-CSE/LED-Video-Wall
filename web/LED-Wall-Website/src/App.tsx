@@ -1,16 +1,18 @@
 import Element from "./components/element";
-import { useEffect, type JSX, useRef, useState } from "react";
+import { useEffect, type JSX, useState } from "react";
 import { useDispatch } from "react-redux";
-import { setGamma } from "./state/config/configSlice.ts";
-import { addElement } from "./state/config/configSlice.ts";
-import SaveButton from "./components/saveButton.tsx";
-import FileUpload from "./components/FileUpload.tsx";
+import {
+  setGamma,
+  addElement,
+  resetState,
+} from "./state/config/configSlice.ts";
+import Canvas from "./components/Canvas.tsx";
 import Buttoncontrols from "./button-controls.tsx";
+import DetailsPanel from "./components/DetailsPanel.tsx";
+import ElementList from "./components/ElementList.tsx";
 
 function App() {
   const dispatch = useDispatch();
-
-  const hasRun = useRef(false);
 
   //List of elements to be displayed onscreen
   const [elements, setElements] = useState<JSX.Element[]>([]);
@@ -20,36 +22,33 @@ function App() {
   const [sizeMultiplier, setSizeMultiplier] = useState(0);
 
   //Gets the current configuration file from the backend
-  async function get_config(multiplier: number) {
-    //prevents double running during testing
-    if (hasRun.current) {
-      return;
-    } else {
-      hasRun.current = true;
-    }
+  async function getConfig(multiplier: number) {
     try {
       //requests config from backend
       const response = await fetch("/api/get-yaml-config", { method: "GET" });
       const config = await response.json();
       const newElements = [];
+      await dispatch(resetState(config));
       //Sets the gamma in the state
-      dispatch(setGamma(config.settings.gamma));
+      await dispatch(setGamma(config.settings.gamma));
       //Creates JSX elements and saves initial state
       for (const key in config["elements"]) {
         //Adds the element to the state
-        dispatch(
+        await dispatch(
           addElement({
             name: key,
             id: config.elements[key].id,
             type: config.elements[key].type,
             filepath: config.elements[key].filepath,
             location: config.elements[key].location,
+            scale: config.elements[key].scale,
           })
         );
         //Creates a JSX element and adds it to the list
+        //Uses randomized key to fix issue where moves made to elements in one yaml file would carry onto elements in another yaml file
         newElements.push(
           <Element
-            key={config.elements[key].id}
+            key={Date.now() + Math.random()}
             name={key}
             id={config.elements[key].id}
             type={config.elements[key].type}
@@ -59,6 +58,7 @@ function App() {
               config.elements[key].location[1] * multiplier,
             ]}
             sizeMultiplier={multiplier}
+            scale={config.elements[key].scale}
           />
         );
       }
@@ -161,14 +161,14 @@ function App() {
         configWidth * multiplierY,
         configHeight * multiplierY,
       ]);
-      get_config(multiplierY);
+      getConfig(multiplierY);
     } else {
       setSizeMultiplier(multiplierX);
       setCanvasDimensions([
         configWidth * multiplierX,
         configHeight * multiplierX,
       ]);
-      get_config(multiplierX);
+      getConfig(multiplierX);
     }
   }
 
@@ -180,14 +180,26 @@ function App() {
   //and passes elements to the file upload where the canvas and elements will be
   return (
     <div>
-      <Buttoncontrols />
-      <SaveButton sizeMultiplier={sizeMultiplier}></SaveButton>
-      <FileUpload
+      <Canvas
         elements={elements}
         setElements={setElements}
         canvasDimensions={canvasDimensions}
         sizeMultiplier={sizeMultiplier}
-      ></FileUpload>
+      ></Canvas>
+      <h1>LED Video Wall Controls</h1>
+      <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
+      <div style={{ position: "fixed", right: "0%", top: "0%" }}>
+        <DetailsPanel
+          elements={elements}
+          setElements={setElements}
+          sizeMultiplier={sizeMultiplier}
+        ></DetailsPanel>
+        <ElementList
+          elements={elements}
+          setElements={setElements}
+          sizeMultiplier={sizeMultiplier}
+        ></ElementList>
+      </div>
     </div>
   );
 }
