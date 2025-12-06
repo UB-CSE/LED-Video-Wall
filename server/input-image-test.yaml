@@ -4,18 +4,18 @@ elements:
   "elem1":
     id: 1
     type: "image"
-    filepath: "images/rainbow.png"
-    location: [5, 20]
+    filepath: "images/apple.png"
+    location: [18, 54]
     scale: 1
   "elem2":
     id: 2
     type: "image"
-    filepath: "images/apple.png"
-    location: [18, 54]
-    scale: 1
+    filepath: "images/img.jpg"
+    location: [4, 0]
+    scale: 0.025
   "elem3":
     id: 3
     type: "image"
-    filepath: "images/img.jpg"
-    location: [19, 7]
-    scale: 0.025
+    filepath: "images/rainbow.png"
+    location: [5, 20]
+    scale: 1
