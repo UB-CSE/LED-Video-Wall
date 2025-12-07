@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import {
   setGamma,
   resetState,
@@ -9,6 +9,7 @@ import Canvas from "./components/Canvas.tsx";
 import Buttoncontrols from "./button-controls.tsx";
 import DetailsPanel from "./components/DetailsPanel.tsx";
 import ElementList from "./components/ElementList.tsx";
+import type { RootState } from "./state/store.ts";
 
 function App() {
   const dispatch = useDispatch();
@@ -16,6 +17,8 @@ function App() {
   const [canvasDimensions, setCanvasDimensions] = useState([0, 0]);
 
   const [sizeMultiplier, setSizeMultiplier] = useState(0);
+
+  const configState = useSelector((state: RootState) => state.config);
 
   //Gets the current configuration file from the backend
   async function getConfig(multiplier: number) {
@@ -27,46 +30,41 @@ function App() {
       //Sets the gamma in the state
       dispatch(setGamma(config.settings.gamma));
       //Creates JSX elements and saves initial state
+      const elements = [];
       for (const key in config["elements"]) {
+        elements.push({ key, ...config.elements[key] });
+      }
+      elements.sort((a, b) => a.id - b.id);
+      for (const element of elements) {
         //Adds the element to the state
-        if (config.elements[key].type === "image") {
+        if (element.type === "image") {
           dispatch(
             addElement({
-              name: key,
-              id: config.elements[key].id,
-              type: config.elements[key].type,
+              name: element.key,
+              id: element.id,
+              type: element.type,
               location: [
-                config.elements[key].location[0] * multiplier,
-                config.elements[key].location[1] * multiplier,
+                element.location[0] * multiplier,
+                element.location[1] * multiplier,
               ],
-              filepath: config.elements[key].filepath,
-              scale: config.elements[key].scale,
+              filepath: element.filepath,
+              scale: element.scale,
             })
           );
-        } else if (config.elements[key].type === "text") {
-          console.log(
-            "elem" +
-              String(config.elements[key].id) +
-              " Color: " +
-              String(config.elements[key].color) +
-              " Location: " +
-              String(config.elements[key].location) +
-              " Font Path: " +
-              String(config.elements[key].font_path)
-          );
+        } else if (element.type === "text") {
           dispatch(
             addElement({
-              name: key,
-              id: config.elements[key].id,
-              type: config.elements[key].type,
+              name: element.key,
+              id: element.id,
+              type: element.type,
               location: [
-                config.elements[key].location[0] * multiplier,
-                config.elements[key].location[1] * multiplier,
+                element.location[0] * multiplier,
+                element.location[1] * multiplier,
               ],
-              content: config.elements[key].content,
-              size: config.elements[key].size,
-              color: config.elements[key].color,
-              font_path: config.elements[key].font_path,
+              content: element.content,
+              size: element.size,
+              color: element.color,
+              font_path: element.font_path,
             })
           );
         }
@@ -170,6 +168,7 @@ function App() {
         configHeight * multiplierY,
       ]);
       getConfig(multiplierY);
+      console.log(configState.elements.length);
     } else {
       setSizeMultiplier(multiplierX);
       setCanvasDimensions([
@@ -177,6 +176,7 @@ function App() {
         configHeight * multiplierX,
       ]);
       getConfig(multiplierX);
+      console.log(configState.elements.length);
     }
   }
 

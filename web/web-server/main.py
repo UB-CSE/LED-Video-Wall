@@ -169,7 +169,6 @@ def get_image(filename):
 
 @app.route("/api/fonts/<filename>", methods=["GET"])
 def get_font(filename):
-    print("font filename: "+filename)
     return send_from_directory("../../server/ttf", filename, mimetype='font/ttf')
 
 

@@ -25,7 +25,7 @@ function DetailsPanel(props: Props) {
   const [fontSize, setFontSize] = useState(0);
   const [color, setColor] = useState("");
   const [content, setContent] = useState("");
-  //const [fonts, setFonts] = useState<string[]>([]);
+  const [fonts, setFonts] = useState<string[]>([]);
 
   const dispatch = useDispatch();
 
@@ -183,7 +183,7 @@ function DetailsPanel(props: Props) {
     }
   }
 
-  /*function handleFontChange(e: React.ChangeEvent<HTMLSelectElement>) {
+  function handleFontChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const path = e.target.value;
     setPath(path);
     dispatch(
@@ -201,7 +201,7 @@ function DetailsPanel(props: Props) {
         ],
       })
     );
-  }*/
+  }
 
   useEffect(() => {
     const element = configState.elements[configState.selectedElement - 1];
@@ -229,7 +229,7 @@ function DetailsPanel(props: Props) {
   }, [configState.selectedElement, configState.elements]);
 
   //Fetch list of available fonts on component mount
-  /*useEffect(() => {
+  useEffect(() => {
     async function fetchFonts() {
       try {
         const response = await fetch("/api/list-fonts", { method: "GET" });
@@ -244,7 +244,7 @@ function DetailsPanel(props: Props) {
       }
     }
     fetchFonts();
-  }, []);*/
+  }, []);
 
   return (
     <div className={styles.panel}>
@@ -436,7 +436,7 @@ function DetailsPanel(props: Props) {
               />
             </li>
           )}
-          {/* ADD BACK IN WHEN FONTS ARE FIXED type == "text" && (
+          {type == "text" && (
             <li
               key={7}
               style={{
@@ -475,7 +475,7 @@ function DetailsPanel(props: Props) {
                 })}
               </select>
             </li>
-          )*/}
+          )}
         </ul>
       </div>
     </div>

@@ -44,6 +44,8 @@ function Element(props: ElementProps) {
   const [isDragging, setIsDragging] = useState(false);
   //Store current dimensions
   const [dimensions, setDimensions] = useState([0, 0]);
+  //Track if font is loaded
+  const [fontLoaded, setFontLoaded] = useState(false);
 
   //Overwrites redux state of this element in the config
   function updateState() {
@@ -135,25 +137,28 @@ function Element(props: ElementProps) {
     setY(0);
   }, [props.location[0], props.location[1]]);
 
-  function getFont() {
-    const element = configState.elements[props.id - 1];
-    if (element.type === "text") {
-      console.log("/api/fonts/" + (element.font_path.split("/").pop() || ""));
-      displayFont();
-      return "/api/fonts/" + (element.font_path.split("/").pop() || "");
+  // Load font when component mounts or font_path changes
+  useEffect(() => {
+    if (props.type === "text" && props.font_path) {
+      setFontLoaded(false);
+      const fontFileName = props.font_path.split("/").pop() || "";
+      const fontUrl = `/api/fonts/${fontFileName}`;
+      const fontFamilyName = `customFont${props.id}`;
+
+      // Create a new FontFace and load it
+      const font = new FontFace(fontFamilyName, `url(${fontUrl})`);
+
+      font
+        .load()
+        .then((loadedFont) => {
+          document.fonts.add(loadedFont);
+          setFontLoaded(true);
+        })
+        .catch((error) => {
+          console.error(`Failed to load font: ${fontFileName}`, error);
+        });
     }
-    return "";
-  }
-  async function displayFont() {
-    const element = configState.elements[props.id - 1];
-    if (element.type === "text") {
-      console.log("/api/fonts/" + (element.font_path.split("/").pop() || ""));
-      const response = await fetch(
-        "/api/fonts/" + (element.font_path.split("/").pop() || "")
-      );
-      console.log("Font fetch response:", response);
-    }
-  }
+  }, [props.type === "text" ? props.font_path : null, props.id]);
 
   function createJSXElement() {
     if (props.type === "image") {
@@ -195,22 +200,14 @@ function Element(props: ElementProps) {
                 : "none",
           }}
         >
-          <style>
-            {`
-              @font-face 
-              {
-                font-family: 'customFont#${props.id}';
-                src: url('/api/fonts/${getFont()}') format('truetype');
-              }
-            `}
-          </style>
           <p
             style={{
               color: props.color,
               fontSize: props.size * props.sizeMultiplier,
               userSelect: "none",
-              fontFamily: `customFont#${props.id}`,
-              visibility: getFont() != "" ? "visible" : "hidden",
+              fontFamily: `customFont${props.id}, sans-serif`,
+              visibility: fontLoaded ? "visible" : "hidden",
+              margin: 0,
             }}
           >
             {props.content}

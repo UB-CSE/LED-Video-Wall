@@ -1,5 +1,5 @@
 import styles from "../Styles.module.css";
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { useDispatch } from "react-redux";
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
@@ -17,6 +17,7 @@ function AddTextPopup(props: Props) {
   const [content, setContent] = useState("");
   const [color, setColor] = useState("#000000ff");
   const [fontSize, setFontSize] = useState(24);
+  const [fonts, setFonts] = useState<string[]>([]);
 
   function handleClose() {
     setName("");
@@ -40,11 +41,29 @@ function AddTextPopup(props: Props) {
         content: content,
         size: fontSize,
         color: color,
-        font_path: "",
+        font_path: fonts[0],
       })
     );
     handleClose();
   }
+
+  //Fetch list of available fonts on component mount
+  useEffect(() => {
+    async function fetchFonts() {
+      try {
+        const response = await fetch("/api/list-fonts", { method: "GET" });
+        const data = await response.json();
+        if (data.fonts) {
+          setFonts(data.fonts);
+        } else if (data.error) {
+          console.log(`[ERROR]: ${data.error}`);
+        }
+      } catch (error) {
+        console.log("[ERROR]: Could not fetch fonts");
+      }
+    }
+    fetchFonts();
+  }, []);
 
   return (
     <div
