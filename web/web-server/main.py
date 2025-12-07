@@ -91,58 +91,60 @@ def set_yaml_config():
                 + str(config["settings"]["gamma"])
                 + "\nelements:"
             )
-            for name in config["elements"]:
-                element = config["elements"][name]
-                if element["type"] == "image":
-                    yaml_string = (
-                        yaml_string
-                        + '\n  "'
-                        + name
-                        + '":\n    id: '
-                        + str(element["id"])
-                        + '\n    type: "'
-                        + element["type"]
-                        + '"'
-                        + '\n    filepath: "'
-                        + element["filepath"]
-                        + '"'
-                        + "\n    location: ["
-                        + str(element["location"][0])
-                        + ","
-                        + str(element["location"][1])
-                        + "]"
-                        + "\n    scale: "
-                        + str(element["scale"])
-                    )
-                elif element["type"] == "text":
-                    yaml_string = (
-                        yaml_string
-                        + '\n  "'
-                        + name
-                        + '":\n    id: '
-                        + str(element["id"])
-                        + '\n    type: "'
-                        + element["type"]
-                        + '"'
-                        + '\n    content: "'
-                        + element["content"]
-                        + '"'
-                        + "\n    size: "
-                        + str(element["size"])
-                        + "\n    color: " 
-                        + '"'
-                        + str(element["color"])
-                        + '"'
-                        + "\n    font_path: " 
-                        + '"'
-                        + element["font_path"]
-                        + '"'
-                        + "\n    location: ["
-                        + str(element["location"][0])
-                        + ","
-                        + str(element["location"][1])
-                        + "]"
-                    )
+            print(config["elements"])
+            for i in range(len(config["elements"])):
+                for name in config["elements"]:
+                    element = config["elements"][name]
+                    if element["id"] == i + 1:
+                        if element["type"] == "image":
+                            yaml_string = (
+                            yaml_string
+                            + '\n  "'
+                            + name
+                            + '":\n    id: '
+                            + str(element["id"])
+                            + '\n    type: "'
+                            + element["type"]
+                            + '"'
+                            + '\n    filepath: "'
+                            + element["filepath"]
+                            + '"'
+                            + "\n    location: ["
+                            + str(element["location"][0])
+                            + ","
+                            + str(element["location"][1])
+                            + "]"
+                            + "\n    scale: "
+                            + str(element["scale"])
+                            )
+                        elif element["type"] == "text":
+                            yaml_string = (
+                            yaml_string
+                            + '\n  "'
+                            + name
+                            + '":\n    id: '
+                            + str(element["id"])
+                            + '\n    type: "'
+                            + element["type"]
+                            + '"'
+                            + '\n    content: "'
+                            + element["content"]
+                            + '"'
+                            + "\n    size: "
+                            + str(element["size"])
+                            + "\n    color: " 
+                            + '"'
+                            + str(element["color"])
+                            + '"'
+                            + "\n    font_path: " 
+                            + '"'
+                            + element["font_path"]
+                            + '"'
+                            + "\n    location: ["
+                            + str(element["location"][0])
+                            + ","
+                            + str(element["location"][1])
+                            + "]")
             file.write(yaml_string)
 
         return "Success: config file has been updated"  # Responds with success message
@@ -172,7 +174,6 @@ def get_image(filename):
 
 @app.route("/api/fonts/<filename>", methods=["GET"])
 def get_font(filename):
-    print("font filename: "+filename)
     return send_from_directory("../../server/ttf", filename, mimetype='font/ttf')
 
 @app.before_request
