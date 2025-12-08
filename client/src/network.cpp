@@ -46,14 +46,12 @@ static const char *TAG = "Network";
 #define WIFI_PASSWORD ""
 #endif
 
-// --- Dynamic discovery URL config ---
-
 #define DISCOVERY_URL_BASE "https://ledvwci.cse.buffalo.edu/client/get-server/"
 
-// Buffer to hold full discovery URL
+//Buffer to hold full discovery URL
 static char g_discovery_url[128];
 
-// BIGGER buffer for host/IP (hostnames like yoshi.cse.buffalo.edu are > 15 chars)
+//bigger buffer for host/IP
 static char g_server_ip[64] = SERVER_IP;
 
 struct HttpResponseBuffer {
@@ -103,6 +101,7 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
   return ESP_OK;
 }
 
+//Fetch server IP/host from HTTPS endpoint and store in g_server_ip.
 static int update_server_ip_from_http(void) {
   if (build_discovery_url() != 0) {
     ESP_LOGE(TAG, "Could not build discovery URL");
