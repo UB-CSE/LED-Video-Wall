@@ -15,7 +15,7 @@ function AddTextPopup(props: Props) {
   const configState = useSelector((state: RootState) => state.config);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
-  const [color, setColor] = useState("#000000ff");
+  const [color, setColor] = useState("#0025ff");
   const [fontSize, setFontSize] = useState(24);
   const [fonts, setFonts] = useState<string[]>([]);
 
