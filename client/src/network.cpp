@@ -6,13 +6,13 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
-#include <netdb.h>          // NEW: for getaddrinfo (hostname resolution)
+#include <netdb.h>  
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <stdio.h>          // for snprintf
+#include <stdio.h> 
 
 #include "commands/get_logs.hpp"
 #include "commands/redraw.hpp"
@@ -56,16 +56,12 @@ static char g_discovery_url[128];
 // BIGGER buffer for host/IP (hostnames like yoshi.cse.buffalo.edu are > 15 chars)
 static char g_server_ip[64] = SERVER_IP;
 
-// Small helper struct for accumulating HTTP body
 struct HttpResponseBuffer {
   char *buf;
   int buf_size;
   int data_len;
 };
 
-// Build discovery URL of the form
-//   "https://.../client/get-server/xx:xx:xx:xx:xx:xx"
-// using the station MAC address.
 static int build_discovery_url(void) {
   uint8_t mac[6];
   esp_err_t err = esp_wifi_get_mac(WIFI_IF_STA, mac);
@@ -90,14 +86,13 @@ static int build_discovery_url(void) {
   return 0;
 }
 
-// HTTP event handler that accumulates body into HttpResponseBuffer
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
   if (evt->event_id == HTTP_EVENT_ON_DATA && evt->user_data) {
     auto *resp = static_cast<HttpResponseBuffer *>(evt->user_data);
 
     int copy_len = evt->data_len;
     if (resp->data_len + copy_len >= resp->buf_size) {
-      copy_len = resp->buf_size - resp->data_len - 1; // leave room for '\0'
+      copy_len = resp->buf_size - resp->data_len - 1; 
     }
     if (copy_len > 0) {
       memcpy(resp->buf + resp->data_len, evt->data, copy_len);
@@ -108,8 +103,6 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
   return ESP_OK;
 }
 
-// Fetch server IP/host from HTTPS endpoint and store in g_server_ip.
-// Returns 0 on success, -1 on error.
 static int update_server_ip_from_http(void) {
   if (build_discovery_url() != 0) {
     ESP_LOGE(TAG, "Could not build discovery URL");
@@ -118,7 +111,6 @@ static int update_server_ip_from_http(void) {
 
   ESP_LOGI(TAG, "Fetching server IP from discovery URL: %s", g_discovery_url);
 
-  // Local buffer to hold entire HTTP response body (expected to be short)
   char body_buffer[64] = {0};
   HttpResponseBuffer resp{};
   resp.buf = body_buffer;
@@ -131,7 +123,7 @@ static int update_server_ip_from_http(void) {
   config.event_handler = _http_event_handler;
   config.user_data = &resp;
   config.transport_type = HTTP_TRANSPORT_OVER_SSL;
-  config.crt_bundle_attach = esp_crt_bundle_attach;  // use built-in CA bundle
+  config.crt_bundle_attach = esp_crt_bundle_attach;
 
   esp_http_client_handle_t client = esp_http_client_init(&config);
   if (client == nullptr) {
@@ -158,15 +150,12 @@ static int update_server_ip_from_http(void) {
     return -1;
   }
 
-  // --- SAFE TRIMMING: ONLY REMOVE \r and \n ---
   char *p = resp.buf;
 
-  // Trim only leading CR/LF
   while (*p == '\r' || *p == '\n') {
     p++;
   }
 
-  // Trim only trailing CR/LF
   char *end = p + strlen(p);
   while (end > p && (end[-1] == '\r' || end[-1] == '\n')) {
     end--;
@@ -178,17 +167,12 @@ static int update_server_ip_from_http(void) {
     return -1;
   }
 
-  // Copy into global server IP buffer (no extra deletions)
   strncpy(g_server_ip, p, sizeof(g_server_ip) - 1);
   g_server_ip[sizeof(g_server_ip) - 1] = '\0';
 
   ESP_LOGI(TAG, "Discovered server host/IP: '%s'", g_server_ip);
   return 0;
 }
-
-// ---------------------------------------------------------------------------
-// Existing logic below (with hostname-aware connect in checkin)
-// ---------------------------------------------------------------------------
 
 int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
   uint32_t total = 0;
@@ -217,7 +201,6 @@ int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
 int checkin(int *out_sockfd) {
   ESP_LOGI(TAG, "Sending check-in message");
 
-  // Try to update server IP via HTTP discovery before connecting
   if (update_server_ip_from_http() != 0) {
     ESP_LOGW(TAG, "Server discovery via HTTP failed, using default IP: %s",
              g_server_ip);
@@ -228,9 +211,7 @@ int checkin(int *out_sockfd) {
   memset(&dest_addr, 0, sizeof(dest_addr));
   dest_addr.sin_family = AF_INET;
 
-  // First, try to parse as raw IPv4 address (e.g., "192.168.1.10")
   if (inet_pton(AF_INET, g_server_ip, &dest_addr.sin_addr.s_addr) != 1) {
-    // If that fails, treat it as hostname and resolve via DNS (e.g., "yoshi.cse.buffalo.edu")
     ESP_LOGI(TAG, "Resolving hostname: %s", g_server_ip);
     struct addrinfo hints{};
     hints.ai_family = AF_INET;
@@ -252,7 +233,6 @@ int checkin(int *out_sockfd) {
     freeaddrinfo(res);
   }
 
-  // Try to connect on ports in [SERVER_PORT_START, SERVER_PORT_END]
   for (uint16_t port = SERVER_PORT_START; port <= SERVER_PORT_END; port++) {
     if (sockfd >= 0) {
       close(sockfd);
