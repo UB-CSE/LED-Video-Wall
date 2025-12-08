@@ -49,16 +49,18 @@ static const char *TAG = "Network";
 #define DISCOVERY_URL_BASE "https://ledvwci.cse.buffalo.edu/client/get-server/"
 
 //Buffer to hold full discovery URL
-static char g_discovery_url[128];
+static char discovery_url[128];
 
 //bigger buffer for host/IP
-static char g_server_ip[64] = SERVER_IP;
+static char server_ip[64] = SERVER_IP;
 
 struct HttpResponseBuffer {
   char *buf;
   int buf_size;
   int data_len;
 };
+
+//This function builds the discovery url with the ESP32's respective mac address.
 
 static int build_discovery_url(void) {
   uint8_t mac[6];
@@ -69,20 +71,22 @@ static int build_discovery_url(void) {
   }
 
   int written = snprintf(
-      g_discovery_url,
-      sizeof(g_discovery_url),
+      discovery_url,
+      sizeof(discovery_url),
       "%s%02x:%02x:%02x:%02x:%02x:%02x",
       DISCOVERY_URL_BASE,
       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-  if (written <= 0 || written >= (int)sizeof(g_discovery_url)) {
+  if (written <= 0 || written >= (int)sizeof(discovery_url)) {
     ESP_LOGE(TAG, "Failed to build discovery URL (buffer too small?)");
     return -1;
   }
 
-  ESP_LOGI(TAG, "Discovery URL: %s", g_discovery_url);
+  ESP_LOGI(TAG, "Discovery URL: %s", discovery_url);
   return 0;
 }
+
+
 
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
   if (evt->event_id == HTTP_EVENT_ON_DATA && evt->user_data) {
@@ -101,14 +105,16 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
   return ESP_OK;
 }
 
-//Fetch server IP/host from HTTPS endpoint and store in g_server_ip.
+//Fetch server IP/host from HTTPS endpoint and store in server_ip. 
+//It returns -1 if failed to update host ip.
+
 static int update_server_ip_from_http(void) {
   if (build_discovery_url() != 0) {
     ESP_LOGE(TAG, "Could not build discovery URL");
     return -1;
   }
 
-  ESP_LOGI(TAG, "Fetching server IP from discovery URL: %s", g_discovery_url);
+  ESP_LOGI(TAG, "Fetching server IP from discovery URL: %s", discovery_url);
 
   char body_buffer[64] = {0};
   HttpResponseBuffer resp{};
@@ -117,7 +123,7 @@ static int update_server_ip_from_http(void) {
   resp.data_len = 0;
 
   esp_http_client_config_t config = {};
-  config.url = g_discovery_url;
+  config.url = discovery_url;
   config.method = HTTP_METHOD_GET;
   config.event_handler = _http_event_handler;
   config.user_data = &resp;
@@ -166,10 +172,10 @@ static int update_server_ip_from_http(void) {
     return -1;
   }
 
-  strncpy(g_server_ip, p, sizeof(g_server_ip) - 1);
-  g_server_ip[sizeof(g_server_ip) - 1] = '\0';
+  strncpy(server_ip, p, sizeof(server_ip) - 1);
+  server_ip[sizeof(server_ip) - 1] = '\0';
 
-  ESP_LOGI(TAG, "Discovered server host/IP: '%s'", g_server_ip);
+  ESP_LOGI(TAG, "Discovered server host/IP: '%s'", server_ip);
   return 0;
 }
 
@@ -202,7 +208,7 @@ int checkin(int *out_sockfd) {
 
   if (update_server_ip_from_http() != 0) {
     ESP_LOGW(TAG, "Server discovery via HTTP failed, using default IP: %s",
-             g_server_ip);
+             server_ip);
   }
 
   int sockfd = -1;
@@ -210,16 +216,16 @@ int checkin(int *out_sockfd) {
   memset(&dest_addr, 0, sizeof(dest_addr));
   dest_addr.sin_family = AF_INET;
 
-  if (inet_pton(AF_INET, g_server_ip, &dest_addr.sin_addr.s_addr) != 1) {
-    ESP_LOGI(TAG, "Resolving hostname: %s", g_server_ip);
+  if (inet_pton(AF_INET, server_ip, &dest_addr.sin_addr.s_addr) != 1) {
+    ESP_LOGI(TAG, "Resolving hostname: %s", server_ip);
     struct addrinfo hints{};
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     struct addrinfo *res = nullptr;
 
-    int err = getaddrinfo(g_server_ip, nullptr, &hints, &res);
+    int err = getaddrinfo(server_ip, nullptr, &hints, &res);
     if (err != 0 || res == nullptr) {
-      ESP_LOGE(TAG, "DNS lookup failed for host '%s', err=%d", g_server_ip, err);
+      ESP_LOGE(TAG, "DNS lookup failed for host '%s', err=%d", server_ip, err);
       if (res) {
         freeaddrinfo(res);
       }
@@ -256,7 +262,7 @@ int checkin(int *out_sockfd) {
 
     if (connect(sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) ==
         0) {
-      ESP_LOGI(TAG, "Connected to %s:%u", g_server_ip, port);
+      ESP_LOGI(TAG, "Connected to %s:%u", server_ip, port);
       break;
     } else {
       ESP_LOGD(TAG, "Connect to port %u failed: %d", port, errno);
