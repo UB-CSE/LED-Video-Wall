@@ -6,11 +6,13 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <netdb.h>  
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <stdio.h> 
 
 #include "commands/get_logs.hpp"
 #include "commands/redraw.hpp"
@@ -18,6 +20,9 @@
 #include "commands/set_leds.hpp"
 #include "network.hpp"
 #include "protocol.hpp"
+
+#include "esp_http_client.h"
+#include "esp_crt_bundle.h"
 
 static const char *TAG = "Network";
 
@@ -40,6 +45,139 @@ static const char *TAG = "Network";
 #define WIFI_SSID "UB_Connect"
 #define WIFI_PASSWORD ""
 #endif
+
+#define DISCOVERY_URL_BASE "https://ledvwci.cse.buffalo.edu/client/get-server/"
+
+//Buffer to hold full discovery URL
+static char discovery_url[128];
+
+//bigger buffer for host/IP
+static char server_ip[64] = SERVER_IP;
+
+struct HttpResponseBuffer {
+  char *buf;
+  int buf_size;
+  int data_len;
+};
+
+//This function builds the discovery url with the ESP32's respective mac address.
+
+static int build_discovery_url(void) {
+  uint8_t mac[6];
+  esp_err_t err = esp_wifi_get_mac(WIFI_IF_STA, mac);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to get MAC address: %s", esp_err_to_name(err));
+    return -1;
+  }
+
+  int written = snprintf(
+      discovery_url,
+      sizeof(discovery_url),
+      "%s%02x:%02x:%02x:%02x:%02x:%02x",
+      DISCOVERY_URL_BASE,
+      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+  if (written <= 0 || written >= (int)sizeof(discovery_url)) {
+    ESP_LOGE(TAG, "Failed to build discovery URL (buffer too small?)");
+    return -1;
+  }
+
+  ESP_LOGI(TAG, "Discovery URL: %s", discovery_url);
+  return 0;
+}
+
+
+
+static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
+  if (evt->event_id == HTTP_EVENT_ON_DATA && evt->user_data) {
+    auto *resp = static_cast<HttpResponseBuffer *>(evt->user_data);
+
+    int copy_len = evt->data_len;
+    if (resp->data_len + copy_len >= resp->buf_size) {
+      copy_len = resp->buf_size - resp->data_len - 1; 
+    }
+    if (copy_len > 0) {
+      memcpy(resp->buf + resp->data_len, evt->data, copy_len);
+      resp->data_len += copy_len;
+      resp->buf[resp->data_len] = '\0';
+    }
+  }
+  return ESP_OK;
+}
+
+//Fetch server IP/host from HTTPS endpoint and store in server_ip. 
+//It returns -1 if failed to update host ip.
+
+static int update_server_ip_from_http(void) {
+  if (build_discovery_url() != 0) {
+    ESP_LOGE(TAG, "Could not build discovery URL");
+    return -1;
+  }
+
+  ESP_LOGI(TAG, "Fetching server IP from discovery URL: %s", discovery_url);
+
+  char body_buffer[64] = {0};
+  HttpResponseBuffer resp{};
+  resp.buf = body_buffer;
+  resp.buf_size = sizeof(body_buffer);
+  resp.data_len = 0;
+
+  esp_http_client_config_t config = {};
+  config.url = discovery_url;
+  config.method = HTTP_METHOD_GET;
+  config.event_handler = _http_event_handler;
+  config.user_data = &resp;
+  config.transport_type = HTTP_TRANSPORT_OVER_SSL;
+  config.crt_bundle_attach = esp_crt_bundle_attach;
+
+  esp_http_client_handle_t client = esp_http_client_init(&config);
+  if (client == nullptr) {
+    ESP_LOGE(TAG, "Failed to initialize HTTP client");
+    return -1;
+  }
+
+  esp_err_t err = esp_http_client_perform(client);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "HTTP GET failed: %s", esp_err_to_name(err));
+    esp_http_client_cleanup(client);
+    return -1;
+  }
+
+  int status = esp_http_client_get_status_code(client);
+  int64_t content_length = esp_http_client_get_content_length(client);
+  ESP_LOGI(TAG, "HTTP status=%d, content_length=%lld, body_len=%d",
+           status, content_length, resp.data_len);
+
+  esp_http_client_cleanup(client);
+
+  if (resp.data_len <= 0) {
+    ESP_LOGE(TAG, "Discovery response body is empty");
+    return -1;
+  }
+
+  char *p = resp.buf;
+
+  while (*p == '\r' || *p == '\n') {
+    p++;
+  }
+
+  char *end = p + strlen(p);
+  while (end > p && (end[-1] == '\r' || end[-1] == '\n')) {
+    end--;
+  }
+  *end = '\0';
+
+  if (*p == '\0') {
+    ESP_LOGE(TAG, "Discovery response was CR/LF only");
+    return -1;
+  }
+
+  strncpy(server_ip, p, sizeof(server_ip) - 1);
+  server_ip[sizeof(server_ip) - 1] = '\0';
+
+  ESP_LOGI(TAG, "Discovered server host/IP: '%s'", server_ip);
+  return 0;
+}
 
 int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
   uint32_t total = 0;
@@ -68,18 +206,38 @@ int read_exact(int sockfd, uint8_t *buffer, uint32_t len) {
 int checkin(int *out_sockfd) {
   ESP_LOGI(TAG, "Sending check-in message");
 
+  if (update_server_ip_from_http() != 0) {
+    ESP_LOGW(TAG, "Server discovery via HTTP failed, using default IP: %s",
+             server_ip);
+  }
+
   int sockfd = -1;
   struct sockaddr_in dest_addr;
+  memset(&dest_addr, 0, sizeof(dest_addr));
   dest_addr.sin_family = AF_INET;
-  inet_pton(AF_INET, SERVER_IP, &dest_addr.sin_addr.s_addr);
 
-  // When attempting to connect to the server, there are multiple ports that it
-  // may have connected to. The preprocessor constants SERVER_PORT_START and
-  // SERVER_PORT_END denote the range of ports, start and end included, that the
-  // server may be using. The code below attempts to connect on all the ports in
-  // the range, and simply returns if none of the ports resulted in a successful
-  // connection. If a connection does succeed then the loop ends early and
-  // continues with the rest of the code.
+  if (inet_pton(AF_INET, server_ip, &dest_addr.sin_addr.s_addr) != 1) {
+    ESP_LOGI(TAG, "Resolving hostname: %s", server_ip);
+    struct addrinfo hints{};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    struct addrinfo *res = nullptr;
+
+    int err = getaddrinfo(server_ip, nullptr, &hints, &res);
+    if (err != 0 || res == nullptr) {
+      ESP_LOGE(TAG, "DNS lookup failed for host '%s', err=%d", server_ip, err);
+      if (res) {
+        freeaddrinfo(res);
+      }
+      return -1;
+    }
+
+    struct sockaddr_in *addr_in = reinterpret_cast<struct sockaddr_in *>(res->ai_addr);
+    dest_addr.sin_addr = addr_in->sin_addr;
+
+    freeaddrinfo(res);
+  }
+
   for (uint16_t port = SERVER_PORT_START; port <= SERVER_PORT_END; port++) {
     if (sockfd >= 0) {
       close(sockfd);
@@ -91,14 +249,12 @@ int checkin(int *out_sockfd) {
       continue;
     }
 
-    // TODO: if the server ever restarts or anything, it will take
-    // RECV_TIMEOUT_SEC to timeout a read and reconnect. This isn't ideal, we
-    // should instead use select/polling in the main loop
     struct timeval tv {
       RECV_TIMEOUT_SEC, 0
     };
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
       ESP_LOGE(TAG, "Failed to set socket recv timeout");
+      close(sockfd);
       return -1;
     }
 
@@ -106,7 +262,7 @@ int checkin(int *out_sockfd) {
 
     if (connect(sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) ==
         0) {
-      ESP_LOGI(TAG, "Connected to %s:%u", SERVER_IP, port);
+      ESP_LOGI(TAG, "Connected to %s:%u", server_ip, port);
       break;
     } else {
       ESP_LOGD(TAG, "Connect to port %u failed: %d", port, errno);
@@ -158,21 +314,12 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
            (unsigned int)message_size);
   if (message_size == 0) {
     ESP_LOGE(TAG, "msg size of 0");
-    // close(sockfd);
     return -1;
   } else if (message_size > 10000) {
     ESP_LOGE(TAG, "msg is way too big");
-    // close(sockfd);
     return -1;
   }
 
-  // The buffer is resized to the maximum size message we can possibly
-  // receive. Since we expect to receive that same size message multiple times,
-  // this is a fair optimization.
-  //
-  // We may additionally consider resizing this buffer depending on the maximum
-  // constraints given from a call to set_config, otherwise we'd expect this to
-  // resize rather significantly on the first call to set_leds.
   if (message_size > *buffer_size) {
     uint8_t *new_buffer = (uint8_t *)realloc(*buffer, message_size);
     if (new_buffer) {
@@ -180,14 +327,6 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
       *buffer_size = message_size;
     } else {
       ESP_LOGW(TAG, "Failed to resize message buffer");
-
-      // If we fail to realloc the buffer, then we can't read the whole message.
-      // If we return from this function and it finds bytes available again, it
-      // may start reading in the middle of a message, resulting in undefined
-      // behavior. Thus, we close the socket and return, allowing the client to
-      // reconnect and resume later.
-      // close(sockfd);
-
       return -1;
     }
   }
@@ -210,21 +349,9 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
     break;
   }
   case OP_SET_LEDS_BATCHED: {
-    // int64_t time_us = esp_timer_get_time();
-
-    // // Convert to seconds
-    // double time_s = time_us / 1000000.0;
-
-    // ESP_LOGI("TIME_SINCE_BOOT", "Time since boot: %.6f seconds", time_s);
-
-    // int64_t t_start = esp_timer_get_time();
     if (set_leds_batched(decode_set_leds_batched(*buffer)) != 0) {
       return -1;
     }
-
-    // int64_t t_end = esp_timer_get_time();
-    // int64_t elapsed_us = t_end - t_start;
-    // ESP_LOGI(TAG, "set_leds_batched completed in %lld µs", elapsed_us);
     break;
   }
   case OP_GET_LOGS: {
@@ -234,21 +361,9 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
     break;
   }
   case OP_REDRAW: {
-
-    // int64_t time_us = esp_timer_get_time();
-
-    // // Convert to seconds
-    // double time_s = time_us / 1000000.0;
-
-    // ESP_LOGI("TIME_SINCE_BOOT", "Time since boot: %.6f seconds", time_s);
-
-    // int64_t t_start = esp_timer_get_time();
     if (redraw(decode_redraw(*buffer)) != 0) {
       return -1;
     }
-    // int64_t t_end = esp_timer_get_time();
-    // int64_t elapsed_us = t_end - t_start;
-    // ESP_LOGI(TAG, "redraw completed in %lld µs", elapsed_us);
     break;
   }
   case OP_SET_CONFIG: {
