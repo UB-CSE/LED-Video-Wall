@@ -10,10 +10,15 @@ type Props = {
   setAddImageIsClicked: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
+//Popup that allows user to upload and add a new image element
 function AddImagePopup(props: Props) {
+  //Stores whether an image is currently selected
   const [preview, setPreview] = useState(false);
+  //Stores the image URL for previewing the image
   const [imageUrl, setImageUrl] = useState("");
+  //Stores the file to be uploaded
   const [newFile, setFile] = useState<File | null>(null);
+  //Redux State
   const dispatch = useDispatch();
   const configState = useSelector((state: RootState) => state.config);
 
@@ -28,6 +33,7 @@ function AddImagePopup(props: Props) {
     e.preventDefault();
   }
 
+  //Validates file, stores it, and creates preview URL
   async function fileChange(file: File) {
     if (!file || file.size === 0) {
       return;
@@ -43,6 +49,7 @@ function AddImagePopup(props: Props) {
     };
   }
 
+  //Closes the preview and clears the file and URL
   function handleClose() {
     setPreview(false);
     setImageUrl("");
@@ -57,11 +64,14 @@ function AddImagePopup(props: Props) {
 
   function handleUpload() {
     if (newFile) {
+      // Uses the upload file function that uploads and adds the image element
       uploadFile([0, 0], newFile, dispatch, configState);
       props.setAddImageIsClicked(false);
     }
   }
 
+  // The content of the popup if no image is selected
+  // Allows drag and drop or file selection
   const uploadContent = (
     <label
       className={styles.download}
@@ -96,6 +106,9 @@ function AddImagePopup(props: Props) {
       />
     </label>
   );
+
+  // The content of the popup when an image is selected
+  // Shows a preview of the image and a button to close the preview
   const previewImage = (
     <div className={styles.preview}>
       <img src={imageUrl} alt="" />

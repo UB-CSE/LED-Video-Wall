@@ -15,10 +15,12 @@ type Props = {
   sizeMultiplier: number;
 };
 
+//List of all elements in the current configuration with ability to add elements
 function ElementList(props: Props) {
   const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
 
+  // Context menu state
   const {
     location: contextLocation,
     setLocation: setContextLocation,
@@ -26,18 +28,21 @@ function ElementList(props: Props) {
     setIsClicked: setContextIsClicked,
   } = useContextMenu();
 
+  // Defines whether the popups should be shown
   const { isClicked: addImageIsClicked, setIsClicked: setAddImageIsClicked } =
     useContextMenu();
 
   const { isClicked: addTextIsClicked, setIsClicked: setAddTextIsClicked } =
     useContextMenu();
 
+  // Context menu options
   const deleteOptions = [{ name: "delete", function: deleteElement }];
   const addOptions = [
     { name: "image", function: addImage },
     { name: "text", function: addText },
   ];
 
+  // Stores the current context menu options to switch between add and delete based off right click or add button
   const [contextOptions, setContextOptions] = useState<Option[]>(deleteOptions);
 
   function handleClick(id: number) {
@@ -59,6 +64,7 @@ function ElementList(props: Props) {
     setContextIsClicked(true);
   }
 
+  // Not implemented yet
   function deleteElement() {}
 
   function addImage(e: React.MouseEvent) {
