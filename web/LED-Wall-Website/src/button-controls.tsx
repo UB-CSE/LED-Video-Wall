@@ -39,6 +39,7 @@ function ButtonControls(props: ButtonControlsProps) {
     getCurrentlyRunningAndMount();
   }, []);
 
+  // Fetch currently running config from backend
   async function getCurrentlyRunning() {
     const response = await fetch("/api/get-current-config", { method: "GET" });
     const text = await response.text();
@@ -51,6 +52,7 @@ function ButtonControls(props: ButtonControlsProps) {
     }
   }
 
+  // Fetch currently running config from backend and set as selected
   async function getCurrentlyRunningAndMount() {
     const response = await fetch("/api/get-current-config", { method: "GET" });
     const text = await response.text();
@@ -101,6 +103,7 @@ function ButtonControls(props: ButtonControlsProps) {
     }
   };
 
+  // Start the LED wall server with the selected config file
   const startServer = async () => {
     if (!configFile) {
       showMessage("[ERROR]: Please select a configuration file");
@@ -108,6 +111,7 @@ function ButtonControls(props: ButtonControlsProps) {
     }
 
     try {
+      // POST request tells the backend to start the LED wall server with the selected config
       const response = await fetch("/api/start-server", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

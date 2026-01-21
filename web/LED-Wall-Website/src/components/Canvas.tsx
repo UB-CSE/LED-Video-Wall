@@ -11,7 +11,7 @@ type Props = {
   sizeMultiplier: number;
 };
 
-//Creates a canvas that can be uploaded to along with a upload button
+//Canvas that holds all elements and allows drag and drop of image files onto it
 function Canvas(props: Props) {
   const dispatch = useDispatch();
   const configState = useSelector((state: RootState) => state.config);

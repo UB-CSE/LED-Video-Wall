@@ -29,7 +29,7 @@ type TextProps = {
 };
 type ElementProps = ImageProps | TextProps;
 
-//Image Element that can be dragged and dropped inside the canvas
+//Element that can be dragged and dropped inside the canvas
 function Element(props: ElementProps) {
   //Redux State
   const configState = useSelector((state: RootState) => state.config);
@@ -44,7 +44,7 @@ function Element(props: ElementProps) {
   const [isDragging, setIsDragging] = useState(false);
   //Store current dimensions
   const [dimensions, setDimensions] = useState([0, 0]);
-  //Track if font is loaded
+  //Store is font loaded
   const [fontLoaded, setFontLoaded] = useState(false);
 
   //Overwrites redux state of this element in the config

@@ -11,14 +11,17 @@ type Props = {
 };
 
 function AddTextPopup(props: Props) {
-  const dispatch = useDispatch();
-  const configState = useSelector((state: RootState) => state.config);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
   const [color, setColor] = useState("#0025ff");
   const [fontSize, setFontSize] = useState(24);
   const [fonts, setFonts] = useState<string[]>([]);
 
+  //Redux State
+  const dispatch = useDispatch();
+  const configState = useSelector((state: RootState) => state.config);
+
+  //Clears state and closes popup
   function handleClose() {
     setName("");
     setContent("");

@@ -21,6 +21,7 @@ function App() {
   const configState = useSelector((state: RootState) => state.config);
 
   //Gets the current configuration file from the backend
+  //This function is passed down to other components to allow them to refresh the config
   async function getConfig(multiplier: number) {
     try {
       //requests config from backend
@@ -75,6 +76,7 @@ function App() {
     }
   }
 
+  // Sets the canvas dimensions and size multiplier based on the LED wall configuration
   async function setCanvas() {
     //Setting starting width and height to define maximum dimensions for the canvas
     const maxWidth = window.innerWidth * 0.5;
