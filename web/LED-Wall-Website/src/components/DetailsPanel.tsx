@@ -476,6 +476,40 @@ function DetailsPanel(props: Props) {
               </select>
             </li>
           )}
+          {type == "text" && (
+            <li
+              key={8}
+              style={{
+                display: "flex",
+              }}
+            >
+              <p
+                className={styles.box}
+                style={{
+                  width: "24%",
+                }}
+              >
+                color
+              </p>
+              <input
+                className={styles.box}
+                style={{
+                  width: "76%",
+                  height: "40px",
+                  margin: "0px",
+                  position: "static",
+                  left: "0",
+                  transform: "none",
+                  padding: "5px",
+                  boxShadow: "none",
+                }}
+                onChange={(e) => setColor(e.target.value)}
+                onKeyDown={(e) => handleChange(e)}
+                type="color"
+                value={color}
+              />
+            </li>
+          )}
         </ul>
       </div>
     </div>
