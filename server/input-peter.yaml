@@ -3,16 +3,31 @@ settings:
 elements:
   "elem1":
     id: 1
+    type: "image"
+    filepath: "images/img.jpg"
+    location: [0, 0]
+    scale: 0.1
+
+  "elem2":
+    id: 2
     type: "carousel"
     # filepaths: ["images/img.jpg", "images/img2.jpg", "images/img3.jpg", "images/img4.jpg", "images/img5.jpg"]
     filepaths: ["images/apple.png", "images/creeper.png", "images/flower.png", "images/hello-rainbow.png", "images/rainbow.png"]
     location: [0, 0]
     framerate: 2
 
-  "elem2":
-    id: 2
+  "elem3":
+    id: 3
     type: "video"
     filepath: "images/alan/alan_ca_4_64x64.mp4"
     location: [0, 64]
-    framerate: 24
+    framerate: 30
 
+  "elem4":
+    id: 4
+    type: "text"
+    content: "Hello"
+    size: 18
+    color: "#e0186b"
+    font_path: "ttf/Lobster-Regular.ttf"
+    location: [64, 80]
