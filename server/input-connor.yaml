@@ -1,0 +1,19 @@
+settings:
+  gamma: 1.00
+elements:
+  "alotofpictures":
+    id: 2
+    type: "carousel"
+    filepaths: ["images/img3.jpg","images/img.jpg","images/img2.jpg","images/img4.jpg","images/img5.jpg","images/creeper.png"]
+    scale: 1
+    location: [0,0]
+    framerate: 1
+
+  "car":
+    id: 1
+    type: "text"
+    content: "CAR!!!!!!!!"
+    size: 20
+    color: "#FF0000"
+    font_path: "ttf/Roboto-Regular.ttf"
+    location: [5,33]
