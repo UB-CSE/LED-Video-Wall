@@ -1,0 +1,18 @@
+settings:
+  gamma: 1.05
+elements:
+  "elem1":
+    id: 1
+    type: "carousel"
+    # filepaths: ["images/img.jpg", "images/img2.jpg", "images/img3.jpg", "images/img4.jpg", "images/img5.jpg"]
+    filepaths: ["images/apple.png", "images/creeper.png", "images/flower.png", "images/hello-rainbow.png", "images/rainbow.png"]
+    location: [0, 0]
+    framerate: 2
+
+  "elem2":
+    id: 2
+    type: "video"
+    filepath: "images/alan/alan_ca_4_64x64.mp4"
+    location: [0, 64]
+    framerate: 24
+
