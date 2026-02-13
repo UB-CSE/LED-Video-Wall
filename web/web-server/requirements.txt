@@ -1,0 +1,4 @@
+black
+flask
+python-magic
+pyyaml

@@ -1,5 +1,13 @@
 # Microcontroller Client
 
+* Lightweight software that runs on each ESP32 microcontroller
+* First, connects to check-in server
+* Then, connects to LEDVW server with TCP socket
+* LEDVW server sends client commands via custom high-efficiency protocol, client sets LED colors
+* Client does minimal processing, not very powerful
+* Gracefully handles network disruptions and reconnects automatically
+
+
 # Installation
 ## Required
 * [`idf.py`](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html#installation) (Tested with `v5.4.1`)

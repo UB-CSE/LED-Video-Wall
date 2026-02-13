@@ -1,4 +1,19 @@
-# React + TypeScript + Vite
+# Web Client
+
+* User interface for editing the virtual canvas, loading and saving configurations
+* Supports server control and layer manipulation similar to Photoshop
+
+## Local Installation
+
+* If you're using Windows, install this in WSL
+* Install Node Version Manager with `wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash`
+* Run `source ~/.bashrc` to refresh your path
+* Run `nvm install --lts` to install the latest long-term support version of Node
+* Navigate to the `web/LED-Wall-Website/` directory
+* Run `npm i` to install dependencies; if there are problems, try `npm audit fix`
+* Start the development server with `npm run dev` and visit the URL printed in the terminal
+
+## React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
