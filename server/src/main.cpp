@@ -10,6 +10,7 @@
 #include <netdb.h>
 #include <unistd.h> // for close
 #include "tcp.hpp"
+#include "rtmp.hpp"
 #include "client.hpp"
 #include "config-parser.hpp"
 #include <vector>
@@ -71,6 +72,8 @@ int main(int argc, char* argv[]) {
                    << ex.what() << "\n";
          exit(-1);
      }
+
+     RTMPServer rtmp_server;
  
      std::optional<LEDTCPServer> server_opt =
          create_server(INADDR_ANY, 7070, 7074, server_config.clients);
