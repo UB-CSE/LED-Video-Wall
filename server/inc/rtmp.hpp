@@ -1,16 +1,21 @@
 #ifndef RTMP_H
 #define RTMP_H
 
+#include <arpa/inet.h>
 #include <librtmp/rtmp.h>
 #include <opencv2/core.hpp>
-#include <thread>
-#include <unordered_set>
-#include <string>
+extern "C" { // Janky as hell
+#include <libavcodec/avcodec.h>
+}
+
+#include <condition_variable>
+#include <mutex>
 #include <optional>
 #include <queue>
+#include <string>
+#include <thread>
+#include <unordered_set>
 #include <vector>
-#include <mutex>
-#include <condition_variable>
 
 class RTMPServer {
 public:
@@ -36,11 +41,39 @@ private:
   // serving
 
   void acceptConnections();
-  void handleNewConnection(int clientSocketFd);
 
-  void handleClient(int clientSocketFd);
-  bool handlePacket(RTMP *rtmp, RTMPPacket *packet, int* streamID);
-  bool handleInvoke(RTMP *rtmp, RTMPPacket *packet, unsigned int offset, int* streamID);
+  struct ClientInfo {
+    int socketFd;
+    // const char* address;
+    char address[INET_ADDRSTRLEN];
+  };
+
+  void handleNewConnection(ClientInfo clientInfo);
+
+  struct StreamInfo {
+    int streamID = -1;
+
+    bool hasReceivedMetadata = false;
+    // We only care about video metadata now.
+    size_t width = 0, height = 0;
+    double videoDataRate = 0.0, frameRate = 0.0;
+    const AVCodec *codec = nullptr;
+    AVCodecContext *codecContext = nullptr;
+
+    ~StreamInfo();
+    void reset();
+  };
+
+  void handleClient(ClientInfo clientInfo);
+  bool handlePacket(RTMP *rtmp, RTMPPacket *packet, StreamInfo &streamInfo,
+                    const ClientInfo &clientInfo);
+  bool handleChangeChunkSize(RTMP *rtmp, RTMPPacket *packet);
+  bool handleInvoke(RTMP *rtmp, RTMPPacket *packet, size_t offset,
+                    StreamInfo &streamInfo, const ClientInfo &clientInfo);
+  bool handleMetadata(RTMP *rtmp, RTMPPacket *packet, StreamInfo &streamInfo,
+                      const ClientInfo &clientInfo);
+  bool handleVideoPacket(RTMP *rtmp, RTMPPacket *packet, StreamInfo &streamInfo,
+                         const ClientInfo &clientInfo);
 
   bool sendConnectResult(RTMP *rtmp, double txn);
   bool sendResultNumber(RTMP *rtmp, double txn, double id);
@@ -68,7 +101,7 @@ private:
   std::vector<std::thread> workerThreads;
   void workerThreadFunc();
 
-  std::queue<int> clientQueue;
+  std::queue<ClientInfo> clientQueue;
 
   std::mutex queueMutex;
   std::condition_variable queueCondition;

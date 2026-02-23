@@ -2,7 +2,6 @@
 
 #include <librtmp/log.h>
 
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -18,31 +17,31 @@
 
 #define NUM_WORKER_THREADS 5
 
-#define SAVC(x) static const AVal av_##x = AVC(#x)
-
-SAVC(app);
-SAVC(connect);
-SAVC(flashVer);
-SAVC(swfUrl);
-SAVC(pageUrl);
-SAVC(tcUrl);
-SAVC(capabilities);
-SAVC(audioCodecs);
-SAVC(videoCodecs);
-SAVC(objectEncoding);
-SAVC(_result);
-SAVC(createStream);
-SAVC(getStreamLength);
-SAVC(fmsVer);
-SAVC(mode);
-SAVC(level);
-SAVC(code);
-SAVC(description);
-// SAVC(secureToken);
-SAVC(onStatus);
-SAVC(publish);
-
-static const AVal av_NetStream_Authenticate_UsherToken =
+static constexpr AVal av_app = AVC("app");
+static constexpr AVal av_connect = AVC("connect");
+static constexpr AVal av_flashVer = AVC("flashVer");
+static constexpr AVal av_swfUrl = AVC("swfUrl");
+static constexpr AVal av_pageUrl = AVC("pageUrl");
+static constexpr AVal av_tcUrl = AVC("tcUrl");
+static constexpr AVal av_capabilities = AVC("capabilities");
+static constexpr AVal av_audioCodecs = AVC("audioCodecs");
+static constexpr AVal av_videoCodecs = AVC("videoCodecs");
+static constexpr AVal av_objectEncoding = AVC("objectEncoding");
+static constexpr AVal av_result = AVC("_result");
+static constexpr AVal av_createStream = AVC("createStream");
+static constexpr AVal av_deleteStream = AVC("deleteStream");
+static constexpr AVal av_setDataFrame = AVC("@setDataFrame");
+static constexpr AVal av_onMetaData = AVC("onMetaData");
+static constexpr AVal av_getStreamLength = AVC("getStreamLength");
+static constexpr AVal av_fmsVer = AVC("fmsVer");
+static constexpr AVal av_mode = AVC("mode");
+static constexpr AVal av_level = AVC("level");
+static constexpr AVal av_code = AVC("code");
+static constexpr AVal av_description = AVC("description");
+// static constexpr AVal av_secureToken = AVC("secureToken");
+static constexpr AVal av_onStatus = AVC("onStatus");
+static constexpr AVal av_publish = AVC("publish");
+static constexpr AVal av_NetStream_Authenticate_UsherToken =
     AVC("NetStream.Authenticate.UsherToken");
 
 #define STR2AVAL(av, str)                                                      \
@@ -50,6 +49,34 @@ static const AVal av_NetStream_Authenticate_UsherToken =
     av.av_val = str;                                                           \
     av.av_len = strlen(av.av_val);                                             \
   } while (0)
+
+enum RTMPVideoCodecID {
+  RTMP_VIDEOCODEC_H263 = 2,      // H.263 video
+  RTMP_VIDEOCODEC_SCREEN = 3,    // Screen sharing video
+  RTMP_VIDEOCODEC_VP6 = 4,       // On2 VP6 video
+  RTMP_VIDEOCODEC_VP6_ALPHA = 5, // On2 VP6 with alpha
+  RTMP_VIDEOCODEC_SCREEN2 = 6,   // Screen sharing video (version 2)
+  RTMP_VIDEOCODEC_H264 = 7,      // H.264 video
+  RTMP_VIDEOCODEC_HEVC = 12,     // H.265 video (non-standard)
+  RTMP_VIDEOCODEC_AV1 = 13       // AV1 video (non-standard)
+};
+
+enum RTMPAudioCodecID {
+  RTMP_AUDIOCODEC_MP3 = 2,  // MP3 audio
+  RTMP_AUDIOCODEC_AAC = 10, // AAC audio
+};
+
+enum RTMPVideoFrameType {
+  RTMP_VIDEOFRAME_KEYFRAME = 1,        // Key frame
+  RTMP_VIDEOFRAME_INTERFRAME = 2,      // Inter frame
+  RTMP_VIDEOFRAME_DISPOSABLEFRAME = 3, // Disposable inter frame
+  RTMP_VIDEOFRAME_SEQUENCEHEADER = 4   // AVC/H.264 sequence header
+};
+
+enum RTMPAudioFrameType {
+  RTMP_AUDIOFRAME_SEQUENCEHEADER = 0, // AAC sequence header
+  RTMP_AUDIOFRAME_RAWDATA = 1         // AAC raw data
+};
 
 RTMPServer::RTMPServer(int port /*= 1935*/, const char *address /*= "0.0.0.0"*/,
                        const char *cert /*= nullptr*/,
@@ -159,7 +186,7 @@ bool RTMPServer::startServer() {
 void RTMPServer::stopServer() {
   {
     std::lock_guard<std::mutex> lk(queueMutex);
-    clientQueue = std::queue<int>();
+    clientQueue = std::queue<ClientInfo>();
     isActive = false;
   }
   queueCondition.notify_all();
@@ -193,32 +220,41 @@ void RTMPServer::acceptConnections() {
     }
 
     /**
-     * Remove non-blocking flag from client socket in case client inherits it
-     * (seems to be a macOS thing).
+     * Remove non-blocking flag from client socket just in case the client
+     * inherits it (seems to be a macOS thing).
      */
     int flags = fcntl(clientSocketFd, F_GETFL, 0);
     if (flags >= 0) {
       fcntl(clientSocketFd, F_SETFL, flags & ~O_NONBLOCK);
     }
 
-    printf("RTMPServer: accepted connection from %s\n",
-           inet_ntoa(addr.sin_addr));
+    ClientInfo clientInfo;
+    clientInfo.socketFd = clientSocketFd;
 
-    handleNewConnection(clientSocketFd);
+    if (!inet_ntop(AF_INET, &addr.sin_addr, clientInfo.address,
+                   sizeof(clientInfo.address))) {
+      perror("RTMPServer: failed to get client address");
+      close(clientSocketFd);
+      continue;
+    }
+
+    printf("RTMPServer: %s: connected\n", clientInfo.address);
+
+    handleNewConnection(clientInfo);
   }
 }
 
-void RTMPServer::handleNewConnection(int clientSocketFd) {
+void RTMPServer::handleNewConnection(ClientInfo clientInfo) {
   {
     std::lock_guard<std::mutex> lk(queueMutex);
-    clientQueue.push({clientSocketFd});
+    clientQueue.push(clientInfo);
   }
   queueCondition.notify_one();
 }
 
 void RTMPServer::workerThreadFunc() {
   while (isActive) {
-    int clientSocketFd;
+    ClientInfo clientInfo;
 
     {
       std::unique_lock<std::mutex> lk(queueMutex);
@@ -228,15 +264,31 @@ void RTMPServer::workerThreadFunc() {
         break;
       }
 
-      clientSocketFd = clientQueue.front();
+      clientInfo = clientQueue.front();
       clientQueue.pop();
     }
 
-    handleClient(clientSocketFd);
+    handleClient(clientInfo);
   }
 }
 
-void RTMPServer::handleClient(int clientSocketFd) {
+RTMPServer::StreamInfo::~StreamInfo() {
+  if (codecContext) {
+    avcodec_free_context(&codecContext);
+  }
+}
+
+void RTMPServer::StreamInfo::reset() {
+  if (codecContext) {
+    avcodec_free_context(&codecContext);
+    codecContext = nullptr;
+  }
+  *this = StreamInfo();
+}
+
+void RTMPServer::handleClient(ClientInfo clientInfo) {
+  const auto &[clientSocketFd, clientAddress] = clientInfo;
+
   // Timeout for http requests
   struct timeval tv;
   memset(&tv, 0, sizeof(struct timeval));
@@ -246,11 +298,13 @@ void RTMPServer::handleClient(int clientSocketFd) {
   FD_ZERO(&fds);
   FD_SET(clientSocketFd, &fds);
 
-  int streamID = -1;
+  StreamInfo streamInfo;
 
   do {
     if (select(clientSocketFd + 1, &fds, nullptr, nullptr, &tv) <= 0) {
-      perror("RTMPServer: timeout waiting for client request");
+      fprintf(stderr,
+              "RTMPServer: %s: timeout waiting for client request: %s\n",
+              clientAddress, strerror(errno));
       break;
     }
 
@@ -259,19 +313,21 @@ void RTMPServer::handleClient(int clientSocketFd) {
       RTMP_Init(rtmp);
       rtmp->m_sb.sb_socket = clientSocketFd;
       if (sslContext && !RTMP_TLS_Accept(rtmp, sslContext)) {
-        fprintf(stderr, "RTMPServer: TLS handshake failed\n");
+        fprintf(stderr, "RTMPServer: %s: TLS handshake failed\n",
+                clientAddress);
         break;
       }
       if (!RTMP_Serve(rtmp)) {
-        fprintf(stderr, "RTMPServer: handshake failed\n");
+        fprintf(stderr, "RTMPServer: %s: handshake failed\n", clientAddress);
         break;
       }
+
       RTMPPacket packet = {0};
       while (RTMP_IsConnected(rtmp) && RTMP_ReadPacket(rtmp, &packet)) {
         if (!RTMPPacket_IsReady(&packet)) {
           continue;
         }
-        bool result = handlePacket(rtmp, &packet, &streamID);
+        bool result = handlePacket(rtmp, &packet, streamInfo, clientInfo);
 
         RTMPPacket_Free(&packet);
         if (!result) {
@@ -300,18 +356,18 @@ void RTMPServer::handleClient(int clientSocketFd) {
   } while (false);
 
   close(clientSocketFd);
+  printf("RTMPServer: %s: disconnected\n", clientAddress);
 }
 
-bool RTMPServer::handlePacket(RTMP *r, RTMPPacket *packet, int *streamID) {
+bool RTMPServer::handlePacket(RTMP *r, RTMPPacket *packet,
+                              StreamInfo &streamInfo,
+                              const ClientInfo &clientInfo) {
   RTMP_Log(RTMP_LOGDEBUG, "received packet type %02X, size %u bytes",
            packet->m_packetType, packet->m_nBodySize);
 
   switch (packet->m_packetType) {
   case RTMP_PACKET_TYPE_CHUNK_SIZE:
-    if (packet->m_nBodySize >= 4) {
-      r->m_inChunkSize = AMF_DecodeInt32(packet->m_body);
-    }
-    break;
+    return handleChangeChunkSize(r, packet);
   case RTMP_PACKET_TYPE_BYTES_READ_REPORT:
     break;
   case RTMP_PACKET_TYPE_CONTROL:
@@ -323,10 +379,7 @@ bool RTMPServer::handlePacket(RTMP *r, RTMPPacket *packet, int *streamID) {
   case RTMP_PACKET_TYPE_AUDIO:
     break;
   case RTMP_PACKET_TYPE_VIDEO:
-    printf("video packet, size %u bytes, not fully supported\n",
-           packet->m_nBodySize);
-    // TODO
-    break;
+    return handleVideoPacket(r, packet, streamInfo, clientInfo);
   case RTMP_PACKET_TYPE_FLEX_STREAM_SEND:
     break;
   case RTMP_PACKET_TYPE_FLEX_SHARED_OBJECT:
@@ -334,14 +387,14 @@ bool RTMPServer::handlePacket(RTMP *r, RTMPPacket *packet, int *streamID) {
   case RTMP_PACKET_TYPE_FLEX_MESSAGE:
     RTMP_Log(RTMP_LOGDEBUG, "flex message, size %u bytes, not fully supported",
              packet->m_nBodySize);
-    return handleInvoke(r, packet, 1, streamID);
+    return handleInvoke(r, packet, 1, streamInfo, clientInfo);
   case RTMP_PACKET_TYPE_INFO:
-    break;
+    return handleMetadata(r, packet, streamInfo, clientInfo);
   case RTMP_PACKET_TYPE_SHARED_OBJECT:
     break;
   case RTMP_PACKET_TYPE_INVOKE:
     RTMP_Log(RTMP_LOGDEBUG, "received: invoke %u bytes", packet->m_nBodySize);
-    return handleInvoke(r, packet, 0, streamID);
+    return handleInvoke(r, packet, 0, streamInfo, clientInfo);
   case RTMP_PACKET_TYPE_FLASH_VIDEO:
     break;
   default:
@@ -353,20 +406,32 @@ bool RTMPServer::handlePacket(RTMP *r, RTMPPacket *packet, int *streamID) {
   return true;
 }
 
-bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, unsigned int offset,
-                              int *streamID) {
+bool RTMPServer::handleChangeChunkSize(RTMP *r, RTMPPacket *packet) {
+  if (packet->m_nBodySize < 4) {
+    return false;
+  }
+  r->m_inChunkSize = AMF_DecodeInt32(packet->m_body);
+  return true;
+}
+
+bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
+                              StreamInfo &streamInfo,
+                              const ClientInfo &clientInfo) {
   const char *body = packet->m_body + offset;
-  unsigned int bodySize = packet->m_nBodySize - offset;
+  size_t bodySize = packet->m_nBodySize - offset;
 
   if (body[0] != 0x02) {
-    RTMP_Log(RTMP_LOGWARNING,
-             "sanity failed. no string method in invoke packet");
+    fprintf(
+        stderr,
+        "RTMPServer: %s: sanity failed. no string method in invoke packet\n",
+        clientInfo.address);
     return false;
   }
 
   AMFObject obj;
   if (AMF_Decode(&obj, body, bodySize, false) < 0) {
-    fprintf(stderr, "RTMPServer: error decoding invoke packet\n");
+    fprintf(stderr, "RTMPServer: %s: error decoding invoke packet\n",
+            clientInfo.address);
     return false;
   }
 
@@ -376,74 +441,227 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, unsigned int offset,
   double txn = AMFProp_GetNumber(AMF_GetProp(&obj, nullptr, 1));
   RTMP_Log(RTMP_LOGDEBUG, "client invoking <%s>", method.av_val);
 
-  if (AVMATCH(&method, &av_connect)) {
-    AMFObject cobj;
-    AVal pname, pval;
+  do {
+    if (AVMATCH(&method, &av_connect)) {
+      AMFObject cobj;
+      AVal pname, pval;
 
-    AMFProp_GetObject(AMF_GetProp(&obj, nullptr, 2), &cobj);
-    for (int i = 0; i < cobj.o_num; i++) {
-      pname = cobj.o_props[i].p_name;
-      pval.av_val = nullptr;
-      pval.av_len = 0;
-      if (cobj.o_props[i].p_type == AMF_STRING)
-        pval = cobj.o_props[i].p_vu.p_aval;
-      if (AVMATCH(&pname, &av_app)) {
-        r->Link.app = pval;
+      AMFProp_GetObject(AMF_GetProp(&obj, nullptr, 2), &cobj);
+      for (int i = 0; i < cobj.o_num; i++) {
+        pname = cobj.o_props[i].p_name;
         pval.av_val = nullptr;
-        if (!r->Link.app.av_val)
-          r->Link.app.av_val = "";
-      } else if (AVMATCH(&pname, &av_flashVer)) {
-        r->Link.flashVer = pval;
-        pval.av_val = nullptr;
-      } else if (AVMATCH(&pname, &av_swfUrl)) {
-        r->Link.swfUrl = pval;
-        pval.av_val = nullptr;
-      } else if (AVMATCH(&pname, &av_tcUrl)) {
-        r->Link.tcUrl = pval;
-        pval.av_val = nullptr;
-      } else if (AVMATCH(&pname, &av_pageUrl)) {
-        r->Link.pageUrl = pval;
-        pval.av_val = nullptr;
-      } else if (AVMATCH(&pname, &av_audioCodecs)) {
-        r->m_fAudioCodecs = cobj.o_props[i].p_vu.p_number;
-      } else if (AVMATCH(&pname, &av_videoCodecs)) {
-        r->m_fVideoCodecs = cobj.o_props[i].p_vu.p_number;
-      } else if (AVMATCH(&pname, &av_objectEncoding)) {
-        r->m_fEncoding = cobj.o_props[i].p_vu.p_number;
+        pval.av_len = 0;
+        if (cobj.o_props[i].p_type == AMF_STRING)
+          pval = cobj.o_props[i].p_vu.p_aval;
+        if (AVMATCH(&pname, &av_app)) {
+          r->Link.app = pval;
+          pval.av_val = nullptr;
+          if (!r->Link.app.av_val)
+            r->Link.app.av_val = "";
+        } else if (AVMATCH(&pname, &av_flashVer)) {
+          r->Link.flashVer = pval;
+          pval.av_val = nullptr;
+        } else if (AVMATCH(&pname, &av_swfUrl)) {
+          r->Link.swfUrl = pval;
+          pval.av_val = nullptr;
+        } else if (AVMATCH(&pname, &av_tcUrl)) {
+          r->Link.tcUrl = pval;
+          pval.av_val = nullptr;
+        } else if (AVMATCH(&pname, &av_pageUrl)) {
+          r->Link.pageUrl = pval;
+          pval.av_val = nullptr;
+        } else if (AVMATCH(&pname, &av_audioCodecs)) {
+          r->m_fAudioCodecs = cobj.o_props[i].p_vu.p_number;
+        } else if (AVMATCH(&pname, &av_videoCodecs)) {
+          r->m_fVideoCodecs = cobj.o_props[i].p_vu.p_number;
+        } else if (AVMATCH(&pname, &av_objectEncoding)) {
+          r->m_fEncoding = cobj.o_props[i].p_vu.p_number;
+        }
+      }
+      if (obj.o_num > 3) {
+        int i = obj.o_num - 3;
+        r->Link.extras.o_num = i;
+        r->Link.extras.o_props = new AMFObjectProperty[i];
+        memcpy(r->Link.extras.o_props, obj.o_props + 3,
+               i * sizeof(AMFObjectProperty));
+        obj.o_num = 3;
+      }
+      sendConnectResult(r, txn);
+    } else if (AVMATCH(&method, &av_createStream)) {
+      if (streamInfo.streamID < 0) {
+        std::lock_guard<std::mutex> lk(streamMutex);
+        streamInfo.reset();
+        streamInfo.streamID = ++lastStreamID;
+      } else {
+        fprintf(stderr,
+                "RTMPServer: %s: received createStream while stream already "
+                "exists, ignoring\n",
+                clientInfo.address);
+      }
+      printf("RTMPServer: %s: created stream %d\n", clientInfo.address,
+             streamInfo.streamID);
+      sendResultNumber(r, txn, streamInfo.streamID);
+    } else if (AVMATCH(&method, &av_deleteStream)) {
+      if (streamInfo.streamID < 0) {
+        fprintf(stderr,
+                "RTMPServer: %s: received deleteStream before "
+                "createStream, ignoring\n",
+                clientInfo.address);
+      }
+      printf("RTMPServer: %s: deleted stream %d\n", clientInfo.address,
+             streamInfo.streamID);
+      streamInfo.reset();
+    } else if (AVMATCH(&method, &av_getStreamLength)) {
+      sendResultNumber(r, txn, 10.0);
+    } else if (AVMATCH(&method, &av_NetStream_Authenticate_UsherToken)) {
+      AVal av_dquote, av_escdquote;
+      STR2AVAL(av_dquote, "\"");
+      STR2AVAL(av_escdquote, "\\\"");
+
+      AVal usherToken;
+      AMFProp_GetString(AMF_GetProp(&obj, nullptr, 3), &usherToken);
+      avReplace(&usherToken, &av_dquote, &av_escdquote);
+      r->Link.usherToken = usherToken;
+    } else if (AVMATCH(&method, &av_publish)) {
+      if (streamInfo.streamID < 0) {
+        fprintf(
+            stderr,
+            "RTMPServer: %s: received publish before createStream, ignoring\n",
+            clientInfo.address);
+        break;
+      }
+      sendPublish(r, streamInfo.streamID);
+    }
+  } while (false);
+  AMF_Reset(&obj);
+  return true;
+}
+
+bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
+                                StreamInfo &streamInfo,
+                                const ClientInfo &clientInfo) {
+  const char *body = packet->m_body;
+  size_t bodySize = packet->m_nBodySize;
+
+  AMFObject obj;
+  if (AMF_Decode(&obj, body, bodySize, false) < 0) {
+    fprintf(stderr, "RTMPServer: %s: error decoding metadata packet\n",
+            clientInfo.address);
+    return false;
+  }
+
+  AMF_Dump(&obj);
+  AVal metastring;
+  AMFProp_GetString(AMF_GetProp(&obj, nullptr, 0), &metastring);
+
+  do {
+    bool setFrameData = false;
+
+    if (AVMATCH(&metastring, &av_setDataFrame)) {
+      if (streamInfo.streamID < 0) {
+        fprintf(stderr,
+                "RTMPServer: %s: received @setDataFrame before createStream, "
+                "ignoring\n",
+                clientInfo.address);
+        break;
+      }
+
+      setFrameData = true;
+      AMFProp_GetString(AMF_GetProp(&obj, nullptr, 1), &metastring);
+    }
+
+    if (AVMATCH(&metastring, &av_onMetaData)) {
+      if (setFrameData) {
+        AMFObjectProperty prop;
+        AVal av;
+
+        bool hasWidth = false, hasHeight = false, hasVideoDataRate = false,
+             hasFrameRate = false, hasVideoCodecID = false;
+
+        STR2AVAL(av, "width");
+        if (RTMP_FindFirstMatchingProperty(&obj, &av, &prop)) {
+          streamInfo.width = static_cast<size_t>(prop.p_vu.p_number);
+          hasWidth = true;
+        }
+        STR2AVAL(av, "height");
+        if (RTMP_FindFirstMatchingProperty(&obj, &av, &prop)) {
+          streamInfo.height = static_cast<size_t>(prop.p_vu.p_number);
+          hasHeight = true;
+        }
+        STR2AVAL(av, "videodatarate");
+        if (RTMP_FindFirstMatchingProperty(&obj, &av, &prop)) {
+          streamInfo.videoDataRate = prop.p_vu.p_number;
+          hasVideoDataRate = true;
+        }
+        STR2AVAL(av, "framerate");
+        if (RTMP_FindFirstMatchingProperty(&obj, &av, &prop)) {
+          streamInfo.frameRate = prop.p_vu.p_number;
+          hasFrameRate = true;
+        }
+        STR2AVAL(av, "videocodecid");
+        if (RTMP_FindFirstMatchingProperty(&obj, &av, &prop)) {
+          int codecID = static_cast<int>(prop.p_vu.p_number);
+          AVCodecID avCodecID = AV_CODEC_ID_NONE;
+          switch (codecID) {
+          case RTMP_VIDEOCODEC_H263:
+            avCodecID = AV_CODEC_ID_H263;
+            break;
+          case RTMP_VIDEOCODEC_VP6:
+            avCodecID = AV_CODEC_ID_VP6F;
+            break;
+          case RTMP_VIDEOCODEC_VP6_ALPHA:
+            avCodecID = AV_CODEC_ID_VP6A;
+            break;
+          case RTMP_VIDEOCODEC_H264:
+            avCodecID = AV_CODEC_ID_H264;
+            break;
+          case RTMP_VIDEOCODEC_HEVC:
+            avCodecID = AV_CODEC_ID_HEVC;
+            break;
+          case RTMP_VIDEOCODEC_AV1:
+            avCodecID = AV_CODEC_ID_AV1;
+            break;
+          }
+          if (avCodecID == AV_CODEC_ID_NONE) {
+            fprintf(stderr,
+                    "RTMPServer: %s: unknown/unsupported video codec ID %d\n",
+                    clientInfo.address, codecID);
+          } else {
+            streamInfo.codec = avcodec_find_decoder(avCodecID);
+            streamInfo.codecContext = avcodec_alloc_context3(streamInfo.codec);
+            hasVideoCodecID = true;
+          }
+        }
+
+        if (hasWidth && hasHeight && hasVideoDataRate && hasFrameRate &&
+            hasVideoCodecID) {
+          streamInfo.hasReceivedMetadata = true;
+          printf("RTMPServer: %s: stream %d metadata: %ldx%ld, data rate %.2f "
+                 "kbps, frame rate %.2f fps, codec %s\n",
+                 clientInfo.address, streamInfo.streamID, streamInfo.width,
+                 streamInfo.height, streamInfo.videoDataRate,
+                 streamInfo.frameRate, streamInfo.codec->name);
+        } else {
+          fprintf(stderr, "RTMPServer: %s: incomplete metadata for stream %d\n",
+                  clientInfo.address, streamInfo.streamID);
+          break;
+        }
       }
     }
-    if (obj.o_num > 3) {
-      int i = obj.o_num - 3;
-      r->Link.extras.o_num = i;
-      r->Link.extras.o_props = new AMFObjectProperty[i];
-      memcpy(r->Link.extras.o_props, obj.o_props + 3,
-             i * sizeof(AMFObjectProperty));
-      obj.o_num = 3;
-    }
-    sendConnectResult(r, txn);
-  } else if (AVMATCH(&method, &av_createStream)) {
-    {
-      std::lock_guard<std::mutex> lk(streamMutex);
-      *streamID = ++lastStreamID;
-    }
-    sendResultNumber(r, txn, *streamID);
-  } else if (AVMATCH(&method, &av_getStreamLength)) {
-    sendResultNumber(r, txn, 10.0);
-  } else if (AVMATCH(&method, &av_NetStream_Authenticate_UsherToken)) {
-    AVal av_dquote, av_escdquote;
-    STR2AVAL(av_dquote, "\"");
-    STR2AVAL(av_escdquote, "\\\"");
 
-    AVal usherToken;
-    AMFProp_GetString(AMF_GetProp(&obj, nullptr, 3), &usherToken);
-    avReplace(&usherToken, &av_dquote, &av_escdquote);
-    r->Link.usherToken = usherToken;
-  } else if (AVMATCH(&method, &av_publish)) {
-    if (*streamID != -1) {
-      sendPublish(r, *streamID);
-    }
-  }
+    AMF_Reset(&obj);
+    return true;
+
+  } while (false);
+
   AMF_Reset(&obj);
+  return false;
+}
+
+bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
+                                   StreamInfo &streamInfo,
+                                   const ClientInfo &clientInfo) {
+  // TODO: Decode
   return true;
 }
 
@@ -452,8 +670,8 @@ bool RTMPServer::sendConnectResult(RTMP *r, double txn) {
   char pbuf[384], *pend = pbuf + sizeof(pbuf);
   AVal av;
 
-  packet.m_nChannel = 0x03; // control channel (invoke)
-  packet.m_headerType = 1;  /* RTMP_PACKET_SIZE_MEDIUM; */
+  packet.m_nChannel = 0x03;
+  packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
   packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
@@ -461,7 +679,7 @@ bool RTMPServer::sendConnectResult(RTMP *r, double txn) {
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
 
   char *enc = packet.m_body;
-  enc = AMF_EncodeString(enc, pend, &av__result);
+  enc = AMF_EncodeString(enc, pend, &av_result);
   enc = AMF_EncodeNumber(enc, pend, txn);
   *enc++ = AMF_OBJECT;
 
@@ -510,8 +728,8 @@ bool RTMPServer::sendResultNumber(RTMP *r, double txn, double id) {
   RTMPPacket packet;
   char pbuf[256], *pend = pbuf + sizeof(pbuf);
 
-  packet.m_nChannel = 0x03; // control channel (invoke)
-  packet.m_headerType = 1;  /* RTMP_PACKET_SIZE_MEDIUM; */
+  packet.m_nChannel = 0x03;
+  packet.m_headerType = RTMP_PACKET_SIZE_MEDIUM;
   packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = 0;
@@ -519,7 +737,7 @@ bool RTMPServer::sendResultNumber(RTMP *r, double txn, double id) {
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
 
   char *enc = packet.m_body;
-  enc = AMF_EncodeString(enc, pend, &av__result);
+  enc = AMF_EncodeString(enc, pend, &av_result);
   enc = AMF_EncodeNumber(enc, pend, txn);
   *enc++ = AMF_NULL;
   enc = AMF_EncodeNumber(enc, pend, id);
@@ -535,7 +753,7 @@ bool RTMPServer::sendPublish(RTMP *r, int streamID) {
   AVal av;
 
   packet.m_nChannel = 0x04;
-  packet.m_headerType = 0;
+  packet.m_headerType = RTMP_PACKET_SIZE_LARGE;
   packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
   packet.m_nInfoField2 = streamID;
