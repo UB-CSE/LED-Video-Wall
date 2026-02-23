@@ -2,7 +2,15 @@
 #define RTMP_H
 
 #include <librtmp/rtmp.h>
+#include <opencv2/core.hpp>
 #include <thread>
+#include <unordered_set>
+#include <string>
+#include <optional>
+#include <queue>
+#include <vector>
+#include <mutex>
+#include <condition_variable>
 
 class RTMPServer {
 public:
@@ -11,9 +19,13 @@ public:
 
   ~RTMPServer();
 
-  bool isRunning() const { return init_successful && state != State::STOPPED; }
+  bool isRunning() const { return isActive; }
 
-  // TODO: Method to get frames from stream
+#if 0 // Implement these soon
+  std::unordered_set<std::string> getActiveStreamNames() const;
+  bool isStreamActive(const std::string &stream_name) const;
+  std::optional<cv::Mat> getStreamFrame(const std::string &stream_name) const;
+#endif
 
 private:
   // initialization
@@ -23,14 +35,16 @@ private:
 
   // serving
 
-  void serverThread();
-  void serve(int client_sockfd);
-  bool servePacket(RTMP *rtmp, RTMPPacket *packet);
-  bool serveInvoke(RTMP *rtmp, RTMPPacket *packet, unsigned int offset);
+  void acceptConnections();
+  void handleNewConnection(int clientSocketFd);
+
+  void handleClient(int clientSocketFd);
+  bool handlePacket(RTMP *rtmp, RTMPPacket *packet, int* streamID);
+  bool handleInvoke(RTMP *rtmp, RTMPPacket *packet, unsigned int offset, int* streamID);
 
   bool sendConnectResult(RTMP *rtmp, double txn);
   bool sendResultNumber(RTMP *rtmp, double txn, double id);
-  bool sendPublish(RTMP *rtmp);
+  bool sendPublish(RTMP *rtmp, int streamID);
 
   // cleanup
 
@@ -41,17 +55,26 @@ private:
   static void avReplace(AVal *src, const AVal *orig, const AVal *repl);
 
 private:
-  bool init_successful = false;
+  bool wasInitSuccessful = false;
+  bool isActive = false;
 
   int port;
   const char *address;
-  void *ssl_ctx = nullptr;
+  void *sslContext = nullptr;
 
-  enum class State { ACCEPTING, RUNNING, STOPPING, STOPPED } state;
-  std::thread server_thread;
+  int socketFd = 0;
 
-  int sockfd = 0;
-  int stream_id;
+  std::thread serverThread;
+  std::vector<std::thread> workerThreads;
+  void workerThreadFunc();
+
+  std::queue<int> clientQueue;
+
+  std::mutex queueMutex;
+  std::condition_variable queueCondition;
+
+  int lastStreamID = 0;
+  std::mutex streamMutex;
 };
 
 #endif

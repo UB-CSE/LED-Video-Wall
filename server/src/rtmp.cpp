@@ -3,6 +3,7 @@
 #include <librtmp/log.h>
 
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -14,6 +15,8 @@
 
 #include <cstdlib>
 #include <string_view>
+
+#define NUM_WORKER_THREADS 5
 
 #define SAVC(x) static const AVal av_##x = AVC(#x)
 
@@ -55,30 +58,30 @@ RTMPServer::RTMPServer(int port /*= 1935*/, const char *address /*= "0.0.0.0"*/,
   initRTMPLogLevel();
 
   if (cert && key) {
-    ssl_ctx = RTMP_TLS_AllocServerContext(cert, key);
+    sslContext = RTMP_TLS_AllocServerContext(cert, key);
   }
 
-  init_successful = startServer();
+  wasInitSuccessful = startServer();
 
-  if (!init_successful) {
+  if (!wasInitSuccessful) {
     fprintf(stderr, "RTMPServer: failed to start server\n");
   }
 }
 
 RTMPServer::~RTMPServer() {
-  if (init_successful) {
+  if (wasInitSuccessful) {
     stopServer();
   }
 
-  if (ssl_ctx) {
-    RTMP_TLS_FreeServerContext(ssl_ctx);
+  if (sslContext) {
+    RTMP_TLS_FreeServerContext(sslContext);
   }
 }
 
 void RTMPServer::initRTMPLogLevel() {
-  const char *log_level_env = getenv("RTMP_DEBUG_LEVEL");
-  if (log_level_env) {
-    const std::string_view log_level(log_level_env);
+  const char *logLevelEnv = getenv("RTMP_DEBUG_LEVEL");
+  if (logLevelEnv) {
+    const std::string_view log_level(logLevelEnv);
     using namespace std::string_view_literals;
     if (log_level == "CRIT"sv) {
       RTMP_debuglevel = RTMP_LOGCRIT;
@@ -99,65 +102,132 @@ void RTMPServer::initRTMPLogLevel() {
 }
 
 bool RTMPServer::startServer() {
-  sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-  if (sockfd < 0) {
+  socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+  if (socketFd < 0) {
     perror("RTMPServer: failed to create socket");
     return false;
   }
 
-  int tmp = 1;
-  setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&tmp),
-             sizeof(tmp));
+  do {
+    int tmp = 1;
+    setsockopt(socketFd, SOL_SOCKET, SO_REUSEADDR,
+               reinterpret_cast<char *>(&tmp), sizeof(tmp));
 
-  struct sockaddr_in addr;
-  addr.sin_family = AF_INET;
-  addr.sin_addr.s_addr = inet_addr(address);
-  addr.sin_port = htons(port);
+    int flags = fcntl(socketFd, F_GETFL, 0);
+    if (flags < 0) {
+      perror("RTMPServer: failed to get socket flags");
+      break;
+    }
+    if (fcntl(socketFd, F_SETFL, flags | O_NONBLOCK) < 0) {
+      perror("RTMPServer: failed to set socket to non-blocking");
+      break;
+    }
 
-  if (bind(sockfd, reinterpret_cast<struct sockaddr *>(&addr),
-           sizeof(struct sockaddr_in)) < 0) {
-    perror("RTMPServer: failed to bind socket");
-    return false;
-  }
+    struct sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = inet_addr(address);
+    addr.sin_port = htons(port);
+    memset(addr.sin_zero, 0, sizeof(addr.sin_zero));
 
-  if (listen(sockfd, 10) < 0) {
-    perror("RTMPServer: failed to listen on socket");
-    close(sockfd);
-    return false;
-  }
+    if (bind(socketFd, reinterpret_cast<struct sockaddr *>(&addr),
+             sizeof(struct sockaddr_in)) < 0) {
+      perror("RTMPServer: failed to bind socket");
+      break;
+    }
 
-  server_thread = std::thread(std::bind(&RTMPServer::serverThread, this));
-  return true;
+    if (listen(socketFd, 10) < 0) {
+      perror("RTMPServer: failed to listen on socket");
+      break;
+    }
+
+    serverThread = std::thread(std::bind(&RTMPServer::acceptConnections, this));
+
+    for (size_t i = 0; i < NUM_WORKER_THREADS; i++) {
+      workerThreads.emplace_back(
+          std::bind(&RTMPServer::workerThreadFunc, this));
+    }
+
+    return true;
+
+  } while (false);
+
+  // Failure
+  close(socketFd);
+  return false;
 }
 
-void RTMPServer::serverThread() {
-  state = State::ACCEPTING;
+void RTMPServer::stopServer() {
+  {
+    std::lock_guard<std::mutex> lk(queueMutex);
+    clientQueue = std::queue<int>();
+    isActive = false;
+  }
+  queueCondition.notify_all();
 
-  while (state == State::ACCEPTING) {
+  for (std::thread &worker : workerThreads) {
+    worker.join();
+  }
+  serverThread.join();
+
+  if (close(socketFd) < 0) {
+    perror("RTMPServer: failed to close socket");
+  }
+}
+
+void RTMPServer::acceptConnections() {
+  isActive = true;
+
+  while (isActive) {
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(struct sockaddr_in);
-    int client_sockfd =
-        accept(sockfd, reinterpret_cast<struct sockaddr *>(&addr), &addrlen);
+    int clientSocketFd =
+        accept(socketFd, reinterpret_cast<struct sockaddr *>(&addr), &addrlen);
 
-    if (client_sockfd > 0) {
-      printf("RTMPServer: accepted connection from %s\n",
-             inet_ntoa(addr.sin_addr));
-
-      serve(client_sockfd);
-
-    } else {
-      perror("RTMPServer: failed to accept connection");
+    if (clientSocketFd < 0) {
+      if (errno == EAGAIN || errno == EWOULDBLOCK) {
+        // No incoming connection.
+      } else {
+        perror("RTMPServer: failed to accept connection");
+      }
+      continue;
     }
+
+    printf("RTMPServer: accepted connection from %s\n",
+           inet_ntoa(addr.sin_addr));
+
+    handleNewConnection(clientSocketFd);
   }
-  state = State::STOPPED;
 }
 
-void RTMPServer::serve(int client_sockfd) {
-  state = State::RUNNING;
+void RTMPServer::handleNewConnection(int clientSocketFd) {
+  {
+    std::lock_guard<std::mutex> lk(queueMutex);
+    clientQueue.push({clientSocketFd});
+  }
+  queueCondition.notify_one();
+}
 
-  RTMP *rtmp = RTMP_Alloc();
-  RTMPPacket packet = {0};
+void RTMPServer::workerThreadFunc() {
+  while (isActive) {
+    int clientSocketFd;
 
+    {
+      std::unique_lock<std::mutex> lk(queueMutex);
+      queueCondition.wait(lk,
+                          [this] { return !isActive || !clientQueue.empty(); });
+      if (!isActive) {
+        break;
+      }
+
+      clientSocketFd = clientQueue.front();
+      clientQueue.pop();
+    }
+
+    handleClient(clientSocketFd);
+  }
+}
+
+void RTMPServer::handleClient(int clientSocketFd) {
   // Timeout for http requests
   struct timeval tv;
   memset(&tv, 0, sizeof(struct timeval));
@@ -165,58 +235,65 @@ void RTMPServer::serve(int client_sockfd) {
 
   fd_set fds;
   FD_ZERO(&fds);
-  FD_SET(client_sockfd, &fds);
+  FD_SET(clientSocketFd, &fds);
 
-  if (select(client_sockfd + 1, &fds, NULL, NULL, &tv) <= 0) {
-    perror("RTMPServer: timeout waiting for client request");
-    goto quit;
-  } else {
-    RTMP_Init(rtmp);
-    rtmp->m_sb.sb_socket = client_sockfd;
-    if (ssl_ctx && !RTMP_TLS_Accept(rtmp, ssl_ctx)) {
-      fprintf(stderr, "RTMPServer: TLS handshake failed\n");
-      goto cleanup;
-    }
-    if (!RTMP_Serve(rtmp)) {
-      fprintf(stderr, "RTMPServer: handshake failed\n");
-      goto cleanup;
-    }
-  }
-  while (RTMP_IsConnected(rtmp) && RTMP_ReadPacket(rtmp, &packet)) {
-    if (!RTMPPacket_IsReady(&packet)) {
-      continue;
-    }
-    servePacket(rtmp, &packet);
-    RTMPPacket_Free(&packet);
-  }
+  int streamID = -1;
 
-cleanup:
-  RTMP_Close(rtmp);
-  /* Should probably be done by RTMP_Close() ... */
-  rtmp->Link.playpath.av_val = NULL;
-  rtmp->Link.tcUrl.av_val = NULL;
-  rtmp->Link.swfUrl.av_val = NULL;
-  rtmp->Link.pageUrl.av_val = NULL;
-  rtmp->Link.app.av_val = NULL;
-  rtmp->Link.flashVer.av_val = NULL;
-  if (rtmp->Link.extras.o_num > 0) {
-    delete[] rtmp->Link.extras.o_props;
-    rtmp->Link.extras.o_num = 0;
-  }
-  if (rtmp->Link.usherToken.av_val) {
-    delete rtmp->Link.usherToken.av_val;
-    rtmp->Link.usherToken.av_val = NULL;
-  }
-  RTMP_Free(rtmp);
+  do {
+    if (select(clientSocketFd + 1, &fds, nullptr, nullptr, &tv) <= 0) {
+      perror("RTMPServer: timeout waiting for client request");
+      break;
+    }
 
-quit:
-  if (state == State::RUNNING)
-    state = State::ACCEPTING;
+    RTMP *rtmp = RTMP_Alloc();
+    do {
+      RTMP_Init(rtmp);
+      rtmp->m_sb.sb_socket = clientSocketFd;
+      if (sslContext && !RTMP_TLS_Accept(rtmp, sslContext)) {
+        fprintf(stderr, "RTMPServer: TLS handshake failed\n");
+        break;
+      }
+      if (!RTMP_Serve(rtmp)) {
+        fprintf(stderr, "RTMPServer: handshake failed\n");
+        break;
+      }
+      RTMPPacket packet = {0};
+      while (RTMP_IsConnected(rtmp) && RTMP_ReadPacket(rtmp, &packet)) {
+        if (!RTMPPacket_IsReady(&packet)) {
+          continue;
+        }
+        bool result = handlePacket(rtmp, &packet, &streamID);
+
+        RTMPPacket_Free(&packet);
+        if (!result) {
+          break;
+        }
+      }
+    } while (false);
+
+    RTMP_Close(rtmp);
+    // Should probably be done by RTMP_Close() ...
+    rtmp->Link.playpath.av_val = nullptr;
+    rtmp->Link.tcUrl.av_val = nullptr;
+    rtmp->Link.swfUrl.av_val = nullptr;
+    rtmp->Link.pageUrl.av_val = nullptr;
+    rtmp->Link.app.av_val = nullptr;
+    rtmp->Link.flashVer.av_val = nullptr;
+    if (rtmp->Link.extras.o_num > 0) {
+      delete[] rtmp->Link.extras.o_props;
+      rtmp->Link.extras.o_num = 0;
+    }
+    if (rtmp->Link.usherToken.av_val) {
+      delete rtmp->Link.usherToken.av_val;
+      rtmp->Link.usherToken.av_val = nullptr;
+    }
+    RTMP_Free(rtmp);
+  } while (false);
+
+  close(clientSocketFd);
 }
 
-bool RTMPServer::servePacket(RTMP *r, RTMPPacket *packet) {
-  bool result = true;
-
+bool RTMPServer::handlePacket(RTMP *r, RTMPPacket *packet, int *streamID) {
   RTMP_Log(RTMP_LOGDEBUG, "received packet type %02X, size %u bytes",
            packet->m_packetType, packet->m_nBodySize);
 
@@ -248,22 +325,14 @@ bool RTMPServer::servePacket(RTMP *r, RTMPPacket *packet) {
   case RTMP_PACKET_TYPE_FLEX_MESSAGE:
     RTMP_Log(RTMP_LOGDEBUG, "flex message, size %u bytes, not fully supported",
              packet->m_nBodySize);
-
-    if (!serveInvoke(r, packet, 1)) {
-      RTMP_Close(r);
-    }
-    break;
+    return handleInvoke(r, packet, 1, streamID);
   case RTMP_PACKET_TYPE_INFO:
     break;
   case RTMP_PACKET_TYPE_SHARED_OBJECT:
     break;
   case RTMP_PACKET_TYPE_INVOKE:
     RTMP_Log(RTMP_LOGDEBUG, "received: invoke %u bytes", packet->m_nBodySize);
-
-    if (!serveInvoke(r, packet, 0)) {
-      RTMP_Close(r);
-    }
-    break;
+    return handleInvoke(r, packet, 0, streamID);
   case RTMP_PACKET_TYPE_FLASH_VIDEO:
     break;
   default:
@@ -272,12 +341,13 @@ bool RTMPServer::servePacket(RTMP *r, RTMPPacket *packet) {
     break;
   }
 
-  return result;
+  return true;
 }
 
-bool RTMPServer::serveInvoke(RTMP *r, RTMPPacket *packet, unsigned int offset) {
+bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, unsigned int offset,
+                              int *streamID) {
   const char *body = packet->m_body + offset;
-  unsigned int body_size = packet->m_nBodySize - offset;
+  unsigned int bodySize = packet->m_nBodySize - offset;
 
   if (body[0] != 0x02) {
     RTMP_Log(RTMP_LOGWARNING,
@@ -286,45 +356,45 @@ bool RTMPServer::serveInvoke(RTMP *r, RTMPPacket *packet, unsigned int offset) {
   }
 
   AMFObject obj;
-  if (AMF_Decode(&obj, body, body_size, false) < 0) {
+  if (AMF_Decode(&obj, body, bodySize, false) < 0) {
     fprintf(stderr, "RTMPServer: error decoding invoke packet\n");
     return false;
   }
 
   AMF_Dump(&obj);
   AVal method;
-  AMFProp_GetString(AMF_GetProp(&obj, NULL, 0), &method);
-  double txn = AMFProp_GetNumber(AMF_GetProp(&obj, NULL, 1));
+  AMFProp_GetString(AMF_GetProp(&obj, nullptr, 0), &method);
+  double txn = AMFProp_GetNumber(AMF_GetProp(&obj, nullptr, 1));
   RTMP_Log(RTMP_LOGDEBUG, "client invoking <%s>", method.av_val);
 
   if (AVMATCH(&method, &av_connect)) {
     AMFObject cobj;
     AVal pname, pval;
 
-    AMFProp_GetObject(AMF_GetProp(&obj, NULL, 2), &cobj);
+    AMFProp_GetObject(AMF_GetProp(&obj, nullptr, 2), &cobj);
     for (int i = 0; i < cobj.o_num; i++) {
       pname = cobj.o_props[i].p_name;
-      pval.av_val = NULL;
+      pval.av_val = nullptr;
       pval.av_len = 0;
       if (cobj.o_props[i].p_type == AMF_STRING)
         pval = cobj.o_props[i].p_vu.p_aval;
       if (AVMATCH(&pname, &av_app)) {
         r->Link.app = pval;
-        pval.av_val = NULL;
+        pval.av_val = nullptr;
         if (!r->Link.app.av_val)
           r->Link.app.av_val = "";
       } else if (AVMATCH(&pname, &av_flashVer)) {
         r->Link.flashVer = pval;
-        pval.av_val = NULL;
+        pval.av_val = nullptr;
       } else if (AVMATCH(&pname, &av_swfUrl)) {
         r->Link.swfUrl = pval;
-        pval.av_val = NULL;
+        pval.av_val = nullptr;
       } else if (AVMATCH(&pname, &av_tcUrl)) {
         r->Link.tcUrl = pval;
-        pval.av_val = NULL;
+        pval.av_val = nullptr;
       } else if (AVMATCH(&pname, &av_pageUrl)) {
         r->Link.pageUrl = pval;
-        pval.av_val = NULL;
+        pval.av_val = nullptr;
       } else if (AVMATCH(&pname, &av_audioCodecs)) {
         r->m_fAudioCodecs = cobj.o_props[i].p_vu.p_number;
       } else if (AVMATCH(&pname, &av_videoCodecs)) {
@@ -343,21 +413,26 @@ bool RTMPServer::serveInvoke(RTMP *r, RTMPPacket *packet, unsigned int offset) {
     }
     sendConnectResult(r, txn);
   } else if (AVMATCH(&method, &av_createStream)) {
-    sendResultNumber(r, txn, ++stream_id);
+    {
+      std::lock_guard<std::mutex> lk(streamMutex);
+      *streamID = ++lastStreamID;
+    }
+    sendResultNumber(r, txn, *streamID);
   } else if (AVMATCH(&method, &av_getStreamLength)) {
     sendResultNumber(r, txn, 10.0);
   } else if (AVMATCH(&method, &av_NetStream_Authenticate_UsherToken)) {
-
     AVal av_dquote, av_escdquote;
     STR2AVAL(av_dquote, "\"");
     STR2AVAL(av_escdquote, "\\\"");
 
-    AVal usher_token;
-    AMFProp_GetString(AMF_GetProp(&obj, NULL, 3), &usher_token);
-    avReplace(&usher_token, &av_dquote, &av_escdquote);
-    r->Link.usherToken = usher_token;
+    AVal usherToken;
+    AMFProp_GetString(AMF_GetProp(&obj, nullptr, 3), &usherToken);
+    avReplace(&usherToken, &av_dquote, &av_escdquote);
+    r->Link.usherToken = usherToken;
   } else if (AVMATCH(&method, &av_publish)) {
-    sendPublish(r);
+    if (*streamID != -1) {
+      sendPublish(r, *streamID);
+    }
   }
   AMF_Reset(&obj);
   return true;
@@ -445,7 +520,7 @@ bool RTMPServer::sendResultNumber(RTMP *r, double txn, double id) {
   return RTMP_SendPacket(r, &packet, false);
 }
 
-bool RTMPServer::sendPublish(RTMP *r) {
+bool RTMPServer::sendPublish(RTMP *r, int streamID) {
   RTMPPacket packet;
   char pbuf[512], *pend = pbuf + sizeof(pbuf);
   AVal av;
@@ -454,18 +529,16 @@ bool RTMPServer::sendPublish(RTMP *r) {
   packet.m_headerType = 0;
   packet.m_packetType = RTMP_PACKET_TYPE_INVOKE;
   packet.m_nTimeStamp = 0;
-  packet.m_nInfoField2 = stream_id;
+  packet.m_nInfoField2 = streamID;
   packet.m_hasAbsTimestamp = 0;
   packet.m_body = pbuf + RTMP_MAX_HEADER_SIZE;
 
   char *enc = packet.m_body;
   enc = AMF_EncodeString(enc, pend, &av_onStatus);
   enc = AMF_EncodeNumber(enc, pend, 0);
-
   *enc++ = AMF_NULL;
 
   *enc++ = AMF_OBJECT;
-
   STR2AVAL(av, "status");
   enc = AMF_EncodeNamedString(enc, pend, &av_level, &av);
   STR2AVAL(av, "NetStream.Publish.Start");
@@ -480,33 +553,12 @@ bool RTMPServer::sendPublish(RTMP *r) {
   return RTMP_SendPacket(r, &packet, false);
 }
 
-void RTMPServer::stopServer() {
-  if (state != State::STOPPED) {
-    if (state == State::RUNNING) {
-      state = State::STOPPING;
-
-      // wait for streaming threads to exit
-      while (state != State::STOPPED)
-        usleep(100000);
-
-      server_thread.join();
-    }
-
-    if (close(sockfd) < 0) {
-      perror("RTMPServer: failed to close socket");
-    }
-
-    state = State::STOPPED;
-  }
-}
-
 void RTMPServer::avReplace(AVal *src, const AVal *orig, const AVal *repl) {
   char *srcbeg = src->av_val;
   char *srcend = src->av_val + src->av_len;
   int n = 0;
 
-  /* count occurrences of orig in src */
-  char* sptr = src->av_val;
+  char *sptr = src->av_val;
   while (sptr < srcend && (sptr = strstr(sptr, orig->av_val))) {
     n++;
     sptr += orig->av_len;
@@ -514,10 +566,10 @@ void RTMPServer::avReplace(AVal *src, const AVal *orig, const AVal *repl) {
   if (!n)
     return;
 
-  char* dest = new char[src->av_len + 1 + (repl->av_len - orig->av_len) * n];
+  char *dest = new char[src->av_len + 1 + (repl->av_len - orig->av_len) * n];
 
   sptr = src->av_val;
-  char* dptr = dest;
+  char *dptr = dest;
   while (sptr < srcend && (sptr = strstr(sptr, orig->av_val))) {
     n = sptr - srcbeg;
     memcpy(dptr, srcbeg, n);
