@@ -192,6 +192,15 @@ void RTMPServer::acceptConnections() {
       continue;
     }
 
+    /**
+     * Remove non-blocking flag from client socket in case client inherits it
+     * (seems to be a macOS thing).
+     */
+    int flags = fcntl(clientSocketFd, F_GETFL, 0);
+    if (flags >= 0) {
+      fcntl(clientSocketFd, F_SETFL, flags & ~O_NONBLOCK);
+    }
+
     printf("RTMPServer: accepted connection from %s\n",
            inet_ntoa(addr.sin_addr));
 
