@@ -287,6 +287,12 @@ function DetailsPanel(props: Props) {
                 style={{ width: "75%" }}
                 onChange={(e) => setName(e.target.value)}
                 onBlur={() => handleChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleChange();
+                  }
+                }}
+
                 type="text"
                 value={name}
               />
@@ -309,6 +315,12 @@ function DetailsPanel(props: Props) {
                   setLayer(e.target.valueAsNumber);
                 }}
                 onBlur={() => handleLayerChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleLayerChange();
+                  }
+                }}
+
                 type="number"
                 value={layer}
               />
@@ -334,6 +346,12 @@ function DetailsPanel(props: Props) {
                     setLocation([e.target.valueAsNumber, location[1]]);
                   }}
                   onBlur={() => handleChange()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleChange();
+                    }
+                  }}
+
                   type="number"
                   value={location[0]}
                   style={{
@@ -348,6 +366,12 @@ function DetailsPanel(props: Props) {
                     setLocation([location[0], e.target.valueAsNumber]);
                   }}
                   onBlur={() => handleChange()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleChange();
+                    }
+                  }}
+
                   type="number"
                   value={location[1]}
                   style={{
@@ -380,6 +404,12 @@ function DetailsPanel(props: Props) {
                   }
                 }}
                 onBlur={() => handleChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleChange();
+                  }
+                }}
+
                 type="number"
                 value={scale}
               />
@@ -400,6 +430,12 @@ function DetailsPanel(props: Props) {
                 style={{ width: "75%" }}
                 onChange={(e) => setContent(e.target.value)}
                 onBlur={() => handleChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleChange();
+                  }
+                }}
+
                 type="text"
                 value={content}
               />
@@ -427,6 +463,12 @@ function DetailsPanel(props: Props) {
                   setFontSize(e.target.valueAsNumber);
                 }}
                 onBlur={() => handleChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleChange();
+                  }
+                }}
+
                 type="number"
                 value={fontSize}
               />
