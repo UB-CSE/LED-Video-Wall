@@ -1,0 +1,10 @@
+settings:
+  gamma: 1.0
+elements:
+  "rtmp-elem1":
+    id: 1
+    type: "rtmp"
+    url: "rtmp://Localhost//live/test"
+    framerate: 20
+    location: [0,0]
+    size: [32, 32]

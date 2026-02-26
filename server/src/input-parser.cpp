@@ -216,6 +216,33 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 vCanvas.addElementToCanvas(elem);
             }
 
+            else if (type == "rtmp") {
+                //what do we do here
+                if (!value["url"] || !value["location"] || !value["framerate"]){
+                    std:: cerr << "Missing URL, location, or framerate for RTMP element:" << key << std:: endl;
+                    continue;
+                }
+
+                std:: string rtmpUrl = value["url"].as<std::string>();
+                int frameRate = value["framerate"].as<int>();
+                std::vector<int> locVec = value["location"].as<std::vector<int>>();
+
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0){
+                    std::cerr << "Location for the element" << key << " malformed" << std::endl;
+                    continue;
+                }
+
+                cv:: Point loc(locVec[0], locVec[1]);
+
+                //placeholder, just print url and pass a dummy value to verify canvas logic works
+
+                std::cout << "Initializing RTMP Stream: " << rtmpUrl << std::endl;
+
+                Element * elem = new VideoElement(0, id, loc, frameRate);
+                vCanvas.addElementToCanvas(elem);
+
+            }
+
             else {
                 std::cerr << "Unsupported element type: " << type << std::endl;
             }
