@@ -6,10 +6,11 @@
 #include <vector>
 #include <map>
 #include <opencv2/opencv.hpp>
+#include "rtmp.hpp"
 
 class Element;
 class VirtualCanvas;
 
-void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile);
+void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtmpServer);
 
 #endif

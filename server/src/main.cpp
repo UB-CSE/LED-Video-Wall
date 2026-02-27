@@ -62,10 +62,10 @@ int main(int argc, char* argv[]) {
      }
 
      
-
+     RTMPServer rtmpServer;
  
      try {
-         parseInput(vCanvas, inputFilePath);
+         parseInput(vCanvas, inputFilePath, rtmpServer);
      } catch (std::exception& ex) {
          std::cerr << "Error Parsing image input file ("
                    << inputFilePath << "):"
@@ -73,7 +73,6 @@ int main(int argc, char* argv[]) {
          exit(-1);
      }
 
-     RTMPServer rtmp_server;
  
      std::optional<LEDTCPServer> server_opt =
          create_server(INADDR_ANY, 7070, 7074, server_config.clients);

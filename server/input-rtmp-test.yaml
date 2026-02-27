@@ -4,7 +4,7 @@ elements:
   "rtmp-elem1":
     id: 1
     type: "rtmp"
-    url: "rtmp://Localhost//live/test"
-    framerate: 20
+    stream-name: "test"
+    framerate: 60
     location: [0,0]
-    size: [32, 32]
+    size: [64, 64]
