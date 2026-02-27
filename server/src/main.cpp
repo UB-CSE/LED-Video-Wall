@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
      std::string inputFilePath;
      bool debug_mode = true;
 
-     const char* rtmpCertPath, *rtmpKeyPath;
+     const char* rtmpCertPath = nullptr, *rtmpKeyPath = nullptr;
 
      if (argc >= 2) {
          inputFilePath = std::string(argv[1]);
