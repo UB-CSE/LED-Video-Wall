@@ -96,6 +96,9 @@ class RTMPStreamElement : public Element {
         std::string streamName;
         cv::Size size;
         cv::Mat lastFrame;
+        bool hasFrame = false;
+
+        const cv::Mat noFrameMat = cv::Mat(100, 100, CV_8UC3, cv::Scalar(0, 255, 0)); // green
     
     public:
         RTMPStreamElement(RTMPServer& rtmpServer, const std::string& streamName, int id, cv::Point loc, int frameRate, cv::Size size = cv::Size(0, 0));

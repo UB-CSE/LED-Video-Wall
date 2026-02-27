@@ -140,6 +140,15 @@ bool RTMPStreamElement::nextFrame(cv::Mat& frame) {
       
       cv::resize(lastFrame, lastFrame, newSize);
     }
+
+    hasFrame = true;
+  }
+  else if (!hasFrame) {
+    lastFrame = noFrameMat.clone();
+    
+    if (size != cv::Size(0, 0)) {
+      cv::resize(lastFrame, lastFrame, size);
+    }
   }
 
   pixelMatrix = frame = lastFrame;
