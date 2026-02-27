@@ -51,18 +51,35 @@ int main(int argc, char* argv[]) {
  
      std::string inputFilePath;
      bool debug_mode = true;
+
+     const char* rtmpCertPath, *rtmpKeyPath;
+
      if (argc >= 2) {
          inputFilePath = std::string(argv[1]);
-         if ( (argc == 3) && (std::string(argv[2]) == "--prod") ) {
-            debug_mode = 0;
-         };
+         for (int i = 2; i < argc; i++) {
+             std::string arg = argv[i];
+             if (arg == "--prod") {
+                 debug_mode = false;
+             } else if (arg == "--rtmp-tls") {
+                 if (i + 2 < argc) {
+                   rtmpCertPath = argv[++i];
+                   rtmpKeyPath = argv[++i];
+                 }
+                 else {
+                   std::cerr << "Error: --rtmp-tls flag requires two arguments: <cert_path> <key_path>\n";
+                   exit(-1);
+                 }
+             } else {
+                 std::cerr << "Unknown argument: " << arg << "\n";
+                 exit(-1);
+             }
+         }
      } else {
          std::cerr << "Error, no image input file specified!" << "\n";
          exit(-1);
      }
 
-     
-     RTMPServer rtmpServer;
+     RTMPServer rtmpServer(rtmpCertPath, rtmpKeyPath);
  
      try {
          parseInput(vCanvas, inputFilePath, rtmpServer);

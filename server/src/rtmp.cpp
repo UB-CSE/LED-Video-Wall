@@ -84,6 +84,10 @@ RTMPServer::RTMPServer(int port /*= 1935*/, const char *address /*= "0.0.0.0"*/,
 
   if (cert && key) {
     sslContext = RTMP_TLS_AllocServerContext(cert, key);
+    if (!sslContext) {
+      fprintf(stderr, "RTMPServer: failed to initialize TLS context with cert %s and key %s\n", cert, key);
+      return;
+    }
   }
 
   wasInitSuccessful = startServer();
@@ -104,6 +108,10 @@ RTMPServer::~RTMPServer() {
 }
 
 std::optional<cv::Mat> RTMPServer::receiveStreamFrame(const std::string &name) {
+  if (!wasInitSuccessful || !isActive) {
+    return std::nullopt;
+  }
+
   std::shared_ptr<CodecContext> codecContext;
   {
     std::lock_guard<std::mutex> lk(streamMutex);
@@ -133,6 +141,10 @@ std::optional<cv::Mat> RTMPServer::receiveStreamFrame(const std::string &name) {
 }
 
 std::unordered_set<std::string> RTMPServer::getActiveStreamNames() const {
+  if (!wasInitSuccessful || !isActive) {
+    return {};
+  }
+
   std::unordered_set<std::string> streamNames;
 
   {
@@ -146,6 +158,10 @@ std::unordered_set<std::string> RTMPServer::getActiveStreamNames() const {
 }
 
 bool RTMPServer::isStreamActive(const std::string &name) const {
+  if (!wasInitSuccessful || !isActive) {
+    return false;
+  }
+
   std::lock_guard<std::mutex> lk(streamMutex);
   return activeStreams.find(name) != activeStreams.end();
 }
