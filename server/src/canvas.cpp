@@ -128,11 +128,15 @@ bool RTMPStreamElement::nextFrame(cv::Mat& frame) {
     cv::Size frameSize = lastFrame.size();
 
     if (size != cv::Size(0, 0) && frameSize != cv::Size(0, 0)) {
-      // preserve aspect ratio
+      // preserve aspect ratio, do no exceed specified size
       double aspectRatio = static_cast<double>(frameSize.width) / frameSize.height;
-      cv::Size newSize;
-      newSize.width = size.width;
-      newSize.height = static_cast<int>(size.width / aspectRatio);
+      int newWidth = size.width;
+      int newHeight = static_cast<int>(newWidth / aspectRatio);
+      if (newHeight > size.height) {
+        newHeight = size.height;
+        newWidth = static_cast<int>(newHeight * aspectRatio);
+      }
+      cv::Size newSize(newWidth, newHeight);
       
       cv::resize(lastFrame, lastFrame, newSize);
     }
