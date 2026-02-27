@@ -8,7 +8,6 @@ extern "C" { // Janky as hell
 #include <libavcodec/avcodec.h>
 #include <libavcodec/bsf.h>
 #include <libswscale/swscale.h>
-#include <libavutil/error.h>
 }
 
 #include <condition_variable>

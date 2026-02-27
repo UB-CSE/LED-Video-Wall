@@ -896,18 +896,18 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
         if ((ret = av_bsf_send_packet(bsfCtx, packet)) < 0) {
           fprintf(stderr,
                   "RTMPServer: %s: failed to send packet to bitstream filter "
-                  "for stream %d (\"%s\"): %s\n",
+                  "for stream %d (\"%s\"): %d\n",
                   clientInfo.address, streamInfo.streamID,
-                  streamInfo.name.c_str(), av_err2str(ret));
+                  streamInfo.name.c_str(), ret);
           break;
         }
 
         if ((ret = av_bsf_receive_packet(bsfCtx, packet)) < 0) {
           fprintf(stderr,
                   "RTMPServer: %s: failed to receive packet from bitstream "
-                  "filter for stream %d (\"%s\"): %s\n",
+                  "filter for stream %d (\"%s\"): %d\n",
                   clientInfo.address, streamInfo.streamID,
-                  streamInfo.name.c_str(), av_err2str(ret));
+                  streamInfo.name.c_str(), ret);
           break;
         }
       }
@@ -917,9 +917,9 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
             AVERROR(EAGAIN)) { // EAGAIN just means it needs more packets.
           fprintf(stderr,
                   "RTMPServer: %s: failed to send packet to decoder for stream "
-                  "%d (\"%s\"): %s\n",
+                  "%d (\"%s\"): %d\n",
                   clientInfo.address, streamInfo.streamID,
-                  streamInfo.name.c_str(), av_err2str(ret));
+                  streamInfo.name.c_str(), ret);
           break;
         }
       }
