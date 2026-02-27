@@ -6,9 +6,12 @@
 #include <opencv2/core.hpp>
 extern "C" { // Janky as hell
 #include <libavcodec/avcodec.h>
+#include <libavcodec/bsf.h>
+#include <libswscale/swscale.h>
 }
 
 #include <condition_variable>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <queue>
@@ -26,16 +29,29 @@ public:
 
   bool isRunning() const { return isActive; }
 
-#if 0 // Implement these soon
+  /**
+   * Receives the next video frame for the given stream name, if available.
+   * Returns an empty optional if the stream doesn't exist or if there are no
+   * new frames.
+   */
+  std::optional<cv::Mat> receiveStreamFrame(const std::string &name);
+
+  /**
+   * Returns the names of all currently active streams (i.e. active RTMP
+   * connections that are currently publishing video data).
+   */
   std::unordered_set<std::string> getActiveStreamNames() const;
-  bool isStreamActive(const std::string &stream_name) const;
-  std::optional<cv::Mat> getStreamFrame(const std::string &stream_name) const;
-#endif
+
+  /**
+   * Returns whether a stream with the given name is currently active.
+   */
+  bool isStreamActive(const std::string &name) const;
 
 private:
   // initialization
 
   void initRTMPLogLevel();
+  void initFFmpegLogLevel();
   bool startServer();
 
   // serving
@@ -44,7 +60,6 @@ private:
 
   struct ClientInfo {
     int socketFd;
-    // const char* address;
     char address[INET_ADDRSTRLEN];
   };
 
@@ -53,15 +68,13 @@ private:
   struct StreamInfo {
     int streamID = -1;
 
+    std::string name = "";
     bool hasReceivedMetadata = false;
-    // We only care about video metadata now.
+    // We only care about video metadata now, ignore audio stuff
     size_t width = 0, height = 0;
     double videoDataRate = 0.0, frameRate = 0.0;
     const AVCodec *codec = nullptr;
-    AVCodecContext *codecContext = nullptr;
-
-    ~StreamInfo();
-    void reset();
+    const AVBitStreamFilter *bsf = nullptr;
   };
 
   void handleClient(ClientInfo clientInfo);
@@ -85,7 +98,7 @@ private:
 
   // utilities
 
-  static void avReplace(AVal *src, const AVal *orig, const AVal *repl);
+  static cv::Mat avFrameToCvMat(const AVFrame *frame);
 
 private:
   bool wasInitSuccessful = false;
@@ -106,8 +119,27 @@ private:
   std::mutex queueMutex;
   std::condition_variable queueCondition;
 
+  mutable std::mutex streamMutex;
   int lastStreamID = 0;
-  std::mutex streamMutex;
+
+  // RAII wrapper for AVCodecContext
+  struct CodecContext {
+    AVCodecContext *context = nullptr;
+    AVBSFContext *bsfContext = nullptr;
+    std::mutex mutex;
+
+    explicit CodecContext(AVCodecContext *codecContext,
+                          AVBSFContext *bsf = nullptr)
+        : context(codecContext), bsfContext(bsf) {}
+
+    ~CodecContext() {
+      if (context) {
+        avcodec_free_context(&context);
+      }
+    }
+  };
+  std::unordered_map<std::string, std::shared_ptr<CodecContext>> activeStreams;
 };
 
 #endif
+

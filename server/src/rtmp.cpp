@@ -1,8 +1,7 @@
 #include "rtmp.hpp"
 
-#include <librtmp/log.h>
-
 #include <fcntl.h>
+#include <librtmp/log.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -41,8 +40,6 @@ static constexpr AVal av_description = AVC("description");
 // static constexpr AVal av_secureToken = AVC("secureToken");
 static constexpr AVal av_onStatus = AVC("onStatus");
 static constexpr AVal av_publish = AVC("publish");
-static constexpr AVal av_NetStream_Authenticate_UsherToken =
-    AVC("NetStream.Authenticate.UsherToken");
 
 #define STR2AVAL(av, str)                                                      \
   do {                                                                         \
@@ -83,6 +80,7 @@ RTMPServer::RTMPServer(int port /*= 1935*/, const char *address /*= "0.0.0.0"*/,
                        const char *key /*= nullptr*/)
     : port(port), address(address) {
   initRTMPLogLevel();
+  initFFmpegLogLevel();
 
   if (cert && key) {
     sslContext = RTMP_TLS_AllocServerContext(cert, key);
@@ -105,6 +103,53 @@ RTMPServer::~RTMPServer() {
   }
 }
 
+std::optional<cv::Mat> RTMPServer::receiveStreamFrame(const std::string &name) {
+  std::shared_ptr<CodecContext> codecContext;
+  {
+    std::lock_guard<std::mutex> lk(streamMutex);
+    auto it = activeStreams.find(name);
+    if (it == activeStreams.end()) {
+      return std::nullopt;
+    }
+    codecContext = it->second;
+  }
+
+  AVFrame *frame = av_frame_alloc();
+  int ret;
+  {
+    std::lock_guard<std::mutex> lk(codecContext->mutex);
+    ret = avcodec_receive_frame(codecContext->context, frame);
+  }
+
+  if (ret != 0) {
+    av_frame_free(&frame);
+    return std::nullopt;
+  }
+
+  cv::Mat mat = avFrameToCvMat(frame);
+
+  av_frame_free(&frame);
+  return mat.clone();
+}
+
+std::unordered_set<std::string> RTMPServer::getActiveStreamNames() const {
+  std::unordered_set<std::string> streamNames;
+
+  {
+    std::lock_guard<std::mutex> lk(streamMutex);
+    for (const auto &entry : activeStreams) {
+      streamNames.insert(entry.first);
+    }
+  }
+
+  return streamNames;
+}
+
+bool RTMPServer::isStreamActive(const std::string &name) const {
+  std::lock_guard<std::mutex> lk(streamMutex);
+  return activeStreams.find(name) != activeStreams.end();
+}
+
 void RTMPServer::initRTMPLogLevel() {
   const char *logLevelEnv = getenv("RTMP_DEBUG_LEVEL");
   if (logLevelEnv) {
@@ -124,6 +169,33 @@ void RTMPServer::initRTMPLogLevel() {
       RTMP_debuglevel = RTMP_LOGDEBUG2;
     } else if (log_level == "ALL"sv) {
       RTMP_debuglevel = RTMP_LOGALL;
+    }
+  }
+}
+
+void RTMPServer::initFFmpegLogLevel() {
+  const char *logLevelEnv = getenv("FFMPEG_DEBUG_LEVEL");
+  if (logLevelEnv) {
+    const std::string_view log_level(logLevelEnv);
+    using namespace std::string_view_literals;
+    if (log_level == "QUIET"sv) {
+      av_log_set_level(AV_LOG_QUIET);
+    } else if (log_level == "PANIC"sv) {
+      av_log_set_level(AV_LOG_PANIC);
+    } else if (log_level == "FATAL"sv) {
+      av_log_set_level(AV_LOG_FATAL);
+    } else if (log_level == "ERROR"sv) {
+      av_log_set_level(AV_LOG_ERROR);
+    } else if (log_level == "WARNING"sv) {
+      av_log_set_level(AV_LOG_WARNING);
+    } else if (log_level == "INFO"sv) {
+      av_log_set_level(AV_LOG_INFO);
+    } else if (log_level == "VERBOSE"sv) {
+      av_log_set_level(AV_LOG_VERBOSE);
+    } else if (log_level == "DEBUG"sv) {
+      av_log_set_level(AV_LOG_DEBUG);
+    } else if (log_level == "TRACE"sv) {
+      av_log_set_level(AV_LOG_TRACE);
     }
   }
 }
@@ -272,20 +344,6 @@ void RTMPServer::workerThreadFunc() {
   }
 }
 
-RTMPServer::StreamInfo::~StreamInfo() {
-  if (codecContext) {
-    avcodec_free_context(&codecContext);
-  }
-}
-
-void RTMPServer::StreamInfo::reset() {
-  if (codecContext) {
-    avcodec_free_context(&codecContext);
-    codecContext = nullptr;
-  }
-  *this = StreamInfo();
-}
-
 void RTMPServer::handleClient(ClientInfo clientInfo) {
   const auto &[clientSocketFd, clientAddress] = clientInfo;
 
@@ -357,6 +415,11 @@ void RTMPServer::handleClient(ClientInfo clientInfo) {
 
   close(clientSocketFd);
   printf("RTMPServer: %s: disconnected\n", clientAddress);
+
+  if (streamInfo.streamID != -1) {
+    std::lock_guard<std::mutex> lk(streamMutex);
+    activeStreams.erase(streamInfo.name);
+  }
 }
 
 bool RTMPServer::handlePacket(RTMP *r, RTMPPacket *packet,
@@ -441,6 +504,7 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
   double txn = AMFProp_GetNumber(AMF_GetProp(&obj, nullptr, 1));
   RTMP_Log(RTMP_LOGDEBUG, "client invoking <%s>", method.av_val);
 
+  bool success = false;
   do {
     if (AVMATCH(&method, &av_connect)) {
       AMFObject cobj;
@@ -456,8 +520,10 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
         if (AVMATCH(&pname, &av_app)) {
           r->Link.app = pval;
           pval.av_val = nullptr;
-          if (!r->Link.app.av_val)
+          if (!r->Link.app.av_val) {
             r->Link.app.av_val = "";
+          }
+          streamInfo.name = std::string(r->Link.app.av_val, r->Link.app.av_len);
         } else if (AVMATCH(&pname, &av_flashVer)) {
           r->Link.flashVer = pval;
           pval.av_val = nullptr;
@@ -489,8 +555,17 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
       sendConnectResult(r, txn);
     } else if (AVMATCH(&method, &av_createStream)) {
       if (streamInfo.streamID < 0) {
+        streamInfo.streamID = -1;
+        streamInfo.hasReceivedMetadata = false;
+
         std::lock_guard<std::mutex> lk(streamMutex);
-        streamInfo.reset();
+        if (activeStreams.find(streamInfo.name) != activeStreams.end()) {
+          fprintf(stderr,
+                  "RTMPServer: %s: stream with name %s already exists, "
+                  "ignoring\n",
+                  clientInfo.address, streamInfo.name.c_str());
+          break;
+        }
         streamInfo.streamID = ++lastStreamID;
       } else {
         fprintf(stderr,
@@ -498,8 +573,8 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
                 "exists, ignoring\n",
                 clientInfo.address);
       }
-      printf("RTMPServer: %s: created stream %d\n", clientInfo.address,
-             streamInfo.streamID);
+      printf("RTMPServer: %s: created stream %d (\"%s\")\n", clientInfo.address,
+             streamInfo.streamID, streamInfo.name.c_str());
       sendResultNumber(r, txn, streamInfo.streamID);
     } else if (AVMATCH(&method, &av_deleteStream)) {
       if (streamInfo.streamID < 0) {
@@ -508,20 +583,15 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
                 "createStream, ignoring\n",
                 clientInfo.address);
       }
-      printf("RTMPServer: %s: deleted stream %d\n", clientInfo.address,
-             streamInfo.streamID);
-      streamInfo.reset();
+      printf("RTMPServer: %s: deleted stream %d (\"%s\")\n", clientInfo.address,
+             streamInfo.streamID, streamInfo.name.c_str());
+      {
+        std::lock_guard<std::mutex> lk(streamMutex);
+        activeStreams.erase(streamInfo.name);
+      }
+      streamInfo = StreamInfo{};
     } else if (AVMATCH(&method, &av_getStreamLength)) {
       sendResultNumber(r, txn, 10.0);
-    } else if (AVMATCH(&method, &av_NetStream_Authenticate_UsherToken)) {
-      AVal av_dquote, av_escdquote;
-      STR2AVAL(av_dquote, "\"");
-      STR2AVAL(av_escdquote, "\\\"");
-
-      AVal usherToken;
-      AMFProp_GetString(AMF_GetProp(&obj, nullptr, 3), &usherToken);
-      avReplace(&usherToken, &av_dquote, &av_escdquote);
-      r->Link.usherToken = usherToken;
     } else if (AVMATCH(&method, &av_publish)) {
       if (streamInfo.streamID < 0) {
         fprintf(
@@ -532,9 +602,12 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
       }
       sendPublish(r, streamInfo.streamID);
     }
+    success = true;
+
   } while (false);
+
   AMF_Reset(&obj);
-  return true;
+  return success;
 }
 
 bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
@@ -554,6 +627,7 @@ bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
   AVal metastring;
   AMFProp_GetString(AMF_GetProp(&obj, nullptr, 0), &metastring);
 
+  bool success = false;
   do {
     bool setFrameData = false;
 
@@ -602,35 +676,87 @@ bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
         if (RTMP_FindFirstMatchingProperty(&obj, &av, &prop)) {
           int codecID = static_cast<int>(prop.p_vu.p_number);
           AVCodecID avCodecID = AV_CODEC_ID_NONE;
-          switch (codecID) {
-          case RTMP_VIDEOCODEC_H263:
-            avCodecID = AV_CODEC_ID_H263;
-            break;
-          case RTMP_VIDEOCODEC_VP6:
-            avCodecID = AV_CODEC_ID_VP6F;
-            break;
-          case RTMP_VIDEOCODEC_VP6_ALPHA:
-            avCodecID = AV_CODEC_ID_VP6A;
-            break;
-          case RTMP_VIDEOCODEC_H264:
+          const char *bsfName = nullptr;
+          if (codecID == RTMP_VIDEOCODEC_H264) { // only H.264 right now
             avCodecID = AV_CODEC_ID_H264;
-            break;
-          case RTMP_VIDEOCODEC_HEVC:
-            avCodecID = AV_CODEC_ID_HEVC;
-            break;
-          case RTMP_VIDEOCODEC_AV1:
-            avCodecID = AV_CODEC_ID_AV1;
-            break;
-          }
-          if (avCodecID == AV_CODEC_ID_NONE) {
+            // H.264 in FLV is usually in AVCC format, so we need to convert it
+            // to Annex B
+            bsfName = "h264_mp4toannexb";
+          } else {
             fprintf(stderr,
                     "RTMPServer: %s: unknown/unsupported video codec ID %d\n",
                     clientInfo.address, codecID);
-          } else {
-            streamInfo.codec = avcodec_find_decoder(avCodecID);
-            streamInfo.codecContext = avcodec_alloc_context3(streamInfo.codec);
-            hasVideoCodecID = true;
+            break;
           }
+
+          streamInfo.codec = avcodec_find_decoder(avCodecID);
+          if (!streamInfo.codec) {
+            fprintf(stderr,
+                    "RTMPServer: %s: no decoder found for video codec ID %d\n",
+                    clientInfo.address, codecID);
+            break;
+          }
+          if (bsfName) {
+            streamInfo.bsf = av_bsf_get_by_name(bsfName);
+            if (!streamInfo.bsf) {
+              fprintf(stderr,
+                      "RTMPServer: %s: bitstream filter %s not found for video "
+                      "codec ID %d\n",
+                      clientInfo.address, bsfName, codecID);
+              break;
+            }
+          }
+
+          AVCodecContext *codecContext =
+              avcodec_alloc_context3(streamInfo.codec);
+          if (!codecContext) {
+            fprintf(stderr,
+                    "RTMPServer: %s: failed to allocate codec context for "
+                    "video codec ID %d\n",
+                    clientInfo.address, codecID);
+            break;
+          }
+
+          AVBSFContext *bsfContext = nullptr;
+          if (streamInfo.bsf) {
+            if (av_bsf_alloc(streamInfo.bsf, &bsfContext) < 0) {
+              fprintf(stderr,
+                      "RTMPServer: %s: failed to allocate bitstream filter "
+                      "context\n",
+                      clientInfo.address);
+              avcodec_free_context(&codecContext);
+              break;
+            }
+
+            if (avcodec_parameters_from_context(bsfContext->par_in,
+                                                codecContext) < 0) {
+              fprintf(stderr,
+                      "RTMPServer: %s: failed to copy codec parameters to "
+                      "bitstream filter context\n",
+                      clientInfo.address);
+              avcodec_free_context(&codecContext);
+              av_bsf_free(&bsfContext);
+              break;
+            }
+
+            if (av_bsf_init(bsfContext) < 0) {
+              fprintf(stderr,
+                      "RTMPServer: %s: failed to initialize bitstream filter "
+                      "context\n",
+                      clientInfo.address);
+              avcodec_free_context(&codecContext);
+              av_bsf_free(&bsfContext);
+              break;
+            }
+          }
+
+          {
+            std::lock_guard<std::mutex> lk(streamMutex);
+            activeStreams[streamInfo.name] =
+                std::make_shared<CodecContext>(codecContext, bsfContext);
+          }
+
+          hasVideoCodecID = true;
         }
 
         if (hasWidth && hasHeight && hasVideoDataRate && hasFrameRate &&
@@ -649,20 +775,152 @@ bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
       }
     }
 
-    AMF_Reset(&obj);
-    return true;
+    success = true;
 
   } while (false);
 
   AMF_Reset(&obj);
-  return false;
+  return success;
 }
 
 bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
                                    StreamInfo &streamInfo,
                                    const ClientInfo &clientInfo) {
-  // TODO: Decode
-  return true;
+  if (!streamInfo.hasReceivedMetadata) {
+    fprintf(stderr,
+            "RTMPServer: %s: received video packet before metadata for stream "
+            "%d (\"%s\"), ignoring\n",
+            clientInfo.address, streamInfo.streamID, streamInfo.name.c_str());
+    return true;
+  }
+
+  const uint8_t *body = reinterpret_cast<const uint8_t *>(packet->m_body);
+  size_t bodySize = packet->m_nBodySize;
+
+  // uint8_t frameType = (body[0] & 0xF0) >> 4;
+  uint8_t codecID = body[0] & 0x0F;
+
+  if (codecID != RTMP_VIDEOCODEC_H264) {
+    fprintf(stderr,
+            "RTMPServer: %s: received video packet with unsupported codec ID "
+            "%d for stream %d (\"%s\")\n",
+            clientInfo.address, codecID, streamInfo.streamID,
+            streamInfo.name.c_str());
+    return false;
+  }
+
+  uint8_t avcPacketType = body[1];
+  // uint32_t compositionTime = (body[2] << 16) | (body[3] << 8) | body[4];
+
+  std::shared_ptr<CodecContext> codecContext;
+  {
+    std::lock_guard<std::mutex> lk(streamMutex);
+    codecContext = activeStreams.at(streamInfo.name);
+  }
+
+  // Sequence header
+  if (avcPacketType == 0) {
+    const uint8_t *avcConfig = body + 5;
+    size_t avcConfigSize = bodySize - 5;
+
+    std::lock_guard<std::mutex> lk(codecContext->mutex);
+    AVCodecContext *ctx = codecContext->context;
+
+    uint8_t *extradata = reinterpret_cast<uint8_t *>(
+        av_malloc(avcConfigSize + AV_INPUT_BUFFER_PADDING_SIZE));
+    memcpy(extradata, avcConfig, avcConfigSize);
+    memset(extradata + avcConfigSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+
+    ctx->extradata = extradata;
+    ctx->extradata_size = static_cast<int>(avcConfigSize);
+
+    if (avcodec_is_open(ctx)) {
+      fprintf(stderr,
+              "RTMPServer: %s: codec context for stream %d (\"%s\") already "
+              "open, ignoring new sequence header\n",
+              clientInfo.address, streamInfo.streamID, streamInfo.name.c_str());
+    } else if (avcodec_open2(ctx, streamInfo.codec, nullptr) < 0) {
+      fprintf(stderr,
+              "RTMPServer: %s: failed to open codec context for video codec ID "
+              "%d for stream %d (\"%s\")\n",
+              clientInfo.address, codecID, streamInfo.streamID,
+              streamInfo.name.c_str());
+      avcodec_free_context(&codecContext->context);
+      return false;
+    }
+
+    return true;
+  }
+  // Video data
+  else if (avcPacketType == 1) {
+
+    AVPacket *packet = av_packet_alloc();
+    packet->data = const_cast<uint8_t *>(body + 5);
+    packet->size = static_cast<int>(bodySize - 5);
+
+    std::lock_guard<std::mutex> lk(codecContext->mutex);
+
+    AVCodecContext *ctx = codecContext->context;
+    AVBSFContext *bsfCtx = codecContext->bsfContext;
+
+    if (!avcodec_is_open(codecContext->context)) {
+      fprintf(stderr,
+              "RTMPServer: %s: received video data packet before sequence "
+              "header for stream %d (\"%s\")\n",
+              clientInfo.address, streamInfo.streamID, streamInfo.name.c_str());
+      return false;
+    }
+
+    bool success = false;
+    do {
+      int ret;
+      if (bsfCtx) {
+        if ((ret = av_bsf_send_packet(bsfCtx, packet)) < 0) {
+          fprintf(stderr,
+                  "RTMPServer: %s: failed to send packet to bitstream filter "
+                  "for stream %d (\"%s\"): %s\n",
+                  clientInfo.address, streamInfo.streamID,
+                  streamInfo.name.c_str(), av_err2str(ret));
+          break;
+        }
+
+        if ((ret = av_bsf_receive_packet(bsfCtx, packet)) < 0) {
+          fprintf(stderr,
+                  "RTMPServer: %s: failed to receive packet from bitstream "
+                  "filter for stream %d (\"%s\"): %s\n",
+                  clientInfo.address, streamInfo.streamID,
+                  streamInfo.name.c_str(), av_err2str(ret));
+          break;
+        }
+      }
+
+      if ((ret = avcodec_send_packet(ctx, packet)) < 0) {
+        if (ret !=
+            AVERROR(EAGAIN)) { // EAGAIN just means it needs more packets.
+          fprintf(stderr,
+                  "RTMPServer: %s: failed to send packet to decoder for stream "
+                  "%d (\"%s\"): %s\n",
+                  clientInfo.address, streamInfo.streamID,
+                  streamInfo.name.c_str(), av_err2str(ret));
+          break;
+        }
+      }
+
+      success = true;
+
+    } while (false);
+
+    av_packet_free(&packet);
+
+    return success;
+  }
+
+  fprintf(stderr,
+          "RTMPServer: %s: received video packet with unknown AVC packet type "
+          "%d for stream %d (\"%s\")\n",
+          clientInfo.address, avcPacketType, streamInfo.streamID,
+          streamInfo.name.c_str());
+  return false;
 }
 
 bool RTMPServer::sendConnectResult(RTMP *r, double txn) {
@@ -780,36 +1038,19 @@ bool RTMPServer::sendPublish(RTMP *r, int streamID) {
   return RTMP_SendPacket(r, &packet, false);
 }
 
-void RTMPServer::avReplace(AVal *src, const AVal *orig, const AVal *repl) {
-  char *srcbeg = src->av_val;
-  char *srcend = src->av_val + src->av_len;
-  int n = 0;
+cv::Mat RTMPServer::avFrameToCvMat(const AVFrame *avFrame) {
+  SwsContext *conversion = sws_getContext(
+      avFrame->width, avFrame->height, static_cast<AVPixelFormat>(avFrame->format),
+      avFrame->width, avFrame->height, AV_PIX_FMT_BGR24, SWS_FAST_BILINEAR, nullptr,
+      nullptr, nullptr);
 
-  char *sptr = src->av_val;
-  while (sptr < srcend && (sptr = strstr(sptr, orig->av_val))) {
-    n++;
-    sptr += orig->av_len;
-  }
-  if (!n)
-    return;
+  cv::Mat mat(avFrame->height, avFrame->width, CV_8UC3);
+  uint8_t *dest[4] = {mat.data, nullptr, nullptr, nullptr};
+  int destStride[4] = {static_cast<int>(mat.step[0]), 0, 0, 0};
 
-  char *dest = new char[src->av_len + 1 + (repl->av_len - orig->av_len) * n];
+  sws_scale(conversion, avFrame->data, avFrame->linesize, 0, avFrame->height, dest, destStride);
 
-  sptr = src->av_val;
-  char *dptr = dest;
-  while (sptr < srcend && (sptr = strstr(sptr, orig->av_val))) {
-    n = sptr - srcbeg;
-    memcpy(dptr, srcbeg, n);
-    dptr += n;
-    memcpy(dptr, repl->av_val, repl->av_len);
-    dptr += repl->av_len;
-    sptr += orig->av_len;
-    srcbeg = sptr;
-  }
-  n = srcend - srcbeg;
-  memcpy(dptr, srcbeg, n);
-  dptr += n;
-  *dptr = '\0';
-  src->av_val = dest;
-  src->av_len = dptr - dest;
+  sws_freeContext(conversion);
+  return mat;
 }
+

@@ -21,17 +21,18 @@ INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
 	`pkg-config --cflags yaml-cpp`\
 	`pkg-config --cflags freetype2`\
 	`pkg-config --cflags librtmp`\
-	`pkg-config --cflags libavformat`\
 	`pkg-config --cflags libavcodec`\
-	`pkg-config --cflags libavutil`
+	`pkg-config --cflags libavutil`\
+	`pkg-config --cflags libswscale`
+  
 
 LDFLAGS = `pkg-config --libs opencv4` \
 	`pkg-config --libs yaml-cpp` \
 	`pkg-config --libs freetype2`\
 	`pkg-config --libs librtmp`\
-	`pkg-config --libs libavformat`\
 	`pkg-config --libs libavcodec`\
-	`pkg-config --libs libavutil`
+	`pkg-config --libs libavutil`\
+	`pkg-config --libs libswscale`
 
 .PHONY: all
 all: led-wall-server
