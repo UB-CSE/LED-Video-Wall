@@ -226,6 +226,7 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 std:: string rtmpUrl = value["url"].as<std::string>();
                 int frameRate = value["framerate"].as<int>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
+                std::vector<int> sizeVec = value["size"].as<std::vector<int>>();
 
                 if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0){
                     std::cerr << "Location for the element" << key << " malformed" << std::endl;
@@ -235,10 +236,11 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 cv:: Point loc(locVec[0], locVec[1]);
 
                 //placeholder, just print url and pass a dummy value to verify canvas logic works
+                cv::Mat greenBox(sizeVec[1], sizeVec[0], CV_8UC3, cv::Scalar(0, 255, 0));
 
-                std::cout << "Initializing RTMP Stream: " << rtmpUrl << std::endl;
+                std::cout << "Initializing RTMP Stream Placeholder: " << rtmpUrl << std::endl;
 
-                Element * elem = new VideoElement(0, id, loc, frameRate);
+                Element * elem = new ImageElement(greenBox, id, loc);
                 vCanvas.addElementToCanvas(elem);
 
             }

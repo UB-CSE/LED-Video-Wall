@@ -61,6 +61,10 @@ void CarouselElement::reset() {
     pixelMatrix = pixelMatrices[0];
 }
 
+ImageElement::ImageElement(const cv::Mat& matrix, int id, cv::Point loc): Element(id, loc, -1){
+    this->pixelMatrix = matrix.clone();
+}
+
 //VideoElement implementation
 
 VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {

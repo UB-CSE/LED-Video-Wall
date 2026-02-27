@@ -43,6 +43,7 @@ class ImageElement : public Element {
         std::string filePath_;
     
     public:
+        ImageElement(const cv::Mat& matrix, int id, cv::Point loc);
         ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double scale);
 
         const std::string& getFilePath() const { return filePath_; }
