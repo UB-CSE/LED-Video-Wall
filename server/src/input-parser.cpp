@@ -13,7 +13,7 @@
 cv::Scalar hexColorToScalar(const std::string &hexColor);
 
 
-void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
+void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtmpServer) {
 
     try {
         YAML::Node config = YAML::LoadFile(inputFile);
@@ -214,6 +214,43 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile) {
                 }
 
                 vCanvas.addElementToCanvas(elem);
+            }
+
+            else if (type == "rtmp") {
+                //what do we do here
+                if (!value["stream-name"] || !value["location"] || !value["framerate"]){
+                    std:: cerr << "Missing stream-name, location, or framerate for RTMP element:" << key << std:: endl;
+                    continue;
+                }
+
+                std:: string streamName = value["stream-name"].as<std::string>();
+                int frameRate = value["framerate"].as<int>();
+                std::vector<int> locVec = value["location"].as<std::vector<int>>();
+
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0){
+                    std::cerr << "Location for the element" << key << " malformed" << std::endl;
+                    continue;
+                }
+
+                cv:: Point loc(locVec[0], locVec[1]);
+
+                cv::Size size(0, 0); // do not resize
+
+                if (value["size"]) {
+                  std::vector<int> sizeVec = value["size"].as<std::vector<int>>();
+
+                  if (sizeVec.size() != 2 || sizeVec[0] <= 0 || sizeVec[1] <= 0){
+                      std::cerr << "Size for the element" << key << " malformed" << std::endl;
+                      continue;
+                  }
+
+                   size = cv::Size(sizeVec[0], sizeVec[1]);
+                }
+
+                Element * elem = new RTMPStreamElement(rtmpServer, streamName, id, loc, frameRate, size);
+
+                vCanvas.addElementToCanvas(elem);
+
             }
 
             else {

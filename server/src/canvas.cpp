@@ -115,6 +115,50 @@ void VideoElement::reset() {
 }
 
 
+// RTMPStreamElement implementation
+
+RTMPStreamElement::RTMPStreamElement(RTMPServer& rtmpServer, const std::string& streamName, int id, cv::Point loc, int frameRate, cv::Size size) : Element(id, loc, frameRate), rtmpServer(rtmpServer), streamName(streamName), size(size) {
+}
+
+bool RTMPStreamElement::nextFrame(cv::Mat& frame) {
+  std::optional<cv::Mat> receivedFrame = rtmpServer.receiveStreamFrame(streamName);
+  if (receivedFrame.has_value()) {
+    lastFrame = receivedFrame.value();
+
+    cv::Size frameSize = lastFrame.size();
+
+    if (size != cv::Size(0, 0) && frameSize != cv::Size(0, 0)) {
+      // preserve aspect ratio, do no exceed specified size
+      double aspectRatio = static_cast<double>(frameSize.width) / frameSize.height;
+      int newWidth = size.width;
+      int newHeight = static_cast<int>(newWidth / aspectRatio);
+      if (newHeight > size.height) {
+        newHeight = size.height;
+        newWidth = static_cast<int>(newHeight * aspectRatio);
+      }
+      cv::Size newSize(newWidth, newHeight);
+      
+      cv::resize(lastFrame, lastFrame, newSize);
+    }
+
+    hasFrame = true;
+  }
+  else if (!hasFrame) {
+    lastFrame = noFrameMat.clone();
+    
+    if (size != cv::Size(0, 0)) {
+      cv::resize(lastFrame, lastFrame, size);
+    }
+  }
+
+  pixelMatrix = frame = lastFrame;
+  return true;
+}
+
+void RTMPStreamElement::reset() {
+    lastFrame = cv::Mat();
+    pixelMatrix = cv::Mat();
+}
 
 /*
 Adds an element pointer to the virtual canvas list element pointer list
@@ -181,6 +225,10 @@ void VirtualCanvas::pushToCanvas(){
         cv::Mat elemMat = elemPtr->getPixelMatrix().clone();
 
         cv::Size elemSize = elemMat.size();
+
+        if (elemSize.width <= 0 || elemSize.height <= 0) {
+            continue;
+        }
 
         /*std::cout << "Element ID: " << elemPtr->getId()
              << " at (" << loc.x << "," << loc.y << ")"
