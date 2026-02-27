@@ -13,6 +13,7 @@
 
 #include <cstdlib>
 #include <string_view>
+#include <chrono>
 
 #define NUM_WORKER_THREADS 5
 
@@ -295,6 +296,8 @@ void RTMPServer::acceptConnections() {
   isActive = true;
 
   while (isActive) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
     struct sockaddr_in addr;
     socklen_t addrlen = sizeof(struct sockaddr_in);
     int clientSocketFd =
