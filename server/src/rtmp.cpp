@@ -197,6 +197,8 @@ void RTMPServer::initFFmpegLogLevel() {
     } else if (log_level == "TRACE"sv) {
       av_log_set_level(AV_LOG_TRACE);
     }
+  } else {
+    av_log_set_level(AV_LOG_ERROR);
   }
 }
 
