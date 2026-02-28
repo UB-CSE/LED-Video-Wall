@@ -12,7 +12,6 @@ import AddImagePopup from "./AddImagePopup.tsx";
 import AddTextPopup from "./AddTextPopup.tsx";
 import { clearElement } from "../state/config/configSlice.ts";
 
-
 type Props = {
   sizeMultiplier: number;
 };

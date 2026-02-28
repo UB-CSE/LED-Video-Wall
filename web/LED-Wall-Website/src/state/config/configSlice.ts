@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
+
 interface ConfigState {
     selectedElement: number;
     settings: Settings;
