@@ -14,7 +14,9 @@ type ImageProps = {
   path: string;
   location: [number, number];
   sizeMultiplier: number;
+  zoomScale: number;
   scale: number;
+  panOffset: { x: number; y: number };
 };
 type TextProps = {
   name: string;
@@ -26,28 +28,23 @@ type TextProps = {
   font_path: string;
   location: [number, number];
   sizeMultiplier: number;
+  zoomScale: number;
+  panOffset: { x: number; y: number };
 };
 type ElementProps = ImageProps | TextProps;
 
-//Element that can be dragged and dropped inside the canvas
 function Element(props: ElementProps) {
-  //Redux State
   const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
 
-  //Store current position
   const [x, setX] = useState(0);
   const [y, setY] = useState(0);
-  //Store position at start of dragging
   const [startX, setStartX] = useState(0);
   const [startY, setStartY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  //Store current dimensions
   const [dimensions, setDimensions] = useState([0, 0]);
-  //Store is font loaded
   const [fontLoaded, setFontLoaded] = useState(false);
 
-  //Overwrites redux state of this element in the config
   function updateState() {
     if (props.type === "image") {
       dispatch(
@@ -58,6 +55,7 @@ function Element(props: ElementProps) {
           filepath: props.path,
           location: [props.location[0] + x, props.location[1] + y],
           scale: props.scale,
+          visible: true,
         })
       );
     } else if (props.type === "text") {
@@ -71,6 +69,7 @@ function Element(props: ElementProps) {
           color: props.color,
           font_path: props.font_path,
           location: [props.location[0] + x, props.location[1] + y],
+          visible: true,
         })
       );
     }
@@ -83,13 +82,10 @@ function Element(props: ElementProps) {
     setStartY(e.clientY - y);
   }
 
-  //Sends the current location of the element to the server
   function sendPosition() {
     fetch("/api/send-location", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: String(props.id),
         x: Math.trunc((props.location[0] + x) / props.sizeMultiplier),
@@ -98,7 +94,6 @@ function Element(props: ElementProps) {
     });
   }
 
-  //Finds the size of the image and sets the new size with sizeMultiplier
   function handleLoad(e: React.SyntheticEvent<HTMLImageElement, Event>) {
     const { naturalHeight, naturalWidth } = e.currentTarget;
     setDimensions([
@@ -107,10 +102,6 @@ function Element(props: ElementProps) {
     ]);
   }
 
-  //Had to change DragEvent to MouseEvent in order to have control over cursor style
-  //Not using react's built in drag event required useEffect and event listeners,
-  //because otherwise, the drag would stop if the cursor outpaced the image
-  //Binding to the document solves that issue
   useEffect(() => {
     if (isDragging) {
       function handleDrag(e: MouseEvent) {
@@ -137,17 +128,13 @@ function Element(props: ElementProps) {
     setY(0);
   }, [props.location[0], props.location[1]]);
 
-  // Load font when component mounts or font_path changes
   useEffect(() => {
     if (props.type === "text" && props.font_path) {
       setFontLoaded(false);
       const fontFileName = props.font_path.split("/").pop() || "";
       const fontUrl = `/api/fonts/${fontFileName}`;
       const fontFamilyName = `customFont${props.id}`;
-
-      // Create a new FontFace and load it
       const font = new FontFace(fontFamilyName, `url(${fontUrl})`);
-
       font
         .load()
         .then((loadedFont) => {
@@ -161,6 +148,11 @@ function Element(props: ElementProps) {
   }, [props.type === "text" ? props.font_path : null, props.id]);
 
   function createJSXElement() {
+    // location is stored multiplied by sizeMultiplier at 1x zoom.
+    // Multiply by zoomScale to move elements with the canvas when zoomed.
+    const left = (props.location[0] + x) * props.zoomScale + props.panOffset.x;
+    const top = (props.location[1] + y) * props.zoomScale + props.panOffset.y;
+
     if (props.type === "image") {
       return (
         <img
@@ -170,14 +162,15 @@ function Element(props: ElementProps) {
           onLoad={handleLoad}
           style={{
             position: "fixed",
-            left: props.location[0] + x,
-            top: props.location[1] + y,
+            left,
+            top,
             cursor: isDragging ? "grabbing" : "grab",
-            width: dimensions[0] * props.scale,
-            height: dimensions[1] * props.scale,
+            width: dimensions[0] * props.scale * props.zoomScale,
+            height: dimensions[1] * props.scale * props.zoomScale,
             margin: "0px",
+            zIndex: 100,
             border:
-              configState.selectedElement == props.id
+              configState.selectedElement === props.id
                 ? "3px solid cornflowerblue"
                 : "none",
           }}
@@ -190,12 +183,13 @@ function Element(props: ElementProps) {
           onMouseDown={(e) => startDragging(e)}
           style={{
             position: "fixed",
-            left: props.location[0] + x,
-            top: props.location[1] + y,
+            left,
+            top,
             cursor: isDragging ? "grabbing" : "grab",
             margin: "0px",
+            zIndex: 100,
             border:
-              configState.selectedElement == props.id
+              configState.selectedElement === props.id
                 ? "3px solid cornflowerblue"
                 : "none",
           }}
@@ -203,7 +197,7 @@ function Element(props: ElementProps) {
           <p
             style={{
               color: props.color,
-              fontSize: props.size * props.sizeMultiplier,
+              fontSize: props.size * props.sizeMultiplier * props.zoomScale,
               userSelect: "none",
               fontFamily: `customFont${props.id}, sans-serif`,
               visibility: fontLoaded ? "visible" : "hidden",
@@ -219,4 +213,5 @@ function Element(props: ElementProps) {
 
   return <>{createJSXElement()}</>;
 }
+
 export default Element;

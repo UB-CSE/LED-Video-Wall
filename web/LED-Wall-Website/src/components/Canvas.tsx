@@ -19,11 +19,11 @@ function Canvas(props: Props) {
 
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const isZoomedIn = scale > 1;
+
   const isPanning = useRef(false);
   const panStart = useRef({ x: 0, y: 0 });
   const panOrigin = useRef({ x: 0, y: 0 });
-
-  const isZoomedIn = scale > 1;
 
   function handleZoomIn() {
     setScale(ZOOM_IN_SCALE);
@@ -35,40 +35,14 @@ function Canvas(props: Props) {
     setPan({ x: 0, y: 0 });
   }
 
-  // Only pan when the user clicks directly on the canvas background,
-  // not when clicking on a child element (image/text).
-  function handleMouseDown(e: React.MouseEvent<HTMLDivElement>) {
-    if (!isZoomedIn) return;
-    // e.target is the exact element clicked; e.currentTarget is this div.
-    // If they differ, the click landed on a child (an Element), so don't pan.
-    if (e.target !== e.currentTarget) return;
-    if (e.button !== 0) return;
-    isPanning.current = true;
-    panStart.current = { x: e.clientX, y: e.clientY };
-    panOrigin.current = { x: pan.x, y: pan.y };
-  }
-
-  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    if (!isPanning.current) return;
-    const dx = e.clientX - panStart.current.x;
-    const dy = e.clientY - panStart.current.y;
-    setPan({ x: panOrigin.current.x + dx, y: panOrigin.current.y + dy });
-  }
-
-  function handleMouseUp() {
-    isPanning.current = false;
-  }
-
-  function handleMouseLeave() {
-    isPanning.current = false;
-  }
-
   async function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     if (!e.dataTransfer.files || e.dataTransfer.files.length === 0) return;
     const canvasRect = e.currentTarget.getBoundingClientRect();
-    const relativeX = Math.trunc((e.clientX - canvasRect.left) / props.sizeMultiplier);
-    const relativeY = Math.trunc((e.clientY - canvasRect.top) / props.sizeMultiplier);
+    let relativeX = e.clientX - canvasRect.left;
+    relativeX = Math.trunc(relativeX / props.sizeMultiplier);
+    let relativeY = e.clientY - canvasRect.top;
+    relativeY = Math.trunc(relativeY / props.sizeMultiplier);
     uploadFile([relativeX, relativeY], e.dataTransfer.files[0], dispatch, configState);
   }
 
@@ -77,6 +51,7 @@ function Canvas(props: Props) {
   }
 
   function createJSXElement(element: Elem) {
+    if (element.visible === false) return null;
     if (element.type === "image") {
       return (
         <Element
@@ -87,7 +62,9 @@ function Canvas(props: Props) {
           path={element.filepath}
           location={[element.location[0], element.location[1]]}
           sizeMultiplier={props.sizeMultiplier}
+          zoomScale={scale}
           scale={element.scale}
+          panOffset={pan}
         />
       );
     } else if (element.type === "text") {
@@ -103,101 +80,91 @@ function Canvas(props: Props) {
           font_path={element.font_path}
           location={[element.location[0], element.location[1]]}
           sizeMultiplier={props.sizeMultiplier}
+          zoomScale={scale}
+          panOffset={pan}
         />
       );
     }
   }
 
   return (
-    // Outer viewport — fixed size, clips overflow, holds border
-    <div
-      style={{
-        position: "fixed",
-        top: "53%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: props.canvasDimensions[0],
-        height: props.canvasDimensions[1],
-        border: "4px solid rgb(29, 41, 58)",
-        overflow: "hidden",
-      }}
-    >
-      {/* Zoom buttons — sit above the canvas, stopPropagation so they don't trigger pan */}
+    <>
+      {/* Zoom controls - fixed to bottom center, above everything */}
       {props.canvasDimensions[1] > 0 && (
         <div
           style={{
-            position: "absolute",
-            bottom: "10px",
-            left: "10px",
+            position: "fixed",
+            bottom: "16px",
+            left: "50%",
+            transform: "translateX(-50%)",
             display: "flex",
             alignItems: "center",
             gap: "6px",
-            zIndex: 200,
-            backgroundColor: "rgba(29,41,58,0.75)",
+            zIndex: 1000,
+            backgroundColor: "rgba(29,41,58,0.85)",
             borderRadius: "6px",
-            padding: "4px 8px",
+            padding: "4px 10px",
           }}
           onMouseDown={(e) => e.stopPropagation()}
         >
           <button
             onClick={handleZoomOut}
             disabled={!isZoomedIn}
-            style={{
-              left: "unset",
-              transform: "none",
-              margin: 0,
-              padding: "2px 10px",
-              opacity: isZoomedIn ? 1 : 0.45,
-            }}
-            title="Fit to screen"
+            style={{ left: "unset", transform: "none", margin: 0, padding: "2px 10px", opacity: isZoomedIn ? 1 : 0.45 }}
           >
             −
           </button>
-          <span style={{ color: "whitesmoke", fontSize: "13px", minWidth: "36px", textAlign: "center", userSelect: "none" }}>
+          <span style={{ color: "whitesmoke", fontSize: "13px", minWidth: "72px", textAlign: "center", userSelect: "none" }}>
             {isZoomedIn ? `Zoom: ${ZOOM_IN_SCALE}×` : "Zoom: 1×"}
           </span>
           <button
             onClick={handleZoomIn}
             disabled={isZoomedIn}
-            style={{
-              left: "unset",
-              transform: "none",
-              margin: 0,
-              padding: "2px 10px",
-              opacity: isZoomedIn ? 0.45 : 1,
-            }}
-            title="Zoom in"
+            style={{ left: "unset", transform: "none", margin: 0, padding: "2px 10px", opacity: isZoomedIn ? 0.45 : 1 }}
           >
             +
           </button>
         </div>
       )}
 
-      {/* Inner canvas — receives scale+pan transform, listens for background pan drags */}
+      {/*
+        Pan overlay — only shown when zoomed in.
+        Sits BELOW panels (zIndex 1) so panels stay interactive.
+        Covers the whole screen to capture drag-to-pan on any empty area.
+      */}
+      {/* Canvas — pan by dragging on the canvas background */}
       <div
         className={styles.canvas}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
+        onMouseDown={(e) => {
+          if (!isZoomedIn) return;
+          if (e.target !== e.currentTarget) return; // ignore clicks on elements
+          console.log("canvas mousedown");
+          isPanning.current = true;
+          panStart.current = { x: e.clientX, y: e.clientY };
+          panOrigin.current = { x: pan.x, y: pan.y };
+        }}
+        onMouseMove={(e) => {
+          if (!isPanning.current) return;
+          console.log("panning");
+          setPan({
+            x: panOrigin.current.x + e.clientX - panStart.current.x,
+            y: panOrigin.current.y + e.clientY - panStart.current.y,
+          });
+        }}
+        onMouseUp={() => { isPanning.current = false; }}
+        onMouseLeave={() => { isPanning.current = false; }}
         style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          border: "none",
+          width: props.canvasDimensions[0] * scale,
+          height: props.canvasDimensions[1] * scale,
           cursor: isZoomedIn ? "grab" : "default",
-          width: props.canvasDimensions[0],
-          height: props.canvasDimensions[1],
-          transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-          transformOrigin: "top left",
-          transition: isPanning.current ? "none" : "transform 200ms ease",
+          zIndex: 2,
         }}
       >
         {configState.elements.map(createJSXElement)}
       </div>
-    </div>
+    </>
   );
 }
 
