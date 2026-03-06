@@ -49,12 +49,12 @@ std::optional<Event> EventQueue::tryPopEvent(ns_ts cutoff_time) {
 
 Controller::Controller(VirtualCanvas &canvas,
                        std::vector<Client*> clients,
-                       LEDTCPServer tcp_server,
+                       std::shared_ptr<LEDTCPServer> tcp_server,
                        int64_t ns_per_frame)
     : canvas(canvas),
       clients(clients),
       tcp_server(tcp_server),
-      client_conn_info(tcp_server.conn_info),
+      client_conn_info(tcp_server->getConnInfo()),
       event_queue(),
       ns_per_frame(ns_per_frame)
 {
@@ -110,7 +110,7 @@ void Controller::set_leds_all() {
     std::vector<std::pair<const Client*, int>> conns;
     this->client_conn_info->getAllConnected(conns);
     for (auto it : conns) {
-        this->tcp_server.set_leds(it.first, it.second, this->canvas);
+        this->tcp_server->set_leds(it.first, it.second, this->canvas);
     }
 }
 
@@ -118,6 +118,6 @@ void Controller::redraw_all() {
     std::vector<std::pair<const Client*, int>> conns;
     this->client_conn_info->getAllConnected(conns);
     for (auto it : conns) {
-        this->tcp_server.redraw(it.first, it.second);
+        this->tcp_server->redraw(it.first, it.second);
     }
 }
