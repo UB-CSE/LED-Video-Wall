@@ -542,7 +542,7 @@ function DetailsPanel(props: Props) {
                   boxShadow: "none",
                 }}
                 onChange={(e) => setColor(e.target.value)}
-                onKeyDown={(e) => handleChange(e)}
+                onKeyDown={() => handleChange()}
                 type="color"
                 value={color}
               />
