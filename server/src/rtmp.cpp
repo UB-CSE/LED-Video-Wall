@@ -106,6 +106,8 @@ RTMPServer::~RTMPServer() {
   if (sslContext) {
     RTMP_TLS_FreeServerContext(sslContext);
   }
+
+  printf("RTMPServer on port %d stopped.\n", port);
 }
 
 std::optional<cv::Mat> RTMPServer::receiveStreamFrame(const std::string &name) {

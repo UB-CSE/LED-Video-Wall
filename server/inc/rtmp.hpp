@@ -29,6 +29,9 @@ public:
 
   ~RTMPServer();
 
+  RTMPServer(const RTMPServer&) = delete;
+  RTMPServer& operator=(const RTMPServer&) = delete;
+
   bool isRunning() const { return isActive; }
 
   /**

@@ -24,11 +24,20 @@
 #include <fcntl.h>
 #include <unistd.h>  
 #include <sys/stat.h>
+#include <signal.h>
 
 //Change this flag as needed. Debug mode displays virtual canvas locally per update
 #define TMP_CMD "/tmp/led-cmd"
 
+volatile sig_atomic_t stop_signal = 0;
+
+static void signal_handler(int signum) {
+    stop_signal = 1;
+    std::cout << "Received signal, exiting now...\n";
+}
+
 int main(int argc, char* argv[]) {
+     signal(SIGINT, signal_handler);
 
      //Required for webcam streaming
      setenv("RDMAV_FORK_SAFE", "1", 1);
@@ -43,8 +52,6 @@ int main(int argc, char* argv[]) {
          exit(-1);
      }
      server_config = server_config_opt.value();
- 
-     std::map <std::string, std::vector<std::vector<Element>>> elements;
  
      VirtualCanvas vCanvas(server_config.canvas_size);
      vCanvas.pixelMatrix = cv::Mat::zeros(vCanvas.dim, CV_8UC3);
@@ -91,13 +98,12 @@ int main(int argc, char* argv[]) {
      }
 
  
-     std::optional<LEDTCPServer> server_opt =
+     std::shared_ptr<LEDTCPServer> server =
          create_server(INADDR_ANY, 7070, 7074, server_config.clients);
-     if (!server_opt.has_value()) {
+     if (!server) {
          exit(-1);
      }
-     LEDTCPServer server = server_opt.value();
-     server.start();
+     server->start();
  
      Controller cont(vCanvas,
                      server_config.clients,
@@ -115,7 +121,7 @@ int main(int argc, char* argv[]) {
     bool isPaused = false;
     char buf[256];
     std::cout << "\nWrite your command to " << TMP_CMD << std::endl << "Example: `echo \"move 5 10 10 > " << TMP_CMD << "\'" << std::endl <<  "Available Commands : \n- pause\n- resume\n- quit\n- move <ElementID> <x-coord> <y-coord>\n- add <type> <ElementID> <x-coord> <y-coord>\n- remove <ElementID>\n";
-     while(1) {
+    while(!stop_signal) {
 
         /*
         ======================================================================================
@@ -159,7 +165,7 @@ int main(int argc, char* argv[]) {
         if (!isPaused) {
             cont.frame_exec(debug_mode);
         }
-     }
+    }
 
     EXIT_PROGRAM:
     close(pipe);
