@@ -3,6 +3,7 @@ import hashlib
 import subprocess, os, signal
 import atexit
 import signal
+import copy
 import magic
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
@@ -582,11 +583,54 @@ def save_config_as():
     
 
 
+# accepts JSON: {"name": "elem1"}
+@app.route("/api/duplicate-layer", methods=["POST"])
+def duplicate_layer():
+    global config_File
+    json_package = request.get_json()
+    name = json_package.get("name")
 
+    if not config_File:
+        return jsonify({"error": "No configuration file selected"}), 400
+    if not name:
+        return jsonify({"error": "No element name provided"}), 400
+
+    try:
+        with open(config_File, "r") as f:
+            data = yaml.safe_load(f) or {"settings": {}, "elements": {}}
+
+        elements = data.get("elements", {})
+        if name not in elements:
+            return jsonify({"error": f"Element '{name}' not found"}), 404
+
+        base = name + "_copy"
+        new_name = base
+        i = 1
+        while new_name in elements:
+            new_name = f"{base}_{i}"
+            i += 1
+
+        new_element = copy.deepcopy(elements[name])
+        new_id = max(el["id"] for el in elements.values()) + 1
+        new_element["id"] = new_id
+        if "location" in new_element and len(new_element["location"]) == 2:
+            new_element["location"] = [new_element["location"][0] + 1, new_element["location"][1] + 1]
+        elements[new_name] = new_element
+        data["elements"] = elements
+
+        with open(config_File, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+
+        print(f"[INFO]: Duplicated '{name}' as '{new_name}' with id {new_id}")
+        return jsonify({"status": "success", "new_name": new_name, "new_id": new_id}), 201
+
+    except Exception as e:
+        print(f"[ERROR]: Failed to duplicate layer -> {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0")
+    app.run(host="0.0.0.0", port=8080)

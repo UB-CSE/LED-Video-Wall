@@ -12,6 +12,7 @@ interface BaseElem {
     name: string;
     id: number;
     location: number[];
+    visible?: boolean;  // optional — undefined means visible (defaults to true)
 }
 interface ImageElem extends BaseElem {
     type: "image";
@@ -65,6 +66,14 @@ const configSlice = createSlice({
                 }
             }
         },
+        toggleElementVisibility: (state, action: PayloadAction<number>) => {
+            for (let i = 0; i < state.elements.length; i++) {
+                if (state.elements[i].id === action.payload) {
+                    // undefined means visible, so toggling undefined → false
+                    state.elements[i].visible = state.elements[i].visible === false ? true : false;
+                }
+            }
+        },
         resetState: (state) => {
             state.selectedElement = 0;
             state.elements = [];
@@ -72,6 +81,6 @@ const configSlice = createSlice({
         },
     },
 });
-export const { setGamma, setSelectedElement, addElement, updateElement, resetState, updateLocation} = configSlice.actions;
+export const { setGamma, setSelectedElement, addElement, updateElement, resetState, updateLocation, toggleElementVisibility } = configSlice.actions;
 
 export default configSlice.reducer;
