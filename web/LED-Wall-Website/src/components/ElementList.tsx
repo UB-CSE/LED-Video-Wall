@@ -10,6 +10,7 @@ import useContextMenu from "../hooks/useContextMenu.tsx";
 import { type Option } from "./ContextMenu.tsx";
 import AddImagePopup from "./AddImagePopup.tsx";
 import AddTextPopup from "./AddTextPopup.tsx";
+import { clearElement } from "../state/config/configSlice.ts";
 
 type Props = {
   sizeMultiplier: number;
@@ -145,7 +146,9 @@ function ElementList(props: Props) {
     setContextIsClicked(true);
   }
 
-  function deleteElement() {}
+  function deleteElement() {
+    dispatch(clearElement(configState.selectedElement));
+  }
 
   function addImage(e: React.MouseEvent) {
     setAddImageIsClicked(true);

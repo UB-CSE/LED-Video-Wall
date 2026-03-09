@@ -1,5 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
+
 interface ConfigState {
     selectedElement: number;
     settings: Settings;
@@ -51,6 +52,9 @@ const configSlice = createSlice({
         addElement: (state, action: PayloadAction<Elem>) => {
             state.elements.push(action.payload);
         },
+        clearElement: (state, action: PayloadAction<number>) => {
+            state.elements = state.elements.filter((element) => element.id !== action.payload);
+        },
         updateElement: (state, action: PayloadAction<Elem>) => {
             for (let i = 0; i < state.elements.length; i++) {
                 if (state.elements[i].id === action.payload.id) {
@@ -72,6 +76,6 @@ const configSlice = createSlice({
         },
     },
 });
-export const { setGamma, setSelectedElement, addElement, updateElement, resetState, updateLocation} = configSlice.actions;
+export const { setGamma, setSelectedElement, addElement, clearElement, updateElement, resetState, updateLocation} = configSlice.actions;
 
 export default configSlice.reducer;

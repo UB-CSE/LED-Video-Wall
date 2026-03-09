@@ -15,6 +15,7 @@ type ImageProps = {
   location: [number, number];
   sizeMultiplier: number;
   scale: number;
+  boxSizing?: string;
 };
 type TextProps = {
   name: string;
@@ -26,6 +27,7 @@ type TextProps = {
   font_path: string;
   location: [number, number];
   sizeMultiplier: number;
+  boxSizing?: string;
 };
 type ElementProps = ImageProps | TextProps;
 
@@ -131,6 +133,7 @@ function Element(props: ElementProps) {
       sendPosition();
     }
   }, [isDragging]);
+  
 
   useEffect(() => {
     setX(0);
@@ -175,11 +178,12 @@ function Element(props: ElementProps) {
             cursor: isDragging ? "grabbing" : "grab",
             width: dimensions[0] * props.scale,
             height: dimensions[1] * props.scale,
-            margin: "0px",
+            margin: "-3px",
+            boxSizing: "border-box",
             border:
               configState.selectedElement == props.id
                 ? "3px solid cornflowerblue"
-                : "none",
+                : "3px solid transparent",
           }}
         />
       );
@@ -193,11 +197,12 @@ function Element(props: ElementProps) {
             left: props.location[0] + x,
             top: props.location[1] + y,
             cursor: isDragging ? "grabbing" : "grab",
-            margin: "0px",
+            margin: "-3px",
+            boxSizing: "border-box",
             border:
               configState.selectedElement == props.id
                 ? "3px solid cornflowerblue"
-                : "none",
+                : "3px solid transparent",
           }}
         >
           <p
