@@ -7,6 +7,7 @@ import {
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
 
+
 type ImageProps = {
   name: string;
   id: number;
