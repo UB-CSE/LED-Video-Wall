@@ -1,0 +1,10 @@
+settings:
+  gamma: 1.0
+elements:
+  "rtmp-elem1":
+    id: 1
+    type: "rtmp"
+    stream-name: "test"
+    framerate: 60
+    location: [0,0]
+    size: [64, 64]

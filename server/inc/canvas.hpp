@@ -8,6 +8,7 @@
 #include <algorithm>
 #include "input-parser.hpp"
 #include "text-render.hpp"
+#include "rtmp.hpp"
 
 
 class Element {
@@ -85,6 +86,22 @@ class VideoElement : public Element {
     public:
         VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate);
         VideoElement(int webcamNum, int id, cv::Point loc, int frameRate);
+        bool nextFrame(cv::Mat& frame) override;
+        void reset() override;
+    };
+
+class RTMPStreamElement : public Element {
+    private:
+        RTMPServer& rtmpServer;
+        std::string streamName;
+        cv::Size size;
+        cv::Mat lastFrame;
+        bool hasFrame = false;
+
+        const cv::Mat noFrameMat = cv::Mat(100, 100, CV_8UC3, cv::Scalar(0, 255, 0)); // green
+    
+    public:
+        RTMPStreamElement(RTMPServer& rtmpServer, const std::string& streamName, int id, cv::Point loc, int frameRate, cv::Size size = cv::Size(0, 0));
         bool nextFrame(cv::Mat& frame) override;
         void reset() override;
     };

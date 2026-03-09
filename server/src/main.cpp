@@ -10,6 +10,7 @@
 #include <netdb.h>
 #include <unistd.h> // for close
 #include "tcp.hpp"
+#include "rtmp.hpp"
 #include "client.hpp"
 #include "config-parser.hpp"
 #include <vector>
@@ -23,11 +24,20 @@
 #include <fcntl.h>
 #include <unistd.h>  
 #include <sys/stat.h>
+#include <signal.h>
 
 //Change this flag as needed. Debug mode displays virtual canvas locally per update
 #define TMP_CMD "/tmp/led-cmd"
 
+volatile sig_atomic_t stop_signal = 0;
+
+static void signal_handler(int signum) {
+    stop_signal = 1;
+    std::cout << "Received signal, exiting now...\n";
+}
+
 int main(int argc, char* argv[]) {
+     signal(SIGINT, signal_handler);
 
      //Required for webcam streaming
      setenv("RDMAV_FORK_SAFE", "1", 1);
@@ -43,42 +53,57 @@ int main(int argc, char* argv[]) {
      }
      server_config = server_config_opt.value();
  
-     std::map <std::string, std::vector<std::vector<Element>>> elements;
- 
      VirtualCanvas vCanvas(server_config.canvas_size);
      vCanvas.pixelMatrix = cv::Mat::zeros(vCanvas.dim, CV_8UC3);
  
      std::string inputFilePath;
      bool debug_mode = true;
+
+     const char* rtmpCertPath = nullptr, *rtmpKeyPath = nullptr;
+
      if (argc >= 2) {
          inputFilePath = std::string(argv[1]);
-         if ( (argc == 3) && (std::string(argv[2]) == "--prod") ) {
-            debug_mode = 0;
-         };
+         for (int i = 2; i < argc; i++) {
+             std::string arg = argv[i];
+             if (arg == "--prod") {
+                 debug_mode = false;
+             } else if (arg == "--rtmp-tls") {
+                 if (i + 2 < argc) {
+                   rtmpCertPath = argv[++i];
+                   rtmpKeyPath = argv[++i];
+                 }
+                 else {
+                   std::cerr << "Error: --rtmp-tls flag requires two arguments: <cert_path> <key_path>\n";
+                   exit(-1);
+                 }
+             } else {
+                 std::cerr << "Unknown argument: " << arg << "\n";
+                 exit(-1);
+             }
+         }
      } else {
          std::cerr << "Error, no image input file specified!" << "\n";
          exit(-1);
      }
 
-     
-
+     RTMPServer rtmpServer(rtmpCertPath, rtmpKeyPath);
  
      try {
-         parseInput(vCanvas, inputFilePath);
+         parseInput(vCanvas, inputFilePath, rtmpServer);
      } catch (std::exception& ex) {
          std::cerr << "Error Parsing image input file ("
                    << inputFilePath << "):"
                    << ex.what() << "\n";
          exit(-1);
      }
+
  
-     std::optional<LEDTCPServer> server_opt =
+     std::shared_ptr<LEDTCPServer> server =
          create_server(INADDR_ANY, 7070, 7074, server_config.clients);
-     if (!server_opt.has_value()) {
+     if (!server) {
          exit(-1);
      }
-     LEDTCPServer server = server_opt.value();
-     server.start();
+     server->start();
  
      Controller cont(vCanvas,
                      server_config.clients,
@@ -96,7 +121,7 @@ int main(int argc, char* argv[]) {
     bool isPaused = false;
     char buf[256];
     std::cout << "\nWrite your command to " << TMP_CMD << std::endl << "Example: `echo \"move 5 10 10 > " << TMP_CMD << "\'" << std::endl <<  "Available Commands : \n- pause\n- resume\n- quit\n- move <ElementID> <x-coord> <y-coord>\n- add <type> <ElementID> <x-coord> <y-coord>\n- remove <ElementID>\n";
-     while(1) {
+    while(!stop_signal) {
 
         /*
         ======================================================================================
@@ -140,7 +165,7 @@ int main(int argc, char* argv[]) {
         if (!isPaused) {
             cont.frame_exec(debug_mode);
         }
-     }
+    }
 
     EXIT_PROGRAM:
     close(pipe);

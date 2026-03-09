@@ -19,25 +19,36 @@
 #include <utility>
 #include <poll.h>
 #include <vector>
+#include <chrono>
 #include "opencv2/core.hpp"
 #include "protocol.hpp"
 
 const int MAX_WAITING_CLIENTS = 256;
 
-void handle_conns(int socket, LEDTCPServer* server) {
+void LEDTCPServer::handle_conns() {
 
     listen(socket, MAX_WAITING_CLIENTS);
 
     std::map<uint64_t, const Client*> mac_to_client;
 
     std::vector<const Client*> clients;
-    server->conn_info->getAllDisconnected(clients);
+    conn_info->getAllDisconnected(clients);
     for (auto c : clients) {
         mac_to_client[c->mac_addr] = c;
     }
 
-    while (1) {
+    while (is_running) {
         int client_socket = accept(socket, NULL, NULL);
+        if (client_socket < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+              std::this_thread::sleep_for(std::chrono::milliseconds(1));
+              continue;
+            }
+
+            std::cerr << "Accept failed: " << strerror(errno) << "\n";
+            break;
+        }
+
         int flags = fcntl(client_socket, F_GETFL, 0);
         if (flags == -1) {
             close(client_socket);
@@ -49,15 +60,13 @@ void handle_conns(int socket, LEDTCPServer* server) {
         }
         CheckInMessage msg;
         MessageHeader* header = &msg.header;
-        *header = server->tcp_recv_header(client_socket);
+        *header = tcp_recv_header(client_socket);
         if (msg.header.op_code != OP_CHECK_IN || msg.header.size != sizeof(CheckInMessage)) {
             std::cerr << "Expected check-in message, got invalid op-code or message size.\n";
             close(client_socket);
             continue;
         }
-        server->tcp_recv(client_socket,
-                         &(msg.mac_address),
-                         sizeof(msg) - sizeof(MessageHeader));
+        tcp_recv(client_socket, &(msg.mac_address), sizeof(msg) - sizeof(MessageHeader));
         uint64_t mac_addr = 0;
         std::cout << &(msg.mac_address) << "," << &msg + sizeof(MessageHeader) << "," << &msg << "," << sizeof(MessageHeader) << "\n";
         memcpy(&mac_addr, &(msg.mac_address), 6);
@@ -70,10 +79,10 @@ void handle_conns(int socket, LEDTCPServer* server) {
 
             // If the client reconnects before its old socket has disconnected,
             // close the old socket and mark the client as disconnected.
-            auto socket_opt = server->conn_info->getSocket(c);
+            auto socket_opt = conn_info->getSocket(c);
             if (socket_opt.has_value()) {
                 int socket = socket_opt.value();
-                server->conn_info->setDisconnected(c);
+                conn_info->setDisconnected(c);
                 close(socket);
             }
 
@@ -101,7 +110,7 @@ void handle_conns(int socket, LEDTCPServer* server) {
             poll(&pfd, 1, -1);
             send(client_socket, msg, out_size, 0);
             std::cout << "Sent set_config to " << mac_addr << "\n";
-            server->conn_info->setConnected(c, client_socket);
+            conn_info->setConnected(c, client_socket);
         } else {
             std::cerr << "Did not recognize MAC address!\n";
             close(client_socket);
@@ -109,17 +118,17 @@ void handle_conns(int socket, LEDTCPServer* server) {
     }
 }
 
-std::optional<LEDTCPServer> create_server(uint32_t addr,
-                                          uint16_t start_port,
-                                          uint16_t end_port,
-                                          std::vector<Client*> clients) {
+std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
+                                            uint16_t start_port,
+                                            uint16_t end_port,
+                                            std::vector<Client*> clients) {
     struct protoent* protocol_entry = getprotobyname("tcp");
     const int tcp_protocol_num = protocol_entry->p_proto;
     
     int server_socket = socket(AF_INET, SOCK_STREAM, tcp_protocol_num);
     if (server_socket == -1) {
         std::cerr << "Bad socket!\n";
-        return std::nullopt;
+        return nullptr;
     }
 
     int enable = 1;
@@ -139,30 +148,57 @@ std::optional<LEDTCPServer> create_server(uint32_t addr,
                 std::cerr << "ERROR: could not bind to any of the ports in the range "
                           << start_port << " to "
                           << end_port << "\n";
-                return std::nullopt;
+                return nullptr;
             }
         } else {
             break;
         }
     }
 
-    return LEDTCPServer(addr, port, server_socket, clients, handle_conns);
+    // Set the socket to non-blocking
+
+    int flags = fcntl(server_socket, F_GETFL, 0);
+    if (flags < 0) {
+        std::cerr << "Failed to get socket flags: " << strerror(errno) << "\n";
+        close(server_socket);
+        return nullptr;
+    }
+
+    if (fcntl(server_socket, F_SETFL, flags | O_NONBLOCK) < 0) {
+        std::cerr << "Failed to set socket to non-blocking: " << strerror(errno) << "\n";
+        close(server_socket);
+        return nullptr;
+    }
+
+    return std::make_shared<LEDTCPServer>(addr, port, server_socket, clients);
 }
 
 LEDTCPServer::LEDTCPServer(uint32_t addr,
                            uint16_t port,
                            int socket,
-                           std::vector<Client*> clients,
-                           void(*handle_conns)(int socket, LEDTCPServer* server))
+                           std::vector<Client*> clients)
     : addr(addr),
       port(port),
       socket(socket),
-      conn_info(new ClientConnInfo(clients)),
-      conn_handling(NULL)
+      conn_info(new ClientConnInfo(clients))
 {}
 
+LEDTCPServer::~LEDTCPServer() {
+  if (is_running) {
+    is_running = false;
+    conn_handling.join();
+  }
+  for (auto& [client, client_socket] : conn_info->connected) {
+      close(client_socket);
+  }
+  close(socket);
+
+  std::cout << "LEDTCPServer on port " << port << " stopped.\n";
+}
+
 void LEDTCPServer::start() {
-    this->conn_handling = new std::thread(handle_conns, socket, this);
+    is_running = true;
+    this->conn_handling = std::thread(&LEDTCPServer::handle_conns, this);
 }
 
 ClientConnInfo::ClientConnInfo(std::vector<Client *> clients)
