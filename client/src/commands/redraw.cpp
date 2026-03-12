@@ -5,8 +5,8 @@
 #include "redraw.hpp"
 #include "set_config.hpp"
 
-#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
-extern MatrixPanel_I2S_DMA *dma_display;
+#include "hub75.h"
+extern Hub75Display *dma_display;
 
 static const char *TAG = "Redraw";
 

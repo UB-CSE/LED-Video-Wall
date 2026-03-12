@@ -15,5 +15,8 @@ dependencies:
   #   # All dependencies of `main` are public by default.
   #   public: true
   espressif/led_strip: ^3.0.0
-  esp32_hub75_matrixpanel_i2s_dma:
-    git: https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA.git  
+  dependencies:
+    idf:
+      version: '>=4.1.0'
+    espressif/led_strip: ^3.0.0
+    esphome/esp-hub75: ">=0.1.0"

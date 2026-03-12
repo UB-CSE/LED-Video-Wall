@@ -3,8 +3,8 @@
 #include "protocol.hpp"
 #include "redraw.hpp"
 #include "set_config.hpp"
-#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
-extern MatrixPanel_I2S_DMA *dma_display;
+#include "hub75.h"
+extern Hub75Display *dma_display;
 
 static const char *TAG = "SetLeds";
 
@@ -26,7 +26,7 @@ int set_leds(SetLedsMessage *msg) {
     for (int i = 0; i < num_pixels; i++) {
       int x = i % 64;
       int y = i / 64;
-      dma_display->drawPixelRGB888(x, y, pixel_data[i*3], pixel_data[i*3+1], pixel_data[i*3+2]);
+      dma_display->set_pixel(x, y, pixel_data[i*3], pixel_data[i*3+1], pixel_data[i*3+2]);
     }
     return 0;
   }
@@ -96,7 +96,7 @@ int set_leds_batched(SetLedsBatchedMessage *msg) {
         for (uint32_t idx = 0; idx < num_leds; ++idx) {
           int x = idx % 64;
           int y = idx / 64;
-          dma_display->drawPixelRGB888(x, y, p[idx*3], p[idx*3+1], p[idx*3+2]);
+          dma_display->set_pixel(x, y, p[idx*3], p[idx*3+1], p[idx*3+2]);
         }
       }
       p += pixel_bytes;
