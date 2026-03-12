@@ -1,11 +1,12 @@
 #include "esp_log.h"
 #include "led_strip.h"
+#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 
 #include <map>
 
 #include "protocol.hpp"
 #include "set_config.hpp"
-
+MatrixPanel_I2S_DMA *dma_display = nullptr;
 static const char *TAG = "SetConfig";
 
 std::map<uint8_t, led_strip_handle_t> pin_to_handle;
@@ -40,6 +41,20 @@ int set_config(SetConfigMessage *msg) {
   for (int i = 0; i < num_pins; i++) {
     PinInfo *pinfo = &msg->pin_info[i];
     uint8_t gpio_pin = pinfo->pin_num;
+    if (gpio_pin ==255){
+      HUB75_I2S_CFG mxconfig(64, 64, 1);
+      mxconfig.gpio.e = 32;
+      mxconfig.clkphase = false;
+      mxconfig.latch_blanking = 4;
+      mxconfig.i2sspeed = HUB75_I2S_CFG::HZ_10M;
+
+      if (!dma_display) {
+        dma_display = new MatrixPanel_I2S_DMA(mxconfig);
+        dma_display -> begin();
+        dma_display -> setBrightness8(100);
+      }
+      continue;
+    }
     uint16_t num_leds = pinfo->max_leds;
 
     if (num_leds == 0) {

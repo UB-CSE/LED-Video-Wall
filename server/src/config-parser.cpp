@@ -244,7 +244,8 @@ parse_clients(YAML::Node ynode_clients, std::map<std::string, LEDMatrix*> matric
         std::vector<MatricesConnection> mat_connections;
         for (size_t i = 0; i < connections_node.size(); ++i) {
             YAML::Node connection_node = connections_node[i];
-            uint8_t pin = connection_node["pin"].as<uint8_t>();
+            int pin_raw = connection_node["pin"].as<int>();
+            uint8_t pin = (pin_raw == -1) ? 255 : (uint8_t)pin_raw;
             MatricesConnection conn;
             conn.pin = pin;
             YAML::Node matrices_node = yaml_key_present_and_unique(connection_node, "matrices");

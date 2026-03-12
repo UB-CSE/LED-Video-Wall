@@ -11,6 +11,9 @@ matrix-specs:
   "ws2812b:32x8":
     power_limit_amps: 2.5
     width-height: [8, 32]
+  "p3:64x64":
+    power_limit_amps: 5.0
+    width-height: [64, 64]
 
 matrices:
   mat1:
@@ -77,6 +80,10 @@ matrices:
     spec: "ws2812b:32x8"
     pos: [56, 32]
     rot: down
+  mat_p3:
+    spec: "p3:64x64"
+    pos: [0, 0]
+    rot: down
 
 clients:
   30-C6-F7-26-05-D4:
@@ -119,3 +126,7 @@ clients:
         matrices: [mat15]
       - pin: 19
         matrices: [mat16]
+  24-0A-C4-0D-77-5C:
+    matrix-connections:
+      - pin: -1
+        matrices: [mat_p3]

@@ -5,6 +5,9 @@
 #include "redraw.hpp"
 #include "set_config.hpp"
 
+#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+extern MatrixPanel_I2S_DMA *dma_display;
+
 static const char *TAG = "Redraw";
 
 TaskHandle_t notify_handle = nullptr;
@@ -32,7 +35,7 @@ int redraw(RedrawMessage *msg) {
     ESP_LOGW(TAG, "Invalid redraw message (null)");
     return -1;
   }
-  if (pin_to_handle.empty()) {
+  if (pin_to_handle.empty() && dma_display == nullptr) {
     ESP_LOGE(TAG, "No LED strips configured");
     return -1;
   }

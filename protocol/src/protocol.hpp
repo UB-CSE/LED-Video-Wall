@@ -1,7 +1,10 @@
+
 #ifndef LED_PROTOCOL_H
 #define LED_PROTOCOL_H
 
 #include <cstdint>
+#define PIN_P3 255
+#define LED_TYPE_P3 0x02
 #define OP_SET_LEDS 0x01
 #define OP_GET_LOGS 0x02
 #define OP_REDRAW 0x03
