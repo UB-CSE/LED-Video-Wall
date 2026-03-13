@@ -14,6 +14,7 @@ function ButtonControls(props: ButtonControlsProps) {
   const [running, setRunning] = useState("Server is not running");
   const [configRunning, setConfigRunning] = useState("");
   const [preOpen, setPreOpen] = useState<string | null>(null);
+  const [liveEditisOn, setLiveEditOn] = useState(false);
 
   const showMessage = (msg: string) => {
     setMessage(msg);
@@ -144,7 +145,7 @@ function ButtonControls(props: ButtonControlsProps) {
 
   return (
     <div style={{ position: "fixed", left: "0px", top: "0px" }}>
-      <div className={styles.panel}>
+      <div className={styles.panel} style={{ height: "200px"}}>
         <h2 className={styles.panelHeader}>Start/Stop Server</h2>
         <button onClick={startServer} style={{ left: "35%" }}>
           Start
@@ -155,6 +156,35 @@ function ButtonControls(props: ButtonControlsProps) {
         <h3>Status:</h3>
         {message ? <p>{message}</p> : <p>{running}</p>}
       </div>
+
+      <div className={styles.panel} style={{ height: "150px"}}>
+        <h2 className={styles.panelHeader}>Live Editing Mode</h2>
+
+        <button
+          style={{
+            width: "200px",
+            height: "71px",
+            background: liveEditisOn ? "#9bdfa6" : "#e0e0e0",
+          }}
+        >
+          <div>
+            <button
+              onClick={() => setLiveEditOn(!liveEditisOn)}
+              style={{
+                boxShadow: "none",
+                width: "80px",
+                height: "60px",
+                top: "-13px",
+                left: liveEditisOn ? "90px" : "-10px",
+                background: liveEditisOn ? "#499456" : "#e0e0e0",
+              }}
+            >
+              {liveEditisOn ? "ON" : "OFF"}
+            </button>
+          </div>
+        </button>
+      </div>
+
       <div className={styles.panel} style={{ height: "400px" }}>
         <h2 className={styles.panelHeader}>Configuration Panel</h2>
         <h3>Select a Configuration File:</h3>
