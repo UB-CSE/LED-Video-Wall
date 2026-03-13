@@ -5,9 +5,7 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
-#include <algorithm>
 #include "input-parser.hpp"
-#include "text-render.hpp"
 #include "rtmp.hpp"
 
 
@@ -139,18 +137,14 @@ class TextElement : public Element {
 class VirtualCanvas{        
     
     public:
-        int elementCount;
-
+        int elementCount = 0;
 
         cv::Mat pixelMatrix;
         cv::Mat canvasLut;
         cv::Size dim;
         std::vector<Element *> elementPtrList;
 
-        //Default Constructor
-        VirtualCanvas(){}
-
-        VirtualCanvas(const cv::Size& size) : dim(size) {
+        explicit VirtualCanvas(const cv::Size& size) : dim(size) {
             pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
         }
         
@@ -165,6 +159,9 @@ class VirtualCanvas{
         void addElementToCanvas(Element* element);
         bool removeElementFromCanvas(int elementId);
         void pushToCanvas();
+
+    private:
+        void overlayImage(const cv::Mat& overlay, cv::Rect roi);
     };
 
 

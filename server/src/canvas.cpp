@@ -10,7 +10,7 @@
 
 //ImageElement implementation
 ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double scale): Element(id, loc, frameRate) {
-    pixelMatrix = cv::imread(filepath, cv::IMREAD_COLOR);
+    pixelMatrix = cv::imread(filepath, cv::IMREAD_UNCHANGED);
     if (pixelMatrix.empty()) {
         throw std::runtime_error("Failed to load image: " + filepath);
     }
@@ -258,13 +258,42 @@ void VirtualCanvas::pushToCanvas(){
             //Apply the gamma LUT here - OpenCV DOES support in place lutting
             cv::LUT(elemMat, canvasLut, elemMat);
 
-
-            elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
+            overlayImage(elemMat, cv::Rect(loc, elemSize));
         }else{
 
             printf("\n Element with ID: %d was placed out of bounds and has not been loaded", elemPtr->getId());
         }  
         
+    }
+}
+
+void VirtualCanvas::overlayImage(const cv::Mat& overlay, cv::Rect roi) {
+    if (overlay.channels() == 4) {
+        // Overlay image manually going pixel by pixel.
+        for (int y = roi.y; y < roi.y + roi.height; ++y) {
+            uint8_t* canvasPtr = pixelMatrix.ptr<uint8_t>(y, roi.x);
+            const uint8_t* overlayPtr = overlay.ptr<uint8_t>(y - roi.y, 0);
+
+            for (int x = 0; x < roi.width; ++x) {
+                const uint8_t* in = overlayPtr + (x * 4);
+                uint8_t* out = canvasPtr + (x * 3);
+
+                const uint16_t alpha = in[3];
+                if (alpha == 255) {
+                    out[0] = in[0];
+                    out[1] = in[1];
+                    out[2] = in[2];
+                } else {
+                    // Blending with integer math, faster than using floating point
+                    // (src * alpha + dst * (255 - alpha)) / 255
+                    out[0] = static_cast<uint8_t>((in[0] * alpha + out[0] * (255 - alpha)) >> 8);
+                    out[1] = static_cast<uint8_t>((in[1] * alpha + out[1] * (255 - alpha)) >> 8);
+                    out[2] = static_cast<uint8_t>((in[2] * alpha + out[2] * (255 - alpha)) >> 8);
+                }
+            }
+        }
+    } else {
+        overlay.copyTo(pixelMatrix(roi));
     }
 }
 
