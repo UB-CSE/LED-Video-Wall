@@ -268,11 +268,26 @@ void VirtualCanvas::pushToCanvas(){
 }
 
 void VirtualCanvas::overlayImage(const cv::Mat& overlay, cv::Rect roi) {
+    int offsetX = 0, offsetY = 0;
+    if (roi.x < 0) {
+        offsetX = -roi.x;
+        roi.width -= offsetX;
+        roi.x = 0;
+    }
+    if (roi.y < 0) {
+        offsetY = -roi.y;
+        roi.height -= offsetY;
+        roi.y = 0;
+    }
+
+    roi.width = std::min(roi.width, dim.width - roi.x);
+    roi.height = std::min(roi.height, dim.height - roi.y);
+
     if (overlay.channels() == 4) {
         // Overlay image manually going pixel by pixel.
         for (int y = roi.y; y < roi.y + roi.height; ++y) {
             uint8_t* canvasPtr = pixelMatrix.ptr<uint8_t>(y, roi.x);
-            const uint8_t* overlayPtr = overlay.ptr<uint8_t>(y - roi.y, 0);
+            const uint8_t* overlayPtr = overlay.ptr<uint8_t>(y - roi.y + offsetY, offsetX);
 
             for (int x = 0; x < roi.width; ++x) {
                 const uint8_t* in = overlayPtr + (x * 4);
