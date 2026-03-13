@@ -26,6 +26,9 @@ int set_leds(SetLedsMessage *msg) {
     for (int i = 0; i < num_pixels; i++) {
       int x = i % 64;
       int y = i / 64;
+	  if (y % 2 = 0){
+		x = 63 - x
+	  }
       dma_display->set_pixel(x, y, pixel_data[i*3], pixel_data[i*3+1], pixel_data[i*3+2]);
     }
     return 0;
