@@ -6,9 +6,9 @@ elements:
   "elem1":
     id: 1
     type: "image"
-    filepath: "images/hello-rainbow.png"
+    filepath: "images/rainbow.png"
     location: [0, 0]
-    scale: 1
+    scale: 0.5
   "elem2":
     id: 2
     type: "text"
@@ -16,4 +16,4 @@ elements:
     size: 24
     color: "#0025ff"
     font_path: "ttf/Lobster-Regular.ttf"
-    location: [18, 27]
+    location: [5,0]
