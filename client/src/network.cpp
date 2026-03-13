@@ -315,7 +315,7 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   if (message_size == 0) {
     ESP_LOGE(TAG, "msg size of 0");
     return -1;
-  } else if (message_size > 10000) {
+  } else if (message_size > 20000) {
     ESP_LOGE(TAG, "msg is way too big");
     return -1;
   }

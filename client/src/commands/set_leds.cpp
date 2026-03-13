@@ -26,6 +26,9 @@ int set_leds(SetLedsMessage *msg) {
     for (int i = 0; i < num_pixels; i++) {
       int x = i % 64;
       int y = i / 64;
+      if( y % 2 == 0){
+        x = 63 - x;
+      }
       dma_display->set_pixel(x, y, pixel_data[i*3], pixel_data[i*3+1], pixel_data[i*3+2]);
     }
     return 0;
@@ -96,6 +99,9 @@ int set_leds_batched(SetLedsBatchedMessage *msg) {
         for (uint32_t idx = 0; idx < num_leds; ++idx) {
           int x = idx % 64;
           int y = idx / 64;
+          if( y % 2 == 0){
+            x = 63 - x;
+          }
           dma_display->set_pixel(x, y, p[idx*3], p[idx*3+1], p[idx*3+2]);
         }
       }

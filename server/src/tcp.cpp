@@ -353,7 +353,7 @@ void LEDTCPServer::set_leds(const Client* c,
             uint32_t num_leds = ledmat->packed_pixel_array_size / 3;
             for (uint32_t i = 0; (i < num_leds); ++i) {
                 uint32_t a = i * 3;
-                if ((i / width) % 2 != 0) {
+                if (pin == 255 || (i / width) % 2 != 0) {
                     pixel_buf[a + 2] = data[a] / brightness_reduction;
                     pixel_buf[a + 1] = data[a + 1] / brightness_reduction;
                     pixel_buf[a] = data[a + 2] / brightness_reduction;
