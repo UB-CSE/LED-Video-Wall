@@ -84,12 +84,24 @@ function Canvas(props: Props) {
           panOffset={pan}
         />
       );
+    } else if (element.type === "carousel" || element.type === "video" || element.type === "webcam" || element.type === "rtmp") {
+      return (
+        <Element
+          key={element.id}
+          name={element.name}
+          id={element.id}
+          type={element.type}
+          location={[element.location[0], element.location[1]]}
+          sizeMultiplier={props.sizeMultiplier}
+          zoomScale={scale}
+          panOffset={pan}
+        />
+      );
     }
   }
-
   return (
     <>
-      {/* Zoom controls - fixed to bottom center, above everything */}
+
       {props.canvasDimensions[1] > 0 && (
         <div
           style={{
@@ -159,7 +171,7 @@ function Canvas(props: Props) {
           width: props.canvasDimensions[0] * scale,
           height: props.canvasDimensions[1] * scale,
           cursor: isZoomedIn ? "grab" : "default",
-          zIndex: 2,
+          zIndex: 0,
         }}
       >
         {configState.elements.map(createJSXElement)}

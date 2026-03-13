@@ -146,7 +146,48 @@ def set_yaml_config():
                             + ","
                             + str(element["location"][1])
                             + "]")
-            file.write(yaml_string)
+                        elif element["type"] == "carousel":
+                                yaml_string = (
+                                    yaml_string
+                                    + '\n  "' + name + '":\n    id: ' + str(element["id"])
+                                    + '\n    type: "carousel"'
+                                    + "\n    filepaths:\n"
+                                    + "".join(f'      - "{fp}"\n' for fp in element.get("filepaths", []))
+                                    + "    framerate: " + str(element.get("framerate", 1))
+                                    + "\n    location: [" + str(element["location"][0]) + "," + str(element["location"][1]) + "]"
+                                )
+                        elif element["type"] == "video":
+                            yaml_string = (
+                                yaml_string
+                                + '\n  "' + name + '":\n    id: ' + str(element["id"])
+                                + '\n    type: "video"'
+                                + '\n    filepath: "' + element.get("filepath", "") + '"'
+                                + "\n    framerate: " + str(element.get("framerate", 30))
+                                + "\n    location: [" + str(element["location"][0]) + "," + str(element["location"][1]) + "]"
+                            )
+                        elif element["type"] == "webcam":
+                            yaml_string = (
+                                yaml_string
+                                + '\n  "' + name + '":\n    id: ' + str(element["id"])
+                                + '\n    type: "webcam"'
+                                + "\n    camera-number: " + str(element.get("camera_number", 0))
+                                + "\n    framerate: " + str(element.get("framerate", 30))
+                                + "\n    location: [" + str(element["location"][0]) + "," + str(element["location"][1]) + "]"
+                            )
+                        elif element["type"] == "rtmp":
+                            yaml_string = (
+                                yaml_string
+                                + '\n  "' + name + '":\n    id: ' + str(element["id"])
+                                + '\n    type: "rtmp"'
+                                + '\n    stream-name: "' + element.get("stream_name", "") + '"'
+                                + "\n    framerate: " + str(element.get("framerate", 30))
+                                + "\n    location: [" + str(element["location"][0]) + "," + str(element["location"][1]) + "]"
+                            )
+                            if element.get("size") and len(element["size"]) == 2:
+                                yaml_string += "\n    size: [" + str(element["size"][0]) + "," + str(element["size"][1]) + "]"                        
+                            
+            file.write(yaml_string) 
+            
 
         return "Success: config file has been updated"  # Responds with success message
     except FileNotFoundError:
@@ -361,7 +402,7 @@ def list_configs():
                     for name in config_Data["elements"]:
                         element = config_Data["elements"][name]
                         # WHEN ADDING NEW ELEMENT TYPES, UPDATE THIS LIST
-                        if element["type"] not in ["image", "text"]:
+                        if element["type"] not in ["image", "text", "carousel", "video", "webcam", "rtmp"]:
                             is_valid = False
                             break
                     if is_valid:
@@ -615,14 +656,10 @@ def duplicate_layer():
         new_element["id"] = new_id
         if "location" in new_element and len(new_element["location"]) == 2:
             new_element["location"] = [new_element["location"][0] + 1, new_element["location"][1] + 1]
-        elements[new_name] = new_element
-        data["elements"] = elements
+        
 
-        with open(config_File, "w") as f:
-            yaml.safe_dump(data, f, sort_keys=False)
-
-        print(f"[INFO]: Duplicated '{name}' as '{new_name}' with id {new_id}")
-        return jsonify({"status": "success", "new_name": new_name, "new_id": new_id}), 201
+        print(f"[INFO]: Duplicated '{name}' as '{new_name}' with id {new_id} (not yet saved)")
+        return jsonify({"status": "success", "new_name": new_name, "new_id": new_id}), 201  
 
     except Exception as e:
         print(f"[ERROR]: Failed to duplicate layer -> {e}")

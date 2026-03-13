@@ -15,6 +15,10 @@ import useContextMenu from "../hooks/useContextMenu.tsx";
 import { type Option } from "./ContextMenu.tsx";
 import AddImagePopup from "./AddImagePopup.tsx";
 import AddTextPopup from "./AddTextPopup.tsx";
+import AddCarouselPopup from "./AddCarouselPopup.tsx";
+import AddVideoPopup from "./AddVideoPopup.tsx";
+import AddWebcamPopup from "./AddWebcamPopup.tsx";
+import AddRtmpPopup from "./AddRtmpPopup.tsx";
 
 type Props = {
   sizeMultiplier: number;
@@ -43,6 +47,10 @@ function ElementList(props: Props) {
   const { location: contextLocation, setLocation: setContextLocation, isClicked: contextIsClicked, setIsClicked: setContextIsClicked } = useContextMenu();
   const { isClicked: addImageIsClicked, setIsClicked: setAddImageIsClicked } = useContextMenu();
   const { isClicked: addTextIsClicked, setIsClicked: setAddTextIsClicked } = useContextMenu();
+  const { isClicked: addCarouselIsClicked, setIsClicked: setAddCarouselIsClicked } = useContextMenu();
+  const { isClicked: addVideoIsClicked, setIsClicked: setAddVideoIsClicked } = useContextMenu();
+  const { isClicked: addWebcamIsClicked, setIsClicked: setAddWebcamIsClicked } = useContextMenu();
+  const { isClicked: addRtmpIsClicked, setIsClicked: setAddRtmpIsClicked } = useContextMenu();
   const [contextElementId, setContextElementId] = useState<number | null>(null);
   const [contextOptions, setContextOptions] = useState<Option[]>([]);
 
@@ -156,6 +164,10 @@ function ElementList(props: Props) {
   // ── Add ───────────────────────────────────────────────────────────────────
   function addImage(e: React.MouseEvent) { setAddImageIsClicked(true); e.preventDefault(); e.stopPropagation(); }
   function addText(e: React.MouseEvent) { setAddTextIsClicked(true); e.preventDefault(); e.stopPropagation(); }
+  function addCarousel(e: React.MouseEvent) { setAddCarouselIsClicked(true); e.preventDefault(); e.stopPropagation(); }
+  function addVideo(e: React.MouseEvent) { setAddVideoIsClicked(true); e.preventDefault(); e.stopPropagation(); }
+  function addWebcam(e: React.MouseEvent) { setAddWebcamIsClicked(true); e.preventDefault(); e.stopPropagation(); }
+  function addRtmp(e: React.MouseEvent) { setAddRtmpIsClicked(true); e.preventDefault(); e.stopPropagation(); }
 
   function handleClick(id: number) { dispatch(setSelectedElement(id)); }
 
@@ -174,6 +186,10 @@ function ElementList(props: Props) {
     setContextOptions([
       { name: "image", function: addImage },
       { name: "text", function: addText },
+      { name: "carousel", function: addCarousel },
+      { name: "video", function: addVideo },
+      { name: "webcam", function: addWebcam },
+      { name: "rtmp", function: addRtmp },
     ]);
     e.preventDefault();
     e.stopPropagation();
@@ -262,6 +278,10 @@ function ElementList(props: Props) {
       {contextIsClicked && <ContextMenu options={contextOptions} location={contextLocation} />}
       {addImageIsClicked && <AddImagePopup sizeMultiplier={props.sizeMultiplier} setAddImageIsClicked={setAddImageIsClicked} />}
       {addTextIsClicked && <AddTextPopup sizeMultiplier={props.sizeMultiplier} setAddTextIsClicked={setAddTextIsClicked} />}
+      {addCarouselIsClicked && <AddCarouselPopup sizeMultiplier={props.sizeMultiplier} setAddCarouselIsClicked={setAddCarouselIsClicked} />}
+      {addVideoIsClicked && <AddVideoPopup sizeMultiplier={props.sizeMultiplier} setAddVideoIsClicked={setAddVideoIsClicked} />}
+      {addWebcamIsClicked && <AddWebcamPopup sizeMultiplier={props.sizeMultiplier} setAddWebcamIsClicked={setAddWebcamIsClicked} />}
+      {addRtmpIsClicked && <AddRtmpPopup sizeMultiplier={props.sizeMultiplier} setAddRtmpIsClicked={setAddRtmpIsClicked} />}
     </div>
   );
 }

@@ -27,6 +27,19 @@ function DetailsPanel(props: Props) {
   const [content, setContent] = useState("");
   const [fonts, setFonts] = useState<string[]>([]);
 
+  // carousel only
+  const [filepaths, setFilepaths] = useState<string[]>([]);
+
+  // shared: carousel, video, webcam, rtmp
+  const [framerate, setFramerate] = useState(30);
+
+  // webcam only
+  const [cameraNumber, setCameraNumber] = useState(0);
+
+  // rtmp only
+  const [streamName, setStreamName] = useState("");
+  const [rtmpSize, setRtmpSize] = useState<number[]>([0, 0]);
+
   const dispatch = useDispatch();
 
   async function handleChange(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -66,8 +79,17 @@ function DetailsPanel(props: Props) {
               location[1] * props.sizeMultiplier,
             ],
           })
-        );
-      }
+        ); } else if (type === "carousel") {
+          dispatch(updateElement({ name, id, type: "carousel", location: [location[0] * props.sizeMultiplier, location[1] * props.sizeMultiplier], filepaths, framerate }));
+        } else if (type === "video") {
+          dispatch(updateElement({ name, id, type: "video", location: [location[0] * props.sizeMultiplier, location[1] * props.sizeMultiplier], filepath: path, framerate }));
+        } else if (type === "webcam") {
+          dispatch(updateElement({ name, id, type: "webcam", location: [location[0] * props.sizeMultiplier, location[1] * props.sizeMultiplier], camera_number: cameraNumber, framerate }));
+        } else if (type === "rtmp") {
+          const size = rtmpSize[0] > 0 && rtmpSize[1] > 0 ? rtmpSize : undefined;
+          dispatch(updateElement({ name, id, type: "rtmp", location: [location[0] * props.sizeMultiplier, location[1] * props.sizeMultiplier], stream_name: streamName, framerate, size }));
+        }
+      
       //Send updated position to server
       fetch("/api/send-location", {
         method: "POST",
@@ -222,6 +244,19 @@ function DetailsPanel(props: Props) {
         setFontSize(element.size);
         setColor(element.color);
         setContent(element.content);
+      } else if (element.type === "carousel") {
+        setFilepaths(element.filepaths);
+        setFramerate(element.framerate);
+      } else if (element.type === "video") {
+        setPath(element.filepath);
+        setFramerate(element.framerate);
+      } else if (element.type === "webcam") {
+        setCameraNumber(element.camera_number);
+        setFramerate(element.framerate);
+      } else if (element.type === "rtmp") {
+        setStreamName(element.stream_name);
+        setFramerate(element.framerate);
+        setRtmpSize(element.size ?? [0, 0]);
       }
     } else {
       setType("");
@@ -474,6 +509,64 @@ function DetailsPanel(props: Props) {
                   );
                 })}
               </select>
+            </li>
+          )}
+          {type === "carousel" && (
+            <li key={8} style={{ display: "flex" }}>
+              <p className={styles.box} style={{ width: "25%" }}>filepaths</p>
+              <textarea className={styles.box} style={{ width: "75%", backgroundColor: "whitesmoke", resize: "vertical", fontSize: "11px" }}
+                value={filepaths.join("\n")}
+                onChange={(e) => setFilepaths(e.target.value.split("\n").filter(Boolean))}
+                onBlur={() => dispatch(updateElement({ name, id, type: "carousel", location: [location[0] * props.sizeMultiplier, location[1] * props.sizeMultiplier], filepaths, framerate }))}
+                placeholder={"images/a.png\nimages/b.png"}
+                rows={3} />
+            </li>
+          )}
+          {type === "video" && (
+            <li key={8} style={{ display: "flex" }}>
+              <p className={styles.box} style={{ width: "25%" }}>filepath</p>
+              <input className={styles.box} style={{ width: "75%", backgroundColor: "whitesmoke" }}
+                onChange={(e) => setPath(e.target.value)}
+                onKeyDown={(e) => handleChange(e)} type="text" value={path} />
+            </li>
+          )}
+          {type === "webcam" && (
+            <li key={8} style={{ display: "flex" }}>
+              <p className={styles.box} style={{ width: "25%" }}>camera #</p>
+              <input className={styles.box} style={{ width: "75%", backgroundColor: "whitesmoke" }}
+                onChange={(e) => setCameraNumber(Math.max(0, e.target.valueAsNumber))}
+                onKeyDown={(e) => handleChange(e)} type="number" value={cameraNumber} />
+            </li>
+          )}
+          {type === "rtmp" && (
+            <li key={8} style={{ display: "flex" }}>
+              <p className={styles.box} style={{ width: "25%" }}>stream</p>
+              <input className={styles.box} style={{ width: "75%", backgroundColor: "whitesmoke" }}
+                onChange={(e) => setStreamName(e.target.value)}
+                onKeyDown={(e) => handleChange(e)} type="text" value={streamName} />
+            </li>
+          )}
+          {type === "rtmp" && (
+            <li key={9} style={{ display: "flex" }}>
+              <p className={styles.box} style={{ width: "24.5%" }}>size</p>
+              <div className={styles.box} style={{ width: "75.5%", display: "flex", padding: "3px" }}>
+                <p>w:</p>
+                <input onChange={(e) => setRtmpSize([e.target.valueAsNumber, rtmpSize[1]])}
+                  onKeyDown={(e) => handleChange(e)} type="number" value={rtmpSize[0]}
+                  style={{ width: "20%", backgroundColor: "whitesmoke", margin: "auto" }} />
+                <p>h:</p>
+                <input onChange={(e) => setRtmpSize([rtmpSize[0], e.target.valueAsNumber])}
+                  onKeyDown={(e) => handleChange(e)} type="number" value={rtmpSize[1]}
+                  style={{ width: "20%", backgroundColor: "whitesmoke", margin: "auto" }} />
+              </div>
+            </li>
+          )}
+          {(type === "carousel" || type === "video" || type === "webcam" || type === "rtmp") && (
+            <li key={10} style={{ display: "flex" }}>
+              <p className={styles.box} style={{ width: "25%" }}>framerate</p>
+              <input className={styles.box} style={{ width: "75%", backgroundColor: "whitesmoke" }}
+                onChange={(e) => setFramerate(Math.max(1, e.target.valueAsNumber))}
+                onKeyDown={(e) => handleChange(e)} type="number" value={framerate} />
             </li>
           )}
         </ul>

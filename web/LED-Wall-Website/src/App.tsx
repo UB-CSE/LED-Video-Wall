@@ -69,6 +69,45 @@ function App() {
             })
           );
         }
+       else if (element.type === "carousel") {
+        dispatch(addElement({
+          name: element.key,
+          id: element.id,
+          type: "carousel",
+          location: [element.location[0] * multiplier, element.location[1] * multiplier],
+          filepaths: element.filepaths ?? [],
+          framerate: element.framerate ?? 1,
+        }));
+      } else if (element.type === "video") {
+        dispatch(addElement({
+          name: element.key,
+          id: element.id,
+          type: "video",
+          location: [element.location[0] * multiplier, element.location[1] * multiplier],
+          filepath: element.filepath ?? "",
+          framerate: element.framerate ?? 30,
+        }));
+      } else if (element.type === "webcam") {
+        dispatch(addElement({
+          name: element.key,
+          id: element.id,
+          type: "webcam",
+          location: [element.location[0] * multiplier, element.location[1] * multiplier],
+          camera_number: element["camera-number"] ?? element.camera_number ?? 0,
+          framerate: element.framerate ?? 30,
+        }));
+      } else if (element.type === "rtmp") {
+        dispatch(addElement({
+          name: element.key,
+          id: element.id,
+          type: "rtmp",
+          location: [element.location[0] * multiplier, element.location[1] * multiplier],
+          stream_name: element["stream-name"] ?? element.stream_name ?? "",
+          framerate: element.framerate ?? 30,
+          size: element.size,
+        }));
+      }
+        
       }
     } catch (error) {
       console.log("Get Config encountered an error: " + error);
