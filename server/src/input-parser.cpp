@@ -96,7 +96,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
                     
                 } 
 
-                Element * elem = new ImageElement(filepath, id, loc, -1, scale); 
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
+                Element * elem = new ImageElement(filepath, id, loc, scale, rotationDegrees);
                 vCanvas.addElementToCanvas(elem);
                 
             }
@@ -123,9 +128,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
 
                 }
 
-                
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
 
-                Element * elem = new CarouselElement(filepaths, id, loc, frameRate);
+                Element * elem = new CarouselElement(filepaths, id, loc, frameRate, rotationDegrees);
                 vCanvas.addElementToCanvas(elem);
             }
 
@@ -149,7 +157,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
 
                 cv::Point loc(locVec[0], locVec[1]);
 
-                Element * elem = new VideoElement(filepath, id, loc, frameRate);
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
+                Element * elem = new VideoElement(filepath, id, loc, frameRate, rotationDegrees);
 
                 vCanvas.addElementToCanvas(elem);
 
@@ -174,7 +187,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
 
                 cv::Point loc(locVec[0], locVec[1]);
 
-                Element * elem = new VideoElement(webcamNum, id, loc, frameRate);
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
+                Element * elem = new VideoElement(webcamNum, id, loc, frameRate, rotationDegrees);
 
                 vCanvas.addElementToCanvas(elem);
 
@@ -205,8 +223,13 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
                 }
                 cv::Point posPoint(locVec[0], locVec[1]);
 
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
                 // create the element via the renderer (returns Element* or nullptr)
-                Element* elem = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint);
+                Element* elem = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint, rotationDegrees);
                 if (!elem) {
                     std::cerr << "Error parsing config: text failed to render (check TTF path/permissions): " 
                                 << filepath << std::endl;
@@ -247,7 +270,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
                    size = cv::Size(sizeVec[0], sizeVec[1]);
                 }
 
-                Element * elem = new RTMPStreamElement(rtmpServer, streamName, id, loc, frameRate, size);
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
+                Element * elem = new RTMPStreamElement(rtmpServer, streamName, id, loc, frameRate, size, rotationDegrees);
 
                 vCanvas.addElementToCanvas(elem);
 

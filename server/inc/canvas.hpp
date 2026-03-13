@@ -14,24 +14,29 @@ class Element {
     private:
         int id;
         cv::Point location;
+        cv::Point adjustedLocation;
         int frameRate;
-        
+        double angleDegrees = 0.0;
         
     public:
 
         int getId() const { return id;};
-        cv::Point& getLocation() { return location;};
+        cv::Point& getLocation() { return adjustedLocation;};
         int getFrameRate() {return frameRate;};
         cv::Mat getPixelMatrix() {return pixelMatrix;};
 
-        virtual bool nextFrame(cv::Mat& frame) = 0;
-        virtual void reset() = 0;
+        // Set pixelMatrix to the next frame
+        virtual bool nextFrame() { return false; }
+        virtual void reset() {}
         virtual ~Element() {}
 
     protected:
         
         cv::Mat pixelMatrix;
-        Element(int id, cv::Point loc, int frameRate) : id(id), location(loc), frameRate(frameRate) {}
+        Element(int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0) : id(id), location(loc), adjustedLocation(loc), frameRate(frameRate), angleDegrees(rotationDegrees) {}
+
+        // Rotates pixelMatrix by rotationDegrees
+        void rotateFrame();
     };
     
 class ImageElement : public Element {
@@ -42,7 +47,7 @@ class ImageElement : public Element {
         std::string filePath_;
     
     public:
-        ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double scale);
+        ImageElement(const std::string& filepath, int id, cv::Point loc, double scale, double rotationDegrees = 0.0);
 
         const std::string& getFilePath() const { return filePath_; }
         const double getScale() const {return scale_; }
@@ -62,7 +67,6 @@ class ImageElement : public Element {
                 );
             }
         }
-        bool nextFrame(cv::Mat& frame) override;
         void reset() override;
     };
     
@@ -72,8 +76,8 @@ class CarouselElement : public Element {
         size_t current; //This is the internal counter for carousel objects to remember which frame they are on
     
     public:
-        CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc, int frameRate);
-        bool nextFrame(cv::Mat& frame) override;
+        CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0);
+        bool nextFrame() override;
         void reset() override;
     };
     
@@ -82,9 +86,9 @@ class VideoElement : public Element {
         cv::VideoCapture cap;
     
     public:
-        VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate);
-        VideoElement(int webcamNum, int id, cv::Point loc, int frameRate);
-        bool nextFrame(cv::Mat& frame) override;
+        VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0);
+        VideoElement(int webcamNum, int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0);
+        bool nextFrame() override;
         void reset() override;
     };
 
@@ -93,14 +97,12 @@ class RTMPStreamElement : public Element {
         RTMPServer& rtmpServer;
         std::string streamName;
         cv::Size size;
-        cv::Mat lastFrame;
-        bool hasFrame = false;
 
         const cv::Mat noFrameMat = cv::Mat(100, 100, CV_8UC3, cv::Scalar(0, 255, 0)); // green
     
     public:
-        RTMPStreamElement(RTMPServer& rtmpServer, const std::string& streamName, int id, cv::Point loc, int frameRate, cv::Size size = cv::Size(0, 0));
-        bool nextFrame(cv::Mat& frame) override;
+        RTMPStreamElement(RTMPServer& rtmpServer, const std::string& streamName, int id, cv::Point loc, int frameRate, cv::Size size = cv::Size(0, 0), double rotationDegrees = 0.0);
+        bool nextFrame() override;
         void reset() override;
     };
 
@@ -113,23 +115,7 @@ class TextElement : public Element {
         cv::Scalar color;      
 
    
-        TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, const std::string& text, const std::string& font, int size, cv::Scalar col, int frameRate = 0) : Element(id, loc, frameRate),
-        content(text),
-        fontPath(font),
-        fontSize(size),
-        color(col)
-    {
-        pixelMatrix = imgBGR.clone();
-    }
-
-    bool nextFrame(cv::Mat& frame) override {
-        pixelMatrix.copyTo(frame);
-        return false;
-    }
-
-    void reset() override {
-       
-    }
+        TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, const std::string& text, const std::string& font, int size, cv::Scalar col, double rotationDegrees = 0.0);
 };
   
 
