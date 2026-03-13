@@ -15,8 +15,4 @@ dependencies:
   #   # All dependencies of `main` are public by default.
   #   public: true
   espressif/led_strip: ^3.0.0
-  dependencies:
-    idf:
-      version: '>=4.1.0'
-    espressif/led_strip: ^3.0.0
-    esphome/esp-hub75: ">=0.1.0"
+  esphome/esp-hub75: "^0.3.3"

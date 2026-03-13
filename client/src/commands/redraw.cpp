@@ -6,7 +6,7 @@
 #include "set_config.hpp"
 
 #include "hub75.h"
-extern Hub75Display *dma_display;
+extern Hub75Driver *dma_display;
 
 static const char *TAG = "Redraw";
 

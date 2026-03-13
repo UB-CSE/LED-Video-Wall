@@ -1,3 +1,5 @@
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=format -Wno-format")
+
 idf_component_register(
     SRCS
         "main.cpp"
@@ -10,4 +12,4 @@ idf_component_register(
         "commands/redraw.cpp"
         "commands/get_logs.cpp"
     INCLUDE_DIRS "."
-    REQUIRES led_strip protocol esp_wifi esp_event nvs_flash esp_ringbuf bootloader_support esp_http_client app_update mbedtls esp32_hub75_matrixpanel_i2s_dma)
+    REQUIRES led_strip protocol esp_wifi esp_event nvs_flash esp_ringbuf bootloader_support esp_http_client app_update mbedtls esphome__esp-hub75)

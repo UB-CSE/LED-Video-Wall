@@ -1,14 +1,12 @@
 dependencies:
-  esp32_hub75_matrixpanel_i2s_dma:
-    component_hash: dc69051bcf6ed9b89e86711b79b7937c3d558cc24ab8cb2430292dc12723fe14
+  esphome/esp-hub75:
     dependencies: []
     source:
-      git: https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA.git
-      path: .
-      type: git
-    version: d01562617a719ce4133d82e9ae9ac85f4408b695
+      path: /home/mdhussai/LED-Video-Wall/client/components/esphome__esp-hub75
+      type: local
+    version: 0.3.3
   espressif/led_strip:
-    component_hash: f907c58f722c58ab8545366668cfd8769cefb7d97a631a14e9d16234cc72bdff
+    component_hash: 28621486f77229aaf81c71f5e15d6fbf36c2949cf11094e07090593e659e7639
     dependencies:
     - name: idf
       require: private
@@ -16,15 +14,15 @@ dependencies:
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 3.0.0
+    version: 3.0.3
   idf:
     source:
       type: idf
     version: 5.4.1
 direct_dependencies:
-- esp32_hub75_matrixpanel_i2s_dma
+- esphome/esp-hub75
 - espressif/led_strip
 - idf
-manifest_hash: 911bd96082879fde4de3d4f1ecec12f9fdbdb7f56a8b3bdeabfb28abd580e209
+manifest_hash: e6e4c1fa8aa98149c5dcc5193e9aa398d23150d02cf2407d8e2481f6cbe3d1df
 target: esp32
 version: 2.0.0

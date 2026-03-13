@@ -128,5 +128,5 @@ clients:
         matrices: [mat16]
   24-0A-C4-0D-77-5C:
     matrix-connections:
-      - pin: -1
+      - pin: 255
         matrices: [mat_p3]

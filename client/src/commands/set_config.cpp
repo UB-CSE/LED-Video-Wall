@@ -6,7 +6,7 @@
 #include "protocol.hpp"
 #include "set_config.hpp"
 #include "hub75.h"
-Hub75Display *dma_display = nullptr;
+Hub75Driver *dma_display = nullptr;
 
 static const char *TAG = "SetConfig";
 
@@ -52,7 +52,7 @@ int set_config(SetConfigMessage *msg) {
         config.pins.a = 23; config.pins.b = 19; config.pins.c = 5; config.pins.d = 17; config.pins.e = 32;
         config.pins.lat = 4; config.pins.oe = 15; config.pins.clk = 16;
 
-        dma_display = new Hub75Display(config);
+        dma_display = new Hub75Driver(config);
         dma_display->begin();
       }
       continue;
