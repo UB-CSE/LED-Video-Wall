@@ -17,7 +17,7 @@ int set_leds(SetLedsMessage *msg) {
   }
 
   uint8_t gpio_pin = msg->gpio_pin;
-  if (gpio_pin == 255) {
+  if (gpio_pin < 0) {
     if (!dma_display) return -1;
     uint32_t data_size = msg->header.size - sizeof(SetLedsMessage);
     int num_pixels = data_size / 3;
@@ -26,9 +26,6 @@ int set_leds(SetLedsMessage *msg) {
     for (int i = 0; i < num_pixels; i++) {
       int x = i % 64;
       int y = i / 64;
-      if( y % 2 == 0){
-        x = 63 - x;
-      }
       dma_display->set_pixel(x, y, pixel_data[i*3], pixel_data[i*3+1], pixel_data[i*3+2]);
     }
     return 0;
@@ -94,14 +91,11 @@ int set_leds_batched(SetLedsBatchedMessage *msg) {
           *p, (unsigned int)num_leds);
       return -1;
     }
-    if (gpio_pin == 255) {
+    if (gpio_pin < 0) {
       if (dma_display) {
         for (uint32_t idx = 0; idx < num_leds; ++idx) {
           int x = idx % 64;
           int y = idx / 64;
-          if( y % 2 == 0){
-            x = 63 - x;
-          }
           dma_display->set_pixel(x, y, p[idx*3], p[idx*3+1], p[idx*3+2]);
         }
       }

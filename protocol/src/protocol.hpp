@@ -3,7 +3,6 @@
 #define LED_PROTOCOL_H
 
 #include <cstdint>
-#define PIN_P3 255
 #define LED_TYPE_P3 0x02
 #define OP_SET_LEDS 0x01
 #define OP_GET_LOGS 0x02
@@ -26,7 +25,7 @@ typedef struct {
 
 typedef struct {
   MessageHeader header;
-  uint8_t gpio_pin;
+  int8_t gpio_pin;
   uint8_t pixel_data[];
 } SetLedsMessage;
 
@@ -36,12 +35,12 @@ typedef struct {
 } SetLedsBatchedMessage;
 
 typedef struct {
-  uint8_t gpio_pin;
+  int8_t gpio_pin;
   uint32_t num_leds;
 } LedsBatchEntryHeader;
 
 typedef struct {
-  uint8_t gpio_pin;
+  int8_t gpio_pin;
   uint32_t num_leds;
   const uint8_t *pixel_data;
 } LedsBatch;
@@ -55,7 +54,7 @@ typedef struct {
 } RedrawMessage;
 
 typedef struct {
-  uint8_t pin_num;
+  int8_t pin_num;
   uint8_t color_order;
   uint32_t max_leds;
   uint8_t led_type;
@@ -82,9 +81,9 @@ typedef struct {
 uint8_t *encode_set_leds_batched(uint8_t batch_count, const LedsBatch *batches,
                                  uint32_t *out_size);
 
-uint8_t *encode_set_leds(uint8_t gpio_pin, const uint8_t *pixel_data,
+uint8_t *encode_set_leds(int8_t gpio_pin, const uint8_t *pixel_data,
                          uint32_t data_size, uint32_t *out_size);
-SetLedsMessage *encode_fixed_set_leds(uint8_t gpio_pin, uint32_t data_size,
+SetLedsMessage *encode_fixed_set_leds(int8_t gpio_pin, uint32_t data_size,
                                       uint32_t *out_size);
 
 uint8_t *encode_get_logs(const char *debug_string, uint32_t *out_size);

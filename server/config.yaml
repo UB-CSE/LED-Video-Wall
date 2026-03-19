@@ -6,6 +6,7 @@ ns-per-frame: 50000000 # 20 fps
 # ns-per-frame: 40000000 # 25 fps
 # ns-per-frame: 33333333 # 30 fps
 # ns-per-frame: 25000000 # 40 fps
+brightness_percent: 50
 
 matrix-specs:
   "ws2812b:32x8":
@@ -128,5 +129,5 @@ clients:
         matrices: [mat16]
   24-0A-C4-0D-77-5C:
     matrix-connections:
-      - pin: 255
+      - pin: -1
         matrices: [mat_p3]

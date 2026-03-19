@@ -121,7 +121,8 @@ void LEDTCPServer::handle_conns() {
 std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
                                             uint16_t start_port,
                                             uint16_t end_port,
-                                            std::vector<Client*> clients) {
+                                            std::vector<Client*> clients,
+                                            float brightness_percent) {
     struct protoent* protocol_entry = getprotobyname("tcp");
     const int tcp_protocol_num = protocol_entry->p_proto;
     
@@ -170,17 +171,19 @@ std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
         return nullptr;
     }
 
-    return std::make_shared<LEDTCPServer>(addr, port, server_socket, clients);
+    return std::make_shared<LEDTCPServer>(addr, port, server_socket, clients, brightness_percent);
 }
 
 LEDTCPServer::LEDTCPServer(uint32_t addr,
                            uint16_t port,
                            int socket,
-                           std::vector<Client*> clients)
+                           std::vector<Client*> clients,
+                           float brightness_percent)
     : addr(addr),
       port(port),
       socket(socket),
-      conn_info(new ClientConnInfo(clients))
+      conn_info(new ClientConnInfo(clients),
+      brightness_percent(brightness_percent))
 {}
 
 LEDTCPServer::~LEDTCPServer() {
@@ -339,6 +342,8 @@ void LEDTCPServer::set_leds(const Client* c,
             uint32_t y = ledmat->pos.y;
 
             cv::Mat sub_cvmat = canvas.getPixelMatrix()(cv::Rect(x, y, width, height)).clone();
+            sub_cvmat.convertTo(sub_cvmat, -1, this->brightness_percent / 100.0);
+
             if (rot == LEFT) {
                 cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_CLOCKWISE);
             } else if (rot == RIGHT) {
@@ -349,20 +354,20 @@ void LEDTCPServer::set_leds(const Client* c,
 
             const uint8_t* data = sub_cvmat.data;
             // todo: brightness_reduction should be configurable!
-            const int brightness_reduction = 10;
+            //Added brightness percent and removed brightness_reduction;
             uint32_t num_leds = ledmat->packed_pixel_array_size / 3;
             for (uint32_t i = 0; (i < num_leds); ++i) {
                 uint32_t a = i * 3;
-                if (pin == 255 || (i / width) % 2 != 0) {
-                    pixel_buf[a + 2] = data[a] / brightness_reduction;
-                    pixel_buf[a + 1] = data[a + 1] / brightness_reduction;
-                    pixel_buf[a] = data[a + 2] / brightness_reduction;
+                if (pin < 0 || (i / width) % 2 != 0) {
+                    pixel_buf[a + 2] = data[a];
+                    pixel_buf[a + 1] = data[a + 1];
+                    pixel_buf[a] = data[a + 2];
                 } else {
                     uint32_t irem = i % width;
                     uint32_t b = (((width - 1) - irem) + (i - irem)) * 3;
-                    pixel_buf[a + 2] = data[b] / brightness_reduction;
-                    pixel_buf[a + 1] = data[b + 1] / brightness_reduction;
-                    pixel_buf[a] = data[b + 2] / brightness_reduction;
+                    pixel_buf[a + 2] = data[b];
+                    pixel_buf[a + 1] = data[b + 1];
+                    pixel_buf[a] = data[b + 2];
                 }
             }
             pixel_buf += ledmat->packed_pixel_array_size;

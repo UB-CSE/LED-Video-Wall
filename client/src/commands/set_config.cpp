@@ -10,7 +10,7 @@ Hub75Driver *dma_display = nullptr;
 
 static const char *TAG = "SetConfig";
 
-std::map<uint8_t, led_strip_handle_t> pin_to_handle;
+std::map<int8_t, led_strip_handle_t> pin_to_handle;
 SemaphoreHandle_t pin_to_handle_mutex = xSemaphoreCreateMutex();
 
 void clear_led_strips() {
@@ -41,8 +41,8 @@ int set_config(SetConfigMessage *msg) {
 
   for (int i = 0; i < num_pins; i++) {
     PinInfo *pinfo = &msg->pin_info[i];
-    uint8_t gpio_pin = pinfo->pin_num;
-    if (gpio_pin == 255) {
+    int8_t gpio_pin = pinfo->pin_num;
+    if (gpio_pin < 0) {
       if (!dma_display) {
         Hub75Config config{};
         config.panel_width = 64;
@@ -51,7 +51,6 @@ int set_config(SetConfigMessage *msg) {
         config.pins.r2 = 14; config.pins.g2 = 12; config.pins.b2 = 13;
         config.pins.a = 23; config.pins.b = 19; config.pins.c = 5; config.pins.d = 17; config.pins.e = 32;
         config.pins.lat = 4; config.pins.oe = 15; config.pins.clk = 16;
-        dma_display->setBrightness8(200);
         dma_display = new Hub75Driver(config);
         dma_display->begin();
       }
@@ -60,7 +59,7 @@ int set_config(SetConfigMessage *msg) {
     uint16_t num_leds = pinfo->max_leds;
 
     if (num_leds == 0) {
-      ESP_LOGE(TAG, "num_leds is zero for pin %u", (unsigned int)gpio_pin);
+      ESP_LOGE(TAG, "num_leds is zero for pin %d", (unsigned int)gpio_pin);
       continue;
     }
 
@@ -93,7 +92,7 @@ int set_config(SetConfigMessage *msg) {
     esp_err_t ret =
         led_strip_new_rmt_device(&strip_config, &rmt_config, &strip);
     if (ret != ESP_OK) {
-      ESP_LOGE(TAG, "Failed to create LED strip for pin %u",
+      ESP_LOGE(TAG, "Failed to create LED strip for pin %d",
                (unsigned int)gpio_pin);
       clear_led_strips();
       xSemaphoreGive(pin_to_handle_mutex);

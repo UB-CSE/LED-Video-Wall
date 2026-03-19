@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
 
  
      std::shared_ptr<LEDTCPServer> server =
-         create_server(INADDR_ANY, 7070, 7074, server_config.clients);
+         create_server(INADDR_ANY, 7070, 7074, server_config.clients, server_config.brightness_percent);
      if (!server) {
          exit(-1);
      }
