@@ -286,7 +286,7 @@ ServerConfig parse_config_throws(std::string file) {
     
     YAML::Node ynode_brightness = config["brightness_percent"];
     float brightness_percent = 100.0f;
-    if (ynode_brigthness){
+    if (ynode_brightness){
         brightness_percent = ynode_brightness.as<float>();
     }
     // Parse Matrices

@@ -16,7 +16,7 @@ int set_leds(SetLedsMessage *msg) {
     return -1;
   }
 
-  uint8_t gpio_pin = msg->gpio_pin;
+  int8_t gpio_pin = msg->gpio_pin;
   if (gpio_pin < 0) {
     if (!dma_display) return -1;
     uint32_t data_size = msg->header.size - sizeof(SetLedsMessage);
@@ -80,7 +80,7 @@ int set_leds_batched(SetLedsBatchedMessage *msg) {
     }
 
     LedsBatchEntryHeader *eh = (LedsBatchEntryHeader *)p;
-    uint8_t gpio_pin = eh->gpio_pin;
+    int8_t gpio_pin = eh->gpio_pin;
     uint32_t num_leds = eh->num_leds;
     uint32_t pixel_bytes = num_leds * 3;
     p += sizeof(LedsBatchEntryHeader);

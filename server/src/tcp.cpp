@@ -182,9 +182,15 @@ LEDTCPServer::LEDTCPServer(uint32_t addr,
     : addr(addr),
       port(port),
       socket(socket),
-      conn_info(new ClientConnInfo(clients),
-      brightness_percent(brightness_percent))
-{}
+      conn_info(new ClientConnInfo(clients)),
+      brightness_percent(brightness_percent)
+{
+    if (this->brightness_percent < 1.0) {
+        this->brightness_percent = 1.0;
+    } else if (this->brightness_percent > 100.0) {
+        this->brightness_percent = 100.0;
+    }
+}
 
 LEDTCPServer::~LEDTCPServer() {
   if (is_running) {
@@ -265,7 +271,7 @@ bool ClientConnInfo::isConnected(const Client *c) {
     this->mut.unlock();
 }
 
-void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
+/*void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
     int sent = send(socket, data, size, MSG_NOSIGNAL);
     if (sent != size) {
         std::cout << "Error sending: " << strerror(errno) << "\n";
@@ -278,6 +284,29 @@ void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
         }
     }
 }
+    */
+ void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
+    int total_sent = 0;
+    while (total_sent < size) {
+        int sent = send(socket, (char*)data + total_sent, size - total_sent, MSG_NOSIGNAL);
+        if (sent < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
+            std::cout << "Error sending: " << strerror(errno) << "\n";
+            if (errno == ECONNRESET || errno == EPIPE) {
+                auto socket_opt = this->conn_info->getSocket(c);
+                if (socket_opt.has_value()) {
+                    close(socket_opt.value());
+                }
+                this->conn_info->setDisconnected(c);
+            }
+            break;
+        }
+        total_sent += sent;
+    }
+}  
 
 MessageHeader LEDTCPServer::tcp_recv_header(int socket) {
     MessageHeader header;
@@ -322,7 +351,7 @@ void LEDTCPServer::set_leds(const Client* c,
         // temp_buf is a buffer that will contain all the re-oriented/processed submatrices
         // of each led strip for the client
         uint8_t* temp_buf = (uint8_t*)malloc(total_size);
-        uint8_t pin = conn.pin;
+        int8_t pin = conn.pin;
 
         // This loop processes each submatrix (corresponding to a ledstrip) one at a time.
         // pixel_buf points to the next part of the temp_buf for the current submatrix.
@@ -335,7 +364,7 @@ void LEDTCPServer::set_leds(const Client* c,
             rotation rot = ledmat->pos.rot;
             if (rot == LEFT || rot == RIGHT) {
                 uint32_t temp = width;
-                height = width;
+                width = height;
                 height = temp;
             }
             uint32_t x = ledmat->pos.x;
