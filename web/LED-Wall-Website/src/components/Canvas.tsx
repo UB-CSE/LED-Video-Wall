@@ -46,7 +46,6 @@ function Canvas(props: Props) {
     //Context menu comes up when right click
     if(e.button === 2) {
       e.preventDefault();
-      alert("RIGHT CLICKED CANVAS");
     }
 
     //Deselects element if click on canvas
