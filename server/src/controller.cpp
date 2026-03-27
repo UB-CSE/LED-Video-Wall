@@ -65,8 +65,7 @@ Controller::Controller(VirtualCanvas &canvas,
         if (frame_rate > 0) {
             ns_dur period = std::chrono::nanoseconds(1'000'000'000 / frame_rate);
             auto nextFrame = [elem](Controller* cont) {
-                cv::Mat frame;
-                return elem->nextFrame(frame);
+                return elem->nextFrame();
             };
             this->event_queue.addEvent(Event(cur_time + period, period, nextFrame));
         }

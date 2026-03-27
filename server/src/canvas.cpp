@@ -6,22 +6,73 @@
 #include <stdexcept>
 #include <iostream>
 #include <string>
+#include <cmath>
+#include <algorithm>
 
+void Element::rotateFrame() {
+    if (angleDegrees == 0.f || pixelMatrix.empty()) {
+        return;
+    }
+
+    cv::Size frameSize = pixelMatrix.size();
+
+    // Calculate how much bigger the element needs to be to fit the rotated frame without cropping
+
+    double frameHalfWidth = frameSize.width / 2.0,
+           frameHalfHeight = frameSize.height / 2.0;
+    cv::Point2d frameCenter(frameHalfWidth, frameHalfHeight);
+    double frameCenterToCornerAngleRad = std::atan(frameHalfHeight / frameHalfWidth);
+    double frameCenterToCornerDist = std::hypot(frameHalfWidth, frameHalfHeight);
+
+    double angleRad = angleDegrees * (M_PI / 180.0);
+
+    auto extendAtAngle = [](cv::Point2d center, double dist, double theta) {
+        double dx = dist * std::cos(theta);
+        double dy = dist * std::sin(theta);
+        return cv::Point2d(center.x + dx, center.y + dy);
+    };
+
+    cv::Point2d frameTopRightAfterRotation = extendAtAngle(frameCenter, frameCenterToCornerDist, angleRad + frameCenterToCornerAngleRad);
+    cv::Point2d frameTopLeftAfterRotation = extendAtAngle(frameCenter, frameCenterToCornerDist, angleRad + M_PI - frameCenterToCornerAngleRad);
+
+    double maxX = std::max(std::abs(frameCenter.x - frameTopRightAfterRotation.x), std::abs(frameCenter.x - frameTopLeftAfterRotation.x));
+    double maxY = std::max(std::abs(frameCenter.y - frameTopRightAfterRotation.y), std::abs(frameCenter.y - frameTopLeftAfterRotation.y));
+
+    int paddingX = static_cast<int>(std::ceil(std::max(maxX - frameHalfWidth, 0.0)));
+    int paddingY = static_cast<int>(std::ceil(std::max(maxY - frameHalfHeight, 0.0)));
+
+    // Expand the frame with a transparent border
+
+    cv::Mat paddedFrame = cv::Mat::zeros(frameSize.height + 2 * paddingY, frameSize.width + 2 * paddingX, CV_8UC4);
+    if (pixelMatrix.channels() == 3) {
+        cv::cvtColor(pixelMatrix, pixelMatrix, cv::COLOR_BGR2BGRA);
+    }
+    pixelMatrix.copyTo(paddedFrame(cv::Rect(paddingX, paddingY, frameSize.width, frameSize.height)));
+
+    cv::Size paddedFrameSize = paddedFrame.size();
+    cv::Point2d paddedFrameCenter(frameHalfWidth + paddingX, frameHalfHeight + paddingY);
+
+    // Rotate around the center
+
+    cv::Mat rotationMatrix = cv::getRotationMatrix2D(paddedFrameCenter, angleDegrees, 1.0);
+    cv::warpAffine(paddedFrame, pixelMatrix, rotationMatrix,paddedFrameSize);
+
+    // Keep the center of the element in the same place on the canvas
+
+    adjustedLocation = cv::Point(location.x - paddingX, location.y - paddingY);
+}
 
 //ImageElement implementation
-ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double scale): Element(id, loc, frameRate) {
-    pixelMatrix = cv::imread(filepath, cv::IMREAD_COLOR);
+
+ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, double scale, double rotationDegreees) : Element(id, loc, -1, rotationDegreees) {
+    pixelMatrix = cv::imread(filepath, cv::IMREAD_UNCHANGED);
     if (pixelMatrix.empty()) {
         throw std::runtime_error("Failed to load image: " + filepath);
     }
     original_ = pixelMatrix.clone();  
     filePath_ = filepath; 
     setScale(scale);
-}
-
-bool ImageElement::nextFrame(cv::Mat& frame) {
-    frame = pixelMatrix;
-    return true;
+    rotateFrame();
 }
 
 void ImageElement::reset() {
@@ -36,7 +87,7 @@ Maintains a vector of images it is responsible for.
 Utilizes internal counter with modulo shenanigans to track which frame is in play
 
 */
-CarouselElement::CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc, int frameRate): Element(id, loc,frameRate), current(0) {
+CarouselElement::CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc, int frameRate, double rotationDegrees)  : Element(id, loc,frameRate, rotationDegrees), current(0) {
     for (const auto& path : filepaths) {
         cv::Mat img = cv::imread(path, cv::IMREAD_COLOR);
         if (img.empty())
@@ -47,12 +98,13 @@ CarouselElement::CarouselElement(const std::vector<std::string>& filepaths, int 
         throw std::runtime_error("No images loaded.");
 
     pixelMatrix = pixelMatrices[0].clone();  //Init current matrix with top matrix
+    rotateFrame();
 }
 
-bool CarouselElement::nextFrame(cv::Mat& frame) {
-    frame = pixelMatrices[current];  // Update stored frame
-    pixelMatrix = frame;
+bool CarouselElement::nextFrame() {
+    pixelMatrix = pixelMatrices[current];  // Update stored frame
     current = (current + 1) % pixelMatrices.size();
+    rotateFrame();
     return true;
 }
 
@@ -63,7 +115,7 @@ void CarouselElement::reset() {
 
 //VideoElement implementation
 
-VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {
+VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double rotationDegrees): Element(id, loc, frameRate, rotationDegrees) {
     if(filepath.find("rtsp://") != std::string::npos){
         cap.open(filepath, cv::CAP_FFMPEG);
     }else{
@@ -75,11 +127,12 @@ VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc, i
     //Load first frame
     cap.read(pixelMatrix);
     cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+    rotateFrame();
 }
 
 //VideoElement implementation
 
-VideoElement::VideoElement(int webcamNum, int id, cv::Point loc, int frameRate): Element(id, loc, frameRate) {
+VideoElement::VideoElement(int webcamNum, int id, cv::Point loc, int frameRate, double rotationDegrees) : Element(id, loc, frameRate, rotationDegrees) {
     // This does not work on wsl because we dont have native webcam access.
     cap.open(webcamNum);
     if (!cap.isOpened())
@@ -88,22 +141,22 @@ VideoElement::VideoElement(int webcamNum, int id, cv::Point loc, int frameRate):
     //Load first frame
     cap.read(pixelMatrix);
     cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+    rotateFrame();
 }
 
 
-bool VideoElement::nextFrame(cv::Mat& frame) {
+bool VideoElement::nextFrame() {
     if (!cap.read(pixelMatrix)) {
         //Rewind and try again
         cap.set(cv::CAP_PROP_POS_FRAMES, 0);
         if (!cap.read(pixelMatrix)) {
-            frame = cv::Mat::zeros(pixelMatrix.size(), CV_8UC3); // fallback to empty to prevent crashes when ending
             return false;
         }
     }
 
-    frame = pixelMatrix;
-    return true;
+    rotateFrame();
 
+    return true;
 }
 
 void VideoElement::reset() {
@@ -114,18 +167,18 @@ void VideoElement::reset() {
     cap.set(cv::CAP_PROP_POS_FRAMES, 0);
 }
 
-
 // RTMPStreamElement implementation
 
-RTMPStreamElement::RTMPStreamElement(RTMPServer& rtmpServer, const std::string& streamName, int id, cv::Point loc, int frameRate, cv::Size size) : Element(id, loc, frameRate), rtmpServer(rtmpServer), streamName(streamName), size(size) {
+RTMPStreamElement::RTMPStreamElement(RTMPServer& rtmpServer, const std::string& streamName, int id, cv::Point loc, int frameRate, cv::Size size, double rotationDegrees) : Element(id, loc, frameRate, rotationDegrees), rtmpServer(rtmpServer), streamName(streamName), size(size) {
+    reset();
 }
 
-bool RTMPStreamElement::nextFrame(cv::Mat& frame) {
+bool RTMPStreamElement::nextFrame() {
   std::optional<cv::Mat> receivedFrame = rtmpServer.receiveStreamFrame(streamName);
   if (receivedFrame.has_value()) {
-    lastFrame = receivedFrame.value();
+    pixelMatrix = receivedFrame.value();
 
-    cv::Size frameSize = lastFrame.size();
+    cv::Size frameSize = pixelMatrix.size();
 
     if (size != cv::Size(0, 0) && frameSize != cv::Size(0, 0)) {
       // preserve aspect ratio, do no exceed specified size
@@ -138,26 +191,30 @@ bool RTMPStreamElement::nextFrame(cv::Mat& frame) {
       }
       cv::Size newSize(newWidth, newHeight);
       
-      cv::resize(lastFrame, lastFrame, newSize);
+      cv::resize(pixelMatrix, pixelMatrix, newSize);
     }
 
-    hasFrame = true;
-  }
-  else if (!hasFrame) {
-    lastFrame = noFrameMat.clone();
-    
-    if (size != cv::Size(0, 0)) {
-      cv::resize(lastFrame, lastFrame, size);
-    }
+    rotateFrame();
   }
 
-  pixelMatrix = frame = lastFrame;
   return true;
 }
 
 void RTMPStreamElement::reset() {
-    lastFrame = cv::Mat();
-    pixelMatrix = cv::Mat();
+    pixelMatrix = noFrameMat.clone();
+    
+    if (size != cv::Size(0, 0)) {
+      cv::resize(pixelMatrix, pixelMatrix, size);
+    }
+    rotateFrame();
+}
+
+// TextElement implementation
+
+TextElement::TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, const std::string& text, const std::string& font, int size, cv::Scalar col, double rotationDegrees)
+    : Element(id, loc, -1, rotationDegrees), content(text), fontPath(font), fontSize(size), color(col) {
+    pixelMatrix = imgBGR.clone();
+    rotateFrame();
 }
 
 /*
@@ -258,13 +315,57 @@ void VirtualCanvas::pushToCanvas(){
             //Apply the gamma LUT here - OpenCV DOES support in place lutting
             cv::LUT(elemMat, canvasLut, elemMat);
 
-
-            elemMat.copyTo(pixelMatrix(cv::Rect(loc, elemSize)));
+            overlayImage(elemMat, cv::Rect(loc, elemSize));
         }else{
 
             printf("\n Element with ID: %d was placed out of bounds and has not been loaded", elemPtr->getId());
         }  
         
+    }
+}
+
+void VirtualCanvas::overlayImage(const cv::Mat& overlay, cv::Rect roi) {
+    int offsetX = 0, offsetY = 0;
+    if (roi.x < 0) {
+        offsetX = -roi.x;
+        roi.width -= offsetX;
+        roi.x = 0;
+    }
+    if (roi.y < 0) {
+        offsetY = -roi.y;
+        roi.height -= offsetY;
+        roi.y = 0;
+    }
+
+    roi.width = std::min(roi.width, dim.width - roi.x);
+    roi.height = std::min(roi.height, dim.height - roi.y);
+
+    if (overlay.channels() == 4) {
+        // Overlay image manually going pixel by pixel.
+        for (int y = roi.y; y < roi.y + roi.height; ++y) {
+            uint8_t* canvasPtr = pixelMatrix.ptr<uint8_t>(y, roi.x);
+            const uint8_t* overlayPtr = overlay.ptr<uint8_t>(y - roi.y + offsetY, offsetX);
+
+            for (int x = 0; x < roi.width; ++x) {
+                const uint8_t* in = overlayPtr + (x * 4);
+                uint8_t* out = canvasPtr + (x * 3);
+
+                const uint16_t alpha = in[3];
+                if (alpha == 255) {
+                    out[0] = in[0];
+                    out[1] = in[1];
+                    out[2] = in[2];
+                } else {
+                    // Blending with integer math, faster than using floating point
+                    // (src * alpha + dst * (255 - alpha)) / 255
+                    out[0] = static_cast<uint8_t>((in[0] * alpha + out[0] * (255 - alpha)) >> 8);
+                    out[1] = static_cast<uint8_t>((in[1] * alpha + out[1] * (255 - alpha)) >> 8);
+                    out[2] = static_cast<uint8_t>((in[2] * alpha + out[2] * (255 - alpha)) >> 8);
+                }
+            }
+        }
+    } else {
+        overlay.copyTo(pixelMatrix(roi));
     }
 }
 
