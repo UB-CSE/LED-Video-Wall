@@ -4,6 +4,7 @@ import {
   setGamma,
   resetState,
   addElement,
+  clearElement,
 } from "./state/config/configSlice.ts";
 import Canvas from "./components/Canvas.tsx";
 import Buttoncontrols from "./button-controls.tsx";
@@ -181,6 +182,23 @@ function App() {
       console.log(configState.elements.length);
     }
   }
+
+
+  //Use effect for delete key
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if(e.key === "Delete"){
+          dispatch(clearElement(configState.selectedElement));
+        }
+      };
+  
+      document.addEventListener("keydown", handleKeyDown);
+  
+      // cleanup when component unmounts
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [configState.selectedElement]);
+    
+
 
   //Calls get_config when page loads
   useEffect(() => {
