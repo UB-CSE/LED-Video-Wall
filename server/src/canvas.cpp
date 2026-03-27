@@ -59,7 +59,7 @@ void Element::rotateFrame() {
 
     // Keep the center of the element in the same place on the canvas
 
-    adjustedLocation = cv::Point(location.x - paddingX, location.y - paddingY);
+    locationOffset = cv::Point(-paddingX, -paddingY);
 }
 
 //ImageElement implementation
@@ -377,7 +377,7 @@ bool VirtualCanvas::moveElement(int elementId, cv::Point loc){
     });
 
     if (it != elementPtrs.end()) {
-        (*it)->getLocation() = loc;
+        (*it)->setLocation(loc);
     }
 
     return 0;

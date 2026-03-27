@@ -14,16 +14,17 @@ class Element {
     private:
         int id;
         cv::Point location;
-        cv::Point adjustedLocation;
+        cv::Point locationOffset {0,0};
         int frameRate;
         double angleDegrees = 0.0;
         
     public:
 
         int getId() const { return id;};
-        cv::Point& getLocation() { return adjustedLocation;};
-        int getFrameRate() {return frameRate;};
-        cv::Mat getPixelMatrix() {return pixelMatrix;};
+        cv::Point getLocation() const { return location + locationOffset;};
+        void setLocation(const cv::Point& newLocation) { location = newLocation; }
+        int getFrameRate() const { return frameRate; };
+        cv::Mat getPixelMatrix() { return pixelMatrix; };
 
         // Set pixelMatrix to the next frame
         virtual bool nextFrame() { return false; }
@@ -33,7 +34,7 @@ class Element {
     protected:
         
         cv::Mat pixelMatrix;
-        Element(int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0) : id(id), location(loc), adjustedLocation(loc), frameRate(frameRate), angleDegrees(rotationDegrees) {}
+        Element(int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0) : id(id), location(loc), frameRate(frameRate), angleDegrees(rotationDegrees) {}
 
         // Rotates pixelMatrix by rotationDegrees
         void rotateFrame();
