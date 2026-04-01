@@ -6,7 +6,7 @@ ns-per-frame: 100000000 # 10 fps
 # ns-per-frame: 40000000 # 25 fps
 # ns-per-frame: 33333333 # 30 fps
 # ns-per-frame: 25000000 # 40 fps
-brightness_percent: 50.6
+brightness_percent: 100
 
 matrix-specs:
   "ws2812b:32x8":
@@ -14,7 +14,7 @@ matrix-specs:
     width-height: [8, 32]
   "p3:64x64":
     power_limit_amps: 5.0
-    width-height: [64, 64]
+    width-height: [128, 64]
 
 matrices:
   mat1:

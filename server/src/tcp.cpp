@@ -270,8 +270,8 @@ bool ClientConnInfo::isConnected(const Client *c) {
     return this->connected.find(c) != this->connected.end();
     this->mut.unlock();
 }
-
-/*void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
+/*
+void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
     int sent = send(socket, data, size, MSG_NOSIGNAL);
     if (sent != size) {
         std::cout << "Error sending: " << strerror(errno) << "\n";
@@ -284,7 +284,7 @@ bool ClientConnInfo::isConnected(const Client *c) {
         }
     }
 }
-    */
+*/
  void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
     int total_sent = 0;
     while (total_sent < size) {
@@ -306,7 +306,7 @@ bool ClientConnInfo::isConnected(const Client *c) {
         }
         total_sent += sent;
     }
-}  
+} 
 
 MessageHeader LEDTCPServer::tcp_recv_header(int socket) {
     MessageHeader header;

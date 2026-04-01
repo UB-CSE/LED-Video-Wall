@@ -35,4 +35,4 @@ elements:
     type: "video"
     filepath: "images/cat64.mp4"
     framerate: 30
-    location: [0, 0]
+    location: [64, 0]
