@@ -13,17 +13,18 @@ LOCAL_INC_DIRS := $(shell find $(INC_DIRS) -type d)
 
 CXX := g++
 CPPFLAGS :=
-CXXFLAGS := -O0 -g -Wall -std=c++17
+CXXFLAGS := -O0 -g -Wall -std=c++20
 
 # Include flags
 INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
-        `pkg-config --cflags opencv4` \
+	`pkg-config --cflags opencv4` \
 	`pkg-config --cflags yaml-cpp`\
 	`pkg-config --cflags freetype2`\
 	`pkg-config --cflags librtmp`\
 	`pkg-config --cflags libavcodec`\
 	`pkg-config --cflags libavutil`\
-	`pkg-config --cflags libswscale`
+	`pkg-config --cflags libswscale`\
+	-Icef -Icef/include
   
 
 LDFLAGS = `pkg-config --libs opencv4` \
@@ -32,10 +33,15 @@ LDFLAGS = `pkg-config --libs opencv4` \
 	`pkg-config --libs librtmp`\
 	`pkg-config --libs libavcodec`\
 	`pkg-config --libs libavutil`\
-	`pkg-config --libs libswscale`
+	`pkg-config --libs libswscale`\
+	-Wl,-rpath=cef/lib -Lcef/lib -lcef cef/lib/libcef_dll_wrapper.a
 
 .PHONY: all
-all: led-wall-server
+all: cef/.success led-wall-server
+
+cef/.success:
+	./scripts/get-cef.bash
+	@touch cef/.success # Create .success file to indicate that script was run successfully
 
 led-wall-server: $(OBJS)
 	$(CXX) $^ -o $@ $(INCFLAGS) $(LDFLAGS)
@@ -49,4 +55,4 @@ $(OBJ_DIR):
 
 .PHONY: clean
 clean:
-	rm -rf $(OBJ_DIR)
+	rm -rf $(OBJ_DIR) cef led-wall-server
