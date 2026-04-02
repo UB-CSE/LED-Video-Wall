@@ -33,8 +33,14 @@ LDFLAGS = `pkg-config --libs opencv4` \
 	`pkg-config --libs librtmp`\
 	`pkg-config --libs libavcodec`\
 	`pkg-config --libs libavutil`\
-	`pkg-config --libs libswscale`\
-	-Wl,-rpath=cef/lib -Lcef/lib -lcef cef/lib/libcef_dll_wrapper.a
+	`pkg-config --libs libswscale`
+
+# Link CEF
+ifeq ($(shell uname), Darwin)
+	LDFLAGS += -Fcef/lib -framework Chromium\ Embedded\ Framework cef/lib/libcef_dll_wrapper.a
+else
+	LDFLAGS += -Wl,-rpath=cef/lib -Lcef/lib -lcef cef/lib/libcef_dll_wrapper.a
+endif
 
 .PHONY: all
 all: cef/.success led-wall-server
@@ -45,6 +51,9 @@ cef/.success:
 
 led-wall-server: $(OBJS)
 	$(CXX) $^ -o $@ $(INCFLAGS) $(LDFLAGS)
+ifeq ($(shell uname), Darwin) # Change CEF framework path
+		install_name_tool -change '@executable_path/../Frameworks/Chromium Embedded Framework.framework/Chromium Embedded Framework' 'cef/lib/Chromium Embedded Framework.framework/Chromium Embedded Framework' led-wall-server
+endif
 
 $(OBJ_DIR)/%.cpp.o: %.cpp $(INCS) | $(OBJ_DIR)
 	mkdir -p $(dir $@)

@@ -66,7 +66,7 @@ echo "Configuring CEF build with CMake..."
 cmake -S . -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
 check_result
 echo "Building CEF with CMake..."
-cmake --build build --config ${BUILD_TYPE} -j$(nproc)
+cmake --build build --config ${BUILD_TYPE} #-j$(nproc)
 check_result
 echo "CEF build completed successfully."
 
@@ -82,13 +82,16 @@ check_result
 cp -r Release/* ../lib
 check_result
 
-cp -r Resources/* ../lib
-check_result
+if [[ $PLATFORM != "macos" ]]; then
+    cp -r Resources/* ../lib
+    check_result
+fi
+
 echo "CEF libraries and resources copied to lib directory."
 
 echo "Creating include directory symlink..."
 if [ -d "../include" ]; then
-  rm -rf ../include
+    rm -rf ../include
 fi
 
 ln -sF $(pwd)/include ../include
