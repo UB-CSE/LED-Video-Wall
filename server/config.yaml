@@ -1,12 +1,14 @@
 ignore-bounds-checks: true
 
-ns-per-frame: 100000000 # 10 fps
+#ns-per-frame: 100000000 # 10 fps
 # ns-per-frame: 66666666 # 15 fps
 #ns-per-frame: 50000000 # 20 fps
 # ns-per-frame: 40000000 # 25 fps
 # ns-per-frame: 33333333 # 30 fps
 # ns-per-frame: 25000000 # 40 fps
-brightness_percent: 100
+ns-per-frame: 16666667 # 60fps
+
+brightness_percent: 50
 
 matrix-specs:
   "ws2812b:32x8":
@@ -14,7 +16,7 @@ matrix-specs:
     width-height: [8, 32]
   "p3:64x64":
     power_limit_amps: 5.0
-    width-height: [128, 64]
+    width-height: [64, 64]
 
 matrices:
   mat1:
@@ -85,6 +87,10 @@ matrices:
     spec: "p3:64x64"
     pos: [0, 0]
     rot: down
+  mat_p3_2:
+    spec: "p3:64x64"
+    pos: [64, 0]
+    rot: down
 
 clients:
   30-C6-F7-26-05-D4:
@@ -131,3 +137,5 @@ clients:
     matrix-connections:
       - pin: -1
         matrices: [mat_p3]
+  #    - pin: -2
+    #    matrices: [mat_p3_2]
