@@ -24,7 +24,6 @@ INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
 	`pkg-config --cflags libavcodec`\
 	`pkg-config --cflags libavutil`\
 	`pkg-config --cflags libswscale`\
-	-Icef -Icef/include
   
 
 LDFLAGS = `pkg-config --libs opencv4` \
@@ -35,25 +34,23 @@ LDFLAGS = `pkg-config --libs opencv4` \
 	`pkg-config --libs libavutil`\
 	`pkg-config --libs libswscale`
 
-# Link CEF
-ifeq ($(shell uname), Darwin)
-	LDFLAGS += -Fcef/lib -framework Chromium\ Embedded\ Framework cef/lib/libcef_dll_wrapper.a
-else
+ifeq ($(shell uname), Linux) # Only link CEF on Linux for now. To support macOS, the program would need to bundled as a .app bundle which is a pain (https://chromiumembedded.github.io/cef/general_usage.html#macos). We should switch to CMake at some point to make this easier.
 	LDFLAGS += -Wl,-rpath=cef/lib -Lcef/lib -lcef cef/lib/libcef_dll_wrapper.a
+	INCFLAGS += -Icef -Icef/include
+	CPPFLAGS += -DWITH_CEF
 endif
 
 .PHONY: all
 all: cef/.success led-wall-server
 
 cef/.success:
+ifeq ($(shell uname), Linux)
 	./scripts/get-cef.bash
+endif
 	@touch cef/.success # Create .success file to indicate that script was run successfully
 
 led-wall-server: $(OBJS)
 	$(CXX) $^ -o $@ $(INCFLAGS) $(LDFLAGS)
-ifeq ($(shell uname), Darwin) # Change CEF framework path
-		install_name_tool -change '@executable_path/../Frameworks/Chromium Embedded Framework.framework/Chromium Embedded Framework' 'cef/lib/Chromium Embedded Framework.framework/Chromium Embedded Framework' led-wall-server
-endif
 
 $(OBJ_DIR)/%.cpp.o: %.cpp $(INCS) | $(OBJ_DIR)
 	mkdir -p $(dir $@)
