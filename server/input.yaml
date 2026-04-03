@@ -11,25 +11,25 @@ elements:
     type: "video"
     filepath: "images/conway_pulsar.mp4"
     framerate: 1
-    location: [0, 0]
+    location: [64, 0]
   "elem2":
     id: 2
     type: "video"
     filepath: "images/conway_pulsar.mp4"
     framerate: 1
-    location: [0, 32]
+    location: [64, 32]
   "elem3":
     id: 3
     type: "video"
     filepath: "images/conway_pulsar.mp4"
     framerate: 1
-    location: [32, 0]
+    location: [96, 0]
   "elem4":
     id: 4
     type: "video"
     filepath: "images/conway_pulsar.mp4"
     framerate: 1
-    location: [32, 32]
+    location: [96, 32]
   "elem5":
     id: 5
     type: "video"

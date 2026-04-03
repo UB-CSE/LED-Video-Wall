@@ -51,6 +51,7 @@ int set_config(SetConfigMessage *msg) {
         config.pins.r2 = 14; config.pins.g2 = 12; config.pins.b2 = 13;
         config.pins.a = 23; config.pins.b = 19; config.pins.c = 5; config.pins.d = 17; config.pins.e = 32;
         config.pins.lat = 4; config.pins.oe = 15; config.pins.clk = 16;
+        config.layout_cols = 2;
         dma_display = new Hub75Driver(config);
         dma_display->begin();
       }

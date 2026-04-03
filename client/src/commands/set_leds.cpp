@@ -17,7 +17,7 @@ int set_leds(SetLedsMessage *msg) {
   }
 
   int8_t gpio_pin = msg->gpio_pin;
-  if (gpio_pin < 0) {
+  /* (gpio_pin < 0) {
     if (!dma_display) return -1;
     uint32_t data_size = msg->header.size - sizeof(SetLedsMessage);
     int num_pixels = data_size / 3;
@@ -29,7 +29,7 @@ int set_leds(SetLedsMessage *msg) {
       dma_display->set_pixel(x, y, pixel_data[i*3], pixel_data[i*3+1], pixel_data[i*3+2]);
     }
     return 0;
-  }
+  }*/
 
 
   auto it = pin_to_handle.find(gpio_pin);
@@ -91,6 +91,7 @@ int set_leds_batched(SetLedsBatchedMessage *msg) {
           *p, (unsigned int)num_leds);
       return -1;
     }
+    //p3 matrix pin protocol
     if (gpio_pin < 0) {
       if (dma_display) {
         for (uint32_t idx = 0; idx < num_leds; ++idx) {
