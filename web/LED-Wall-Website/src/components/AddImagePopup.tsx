@@ -64,8 +64,18 @@ function AddImagePopup(props: Props) {
 
   function handleUpload() {
     if (newFile) {
-      // Uses the upload file function that uploads and adds the image element
+      // 1. Shift existing IDs by 1
+      const shiftedElements = configState.elements.map(el => ({
+        ...el,
+        id: el.id + 1
+      }));
+
+      // 2. Call your upload function
+      // Note: You must update Upload.tsx to use 'reorderElements' 
+      // instead of 'addElement' to support adding to the top.
       uploadFile([0, 0], newFile, dispatch, configState);
+      
+      // 3. Close the popup
       props.setAddImageIsClicked(false);
     }
   }

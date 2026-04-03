@@ -1,135 +1,112 @@
-import styles from "../Styles.module.css";
 import { useEffect, useState, type ChangeEvent } from "react";
-import { useDispatch } from "react-redux";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../state/store";
-import { addElement } from "../state/config/configSlice.ts";
+import {reorderElements, setSelectedElement } from "../state/config/configSlice.ts";import styles from "../Styles.module.css";
+
+// Move constants outside to prevent re-creation and ensure consistency
+const INITIAL_COLOR = "#0025ff";
+const INITIAL_SIZE = 24;
 
 type Props = {
   sizeMultiplier: number;
   setAddTextIsClicked: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-function AddTextPopup(props: Props) {
+function AddTextPopup({ setAddTextIsClicked }: Props) {
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
-  const [color, setColor] = useState("#0025ff");
-  const [fontSize, setFontSize] = useState(24);
+  const [color, setColor] = useState(INITIAL_COLOR);
+  const [fontSize, setFontSize] = useState(INITIAL_SIZE);
   const [fonts, setFonts] = useState<string[]>([]);
 
-  //Redux State
   const dispatch = useDispatch();
-  const configState = useSelector((state: RootState) => state.config);
+  // Only select what you need from the state to prevent unnecessary re-renders
+  const elementsCount = useSelector((state: RootState) => state.config.elements.length);
 
-  //Clears state and closes popup
-  function handleClose() {
+  const handleClose = () => {
     setName("");
     setContent("");
-    setColor("#000000ff");
-    setFontSize(24);
-    props.setAddTextIsClicked(false);
-  }
-
-  function handleChange(e: ChangeEvent<HTMLTextAreaElement>) {
-    setContent(e.target.value);
-  }
+    setColor(INITIAL_COLOR);
+    setFontSize(INITIAL_SIZE);
+    setAddTextIsClicked(false);
+  };
+  const configState = useSelector((state: RootState) => state.config);
 
   function handleAdd() {
-    dispatch(
-      addElement({
-        name: name,
-        id: configState.elements.length + 1,
-        type: "text",
-        location: [0, 0],
-        content: content,
-        size: fontSize,
-        color: color,
-        font_path: fonts[0],
-      })
-    );
+    const newId = configState.elements.length + 1;
+    const newElement = {
+      name: name || `text${newId}`,
+      id: 1,
+      type: "text" as const,
+      location: [0, 0],
+      content,
+      size: fontSize,
+      color,
+      font_path: fonts[0] ?? "",
+      visible: true,
+    };
+    const shifted = configState.elements.map((el) => ({ ...el, id: el.id + 1 }));
+    dispatch(reorderElements([newElement, ...shifted]));
+    dispatch(setSelectedElement(1));
     handleClose();
   }
 
-  //Fetch list of available fonts on component mount
   useEffect(() => {
+    let isMounted = true; // Guard to prevent state updates after unmount
+
     async function fetchFonts() {
       try {
-        const response = await fetch("/api/list-fonts", { method: "GET" });
+        const response = await fetch("/api/list-fonts");
         const data = await response.json();
-        if (data.fonts) {
+        if (isMounted && data.fonts) {
           setFonts(data.fonts);
-        } else if (data.error) {
-          console.log(`[ERROR]: ${data.error}`);
         }
       } catch (error) {
-        console.log("[ERROR]: Could not fetch fonts");
+        console.error("Could not fetch fonts", error);
       }
     }
+
     fetchFonts();
+    return () => { isMounted = false; }; // Cleanup function
   }, []);
 
   return (
-    <div
-      className={styles.popup}
-      onClick={(e) => {
-        e.stopPropagation();
-      }}
-    >
+    <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
       <textarea
         className={styles.box}
         value={content}
-        onChange={(e) => handleChange(e)}
-        style={{
-          width: "80%",
-          height: "150px",
-          color: color,
-          fontSize: fontSize,
-        }}
+        onChange={(e) => setContent(e.target.value)}
+        style={{ width: "80%", height: "150px", color, fontSize: `${fontSize}px` }}
       />
-      <ul style={{ padding: "0px", width: "80%" }}>
-        <li key={1} style={{ display: "flex" }}>
-          <p className={styles.box} style={{ width: "25%" }}>
-            name
-          </p>
+      
+      <ul style={{ padding: 0, width: "80%", listStyle: "none" }}>
+        <li style={{ display: "flex", marginBottom: "8px" }}>
+          <span className={styles.label} style={{ width: "25%" }}>Name</span>
           <input
             className={styles.box}
             style={{ width: "75%" }}
             onChange={(e) => setName(e.target.value)}
             type="text"
             value={name}
+            placeholder="Enter element name..."
           />
         </li>
-        <li
-          key={2}
-          style={{
-            display: "flex",
-          }}
-        >
-          <p
-            className={styles.box}
-            style={{
-              width: "25%",
-            }}
-          >
-            font size
-          </p>
+        <li style={{ display: "flex" }}>
+          <span className={styles.label} style={{ width: "25%" }}>Font Size</span>
           <input
             className={styles.box}
             style={{ width: "75%" }}
-            onChange={(e) => {
-              setFontSize(e.target.valueAsNumber);
-            }}
+            onChange={(e) => setFontSize(e.target.valueAsNumber || 0)}
             type="number"
             value={fontSize}
           />
         </li>
       </ul>
-      <button
-        onClick={handleAdd}
-        style={{ left: "0%", transform: "translate(0%, 0%)" }}
-      >
-        Add
-      </button>
+
+      <div className={styles.buttonGroup}>
+        <button onClick={handleClose}>Cancel</button>
+        <button onClick={handleAdd} disabled={!content.trim()}>Add</button>
+      </div>
     </div>
   );
 }

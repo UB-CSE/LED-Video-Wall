@@ -34,7 +34,21 @@ type TextProps = {
   sizeMultiplier: number;
   boxSizing?: string;
 };
+<<<<<<< HEAD
 type ElementProps = ImageProps | TextProps;
+=======
+type PlaceholderProps = {
+  name: string;
+  id: number;
+  type: "carousel" | "video" | "webcam" | "rtmp";
+  location: [number, number];
+  sizeMultiplier: number;
+  zoomScale: number;
+  panOffset: { x: number; y: number };
+  size?: number[];
+};
+type ElementProps = ImageProps | TextProps | PlaceholderProps;
+>>>>>>> 4717901 (feat: implement add-to-top logic and all layer popups #169)
 
 //Element that can be dragged and dropped inside the canvas
 function Element(props: ElementProps) {
@@ -68,6 +82,7 @@ function Element(props: ElementProps) {
 
   //Overwrites redux state of this element in the config
   function updateState() {
+<<<<<<< HEAD
     if (props.type === "image") {
       dispatch(
         updateElement({
@@ -116,6 +131,19 @@ function Element(props: ElementProps) {
 
   function deleteElement() {
       dispatch(clearElement(configState.selectedElement));
+=======
+    const canvasX = props.location[0] + x / props.zoomScale;
+    const canvasY = props.location[1] + y / props.zoomScale;
+    const current = configState.elements.find((el) => el.id === props.id);
+    if (!current) return;
+    dispatch(updateElement({ ...current, location: [canvasX, canvasY] }));
+  }
+  function startDragging(e: React.MouseEvent) {
+    dispatch(setSelectedElement(props.id));
+    setIsDragging(true);
+    setStartX(e.clientX - x);
+    setStartY(e.clientY - y);
+>>>>>>> 4717901 (feat: implement add-to-top logic and all layer popups #169)
   }
 
   //Sends the current location of the element to the server
@@ -258,10 +286,60 @@ function Element(props: ElementProps) {
           >
             {props.content}
           </p>
+<<<<<<< HEAD
 
           {contextIsClicked && (
           <ContextMenu options={contextOptions} location={contextLocation} />
           )}
+=======
+        </div>
+      );
+    } else {
+      // Placeholder for carousel, video, webcam, rtmp
+      const placeholderColors: Record<string, string> = {
+        carousel: "#4a90d9",
+        video:    "#7b5ea7",
+        webcam:   "#2e8b57",
+        rtmp:     "#c0392b",
+      };
+      const placeholderW = props.type === "rtmp" && props.size && props.size[0] > 0
+      ? props.size[0] * props.sizeMultiplier * props.zoomScale
+      : 64 * props.zoomScale;
+    const placeholderH = props.type === "rtmp" && props.size && props.size[1] > 0
+      ? props.size[1] * props.sizeMultiplier * props.zoomScale
+      : 64 * props.zoomScale;      const color = placeholderColors[props.type] ?? "#888";
+      return (
+        <div
+          draggable={false}
+          onMouseDown={(e) => startDragging(e)}
+          style={{
+            position: "fixed",
+            left,
+            top,
+            width: placeholderW,
+            height: placeholderH,
+            cursor: isDragging ? "grabbing" : "grab",
+            backgroundColor: color,
+            opacity: 0.75,
+            zIndex: 100,
+            border: configState.selectedElement === props.id
+              ? "3px solid cornflowerblue"
+              : "2px dashed rgba(255,255,255,0.6)",
+            boxSizing: "border-box",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            gap: "4px",
+          }}
+        >
+          <span style={{ color: "white", fontSize: 10 * props.zoomScale, fontWeight: "bold", userSelect: "none" }}>
+            {props.type.toUpperCase()}
+          </span>
+          <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 9 * props.zoomScale, userSelect: "none" }}>
+            {props.name}
+          </span>
+>>>>>>> 4717901 (feat: implement add-to-top logic and all layer popups #169)
         </div>
       );
     }

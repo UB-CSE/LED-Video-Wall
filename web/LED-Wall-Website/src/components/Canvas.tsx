@@ -67,6 +67,11 @@ function Canvas(props: Props) {
           location={[element.location[0], element.location[1]]}
           sizeMultiplier={props.sizeMultiplier}
           scale={element.scale}
+<<<<<<< HEAD
+=======
+          panOffset={pan}
+
+>>>>>>> 4717901 (feat: implement add-to-top logic and all layer popups #169)
         />
       );
     } else if (element.type === "text") {
@@ -82,6 +87,26 @@ function Canvas(props: Props) {
           font_path={element.font_path}
           location={[element.location[0], element.location[1]]}
           sizeMultiplier={props.sizeMultiplier}
+<<<<<<< HEAD
+=======
+          zoomScale={scale}
+          panOffset={pan}
+        />
+      );
+    } else if (element.type === "carousel" || element.type === "video" || element.type === "webcam" || element.type === "rtmp") {
+      return (
+        <Element
+          key={element.id}
+          name={element.name}
+          id={element.id}
+          type={element.type}
+          location={[element.location[0], element.location[1]]}
+          sizeMultiplier={props.sizeMultiplier}
+          zoomScale={scale}
+          panOffset={pan}
+          size={element.type === "rtmp" ? element.size : undefined}
+
+>>>>>>> 4717901 (feat: implement add-to-top logic and all layer popups #169)
         />
       );
     }
