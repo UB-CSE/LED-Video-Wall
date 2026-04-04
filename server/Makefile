@@ -13,17 +13,17 @@ LOCAL_INC_DIRS := $(shell find $(INC_DIRS) -type d)
 
 CXX := g++
 CPPFLAGS :=
-CXXFLAGS := -O0 -g -Wall -std=c++17
+CXXFLAGS := -O0 -g -Wall -std=c++20
 
 # Include flags
 INCFLAGS = $(addprefix -I,$(LOCAL_INC_DIRS)) \
-        `pkg-config --cflags opencv4` \
+	`pkg-config --cflags opencv4` \
 	`pkg-config --cflags yaml-cpp`\
 	`pkg-config --cflags freetype2`\
 	`pkg-config --cflags librtmp`\
 	`pkg-config --cflags libavcodec`\
 	`pkg-config --cflags libavutil`\
-	`pkg-config --cflags libswscale`
+	`pkg-config --cflags libswscale`\
   
 
 LDFLAGS = `pkg-config --libs opencv4` \
@@ -34,8 +34,20 @@ LDFLAGS = `pkg-config --libs opencv4` \
 	`pkg-config --libs libavutil`\
 	`pkg-config --libs libswscale`
 
+ifeq ($(shell uname), Linux) # Only link CEF on Linux for now. To support macOS, the program would need to bundled as a .app bundle which is a pain (https://chromiumembedded.github.io/cef/general_usage.html#macos). We should switch to CMake at some point to make this easier.
+	LDFLAGS += -Wl,-rpath=cef/lib -Lcef/lib -lcef cef/lib/libcef_dll_wrapper.a
+	INCFLAGS += -Icef -Icef/include
+	CPPFLAGS += -DWITH_CEF
+endif
+
 .PHONY: all
-all: led-wall-server
+all: cef/.success led-wall-server
+
+cef/.success:
+ifeq ($(shell uname), Linux)
+	./scripts/get-cef.bash
+endif
+	@touch cef/.success # Create .success file to indicate that script was run successfully
 
 led-wall-server: $(OBJS)
 	$(CXX) $^ -o $@ $(INCFLAGS) $(LDFLAGS)
@@ -49,4 +61,4 @@ $(OBJ_DIR):
 
 .PHONY: clean
 clean:
-	rm -rf $(OBJ_DIR)
+	rm -rf $(OBJ_DIR) cef led-wall-server
