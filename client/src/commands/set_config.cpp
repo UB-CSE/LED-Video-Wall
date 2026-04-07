@@ -46,10 +46,12 @@ int set_config(SetConfigMessage *msg) {
     }
   }
 
-  if (p3_panel_count > 0 && !dma_display) {
+ if (p3_panel_count > 0 && !dma_display) {
     Hub75Config config{};
-    config.panel_width = 64 * p3_panel_count; 
+    config.panel_width = 64; 
     config.panel_height = 64;
+    config.layout_cols = p3_panel_count;
+    config.layout_rows = 1;
     config.pins.r1 = 25; config.pins.g1 = 26; config.pins.b1 = 27;
     config.pins.r2 = 14; config.pins.g2 = 12; config.pins.b2 = 13;
     config.pins.a = 23; config.pins.b = 19; config.pins.c = 5; config.pins.d = 17; config.pins.e = 32;
