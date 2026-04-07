@@ -35,4 +35,11 @@ elements:
     type: "video"
     filepath: "images/cat64.mp4"
     framerate: 60
-    location: [0, 0]
+    location: [0, 64]
+
+  "elem6":
+    id: 6
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
+    framerate: 1
+    location: [16, 144]

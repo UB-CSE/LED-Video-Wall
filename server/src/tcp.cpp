@@ -96,11 +96,12 @@ void LEDTCPServer::handle_conns() {
                 for (LEDMatrix* mat : conn.matrices) {
                     max_leds += mat->spec->width * mat->spec->height;
                 }
+                uint8_t led_type = (conn.pin < 0) ? LED_TYPE_P3 : LED_TYPE_WS2811;
                 pin_info.push_back((PinInfo){
                         conn.pin,
                         COLOR_ORDER_GRB,
                         max_leds,
-                        LED_TYPE_WS2811
+                        led_type
                     });
             }
             const PinInfo* inf = pin_info.data();
