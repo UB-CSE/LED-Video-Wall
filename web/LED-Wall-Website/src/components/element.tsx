@@ -31,7 +31,17 @@ type TextProps = {
   zoomScale: number;
   panOffset: { x: number; y: number };
 };
-type ElementProps = ImageProps | TextProps;
+type PlaceholderProps = {
+  name: string;
+  id: number;
+  type: "carousel" | "video" | "webcam" | "rtmp";
+  location: [number, number];
+  sizeMultiplier: number;
+  zoomScale: number;
+  panOffset: { x: number; y: number };
+  size?: number[];
+};
+type ElementProps = ImageProps | TextProps | PlaceholderProps;
 
 function Element(props: ElementProps) {
   const configState = useSelector((state: RootState) => state.config);
@@ -46,33 +56,11 @@ function Element(props: ElementProps) {
   const [fontLoaded, setFontLoaded] = useState(false);
 
   function updateState() {
-    if (props.type === "image") {
-      dispatch(
-        updateElement({
-          name: props.name,
-          id: props.id,
-          type: "image",
-          filepath: props.path,
-          location: [props.location[0] + x, props.location[1] + y],
-          scale: props.scale,
-          visible: true,
-        })
-      );
-    } else if (props.type === "text") {
-      dispatch(
-        updateElement({
-          name: props.name,
-          id: props.id,
-          type: "text",
-          content: props.content,
-          size: props.size,
-          color: props.color,
-          font_path: props.font_path,
-          location: [props.location[0] + x, props.location[1] + y],
-          visible: true,
-        })
-      );
-    }
+    const canvasX = props.location[0] + x / props.zoomScale;
+    const canvasY = props.location[1] + y / props.zoomScale;
+    const current = configState.elements.find((el) => el.id === props.id);
+    if (!current) return;
+    dispatch(updateElement({ ...current, location: [canvasX, canvasY] }));
   }
 
   function startDragging(e: React.MouseEvent) {
@@ -88,8 +76,8 @@ function Element(props: ElementProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         id: String(props.id),
-        x: Math.trunc((props.location[0] + x) / props.sizeMultiplier),
-        y: Math.trunc((props.location[1] + y) / props.sizeMultiplier),
+        x: Math.trunc((props.location[0] + x / props.zoomScale) / props.sizeMultiplier),
+        y: Math.trunc((props.location[1] + y / props.zoomScale) / props.sizeMultiplier),
       }),
     });
   }
@@ -148,10 +136,8 @@ function Element(props: ElementProps) {
   }, [props.type === "text" ? props.font_path : null, props.id]);
 
   function createJSXElement() {
-    // location is stored multiplied by sizeMultiplier at 1x zoom.
-    // Multiply by zoomScale to move elements with the canvas when zoomed.
-    const left = (props.location[0] + x) * props.zoomScale + props.panOffset.x;
-    const top = (props.location[1] + y) * props.zoomScale + props.panOffset.y;
+    const left = props.location[0] * props.zoomScale + x + props.panOffset.x;
+    const top = props.location[1] * props.zoomScale + y + props.panOffset.y;
 
     if (props.type === "image") {
       return (
@@ -169,10 +155,7 @@ function Element(props: ElementProps) {
             height: dimensions[1] * props.scale * props.zoomScale,
             margin: "0px",
             zIndex: 100,
-            border:
-              configState.selectedElement === props.id
-                ? "3px solid cornflowerblue"
-                : "none",
+            border: configState.selectedElement === props.id ? "3px solid cornflowerblue" : "none",
           }}
         />
       );
@@ -188,10 +171,7 @@ function Element(props: ElementProps) {
             cursor: isDragging ? "grabbing" : "grab",
             margin: "0px",
             zIndex: 100,
-            border:
-              configState.selectedElement === props.id
-                ? "3px solid cornflowerblue"
-                : "none",
+            border: configState.selectedElement === props.id ? "3px solid cornflowerblue" : "none",
           }}
         >
           <p
@@ -206,6 +186,53 @@ function Element(props: ElementProps) {
           >
             {props.content}
           </p>
+        </div>
+      );
+    } else {
+      const placeholderColors: Record<string, string> = {
+        carousel: "#4a90d9",
+        video:    "#7b5ea7",
+        webcam:   "#2e8b57",
+        rtmp:     "#c0392b",
+      };
+      const placeholderW = props.type === "rtmp" && props.size && props.size[0] > 0
+        ? props.size[0] * props.sizeMultiplier * props.zoomScale
+        : 64 * props.zoomScale;
+      const placeholderH = props.type === "rtmp" && props.size && props.size[1] > 0
+        ? props.size[1] * props.sizeMultiplier * props.zoomScale
+        : 64 * props.zoomScale;
+      const color = placeholderColors[props.type] ?? "#888";
+      return (
+        <div
+          draggable={false}
+          onMouseDown={(e) => startDragging(e)}
+          style={{
+            position: "fixed",
+            left,
+            top,
+            width: placeholderW,
+            height: placeholderH,
+            cursor: isDragging ? "grabbing" : "grab",
+            backgroundColor: color,
+            opacity: 0.75,
+            zIndex: 100,
+            border: configState.selectedElement === props.id
+              ? "3px solid cornflowerblue"
+              : "2px dashed rgba(255,255,255,0.6)",
+            boxSizing: "border-box",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            gap: "4px",
+          }}
+        >
+          <span style={{ color: "white", fontSize: 10 * props.zoomScale, fontWeight: "bold", userSelect: "none" }}>
+            {props.type.toUpperCase()}
+          </span>
+          <span style={{ color: "rgba(255,255,255,0.8)", fontSize: 9 * props.zoomScale, userSelect: "none" }}>
+            {props.name}
+          </span>
         </div>
       );
     }

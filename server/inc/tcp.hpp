@@ -14,6 +14,8 @@
 #include <vector>
 #include <set>
 #include <thread>
+#include <optional>
+#include <memory>
 #include "canvas.hpp"
 #include "client.hpp"
 #include "protocol.hpp"
@@ -24,7 +26,7 @@ public:
     std::map<const Client*, int> connected;
     std::set<const Client*> disconnected;
 
-    ClientConnInfo(std::vector<Client*> clients);
+    explicit ClientConnInfo(std::vector<Client*> clients);
 
     void setConnected(const Client* c, int socket);
     std::optional<int> getSocket(const Client* c);
@@ -35,18 +37,26 @@ public:
 };
 
 class LEDTCPServer {
-public:
     uint32_t addr;
     uint16_t port;
     int socket;
     ClientConnInfo* conn_info;
-    std::thread* conn_handling;
+    std::thread conn_handling;
+    bool is_running = false;
 
+    void handle_conns();
+
+public:
     LEDTCPServer(uint32_t addr,
                  uint16_t port,
                  int socket,
-                 std::vector<Client*> clients,
-                 void(*handle_conns)(int socket, LEDTCPServer* server));
+                 std::vector<Client*> clients);
+    ~LEDTCPServer();
+
+    LEDTCPServer(const LEDTCPServer&) = delete;
+    LEDTCPServer& operator=(const LEDTCPServer&) = delete;
+
+    ClientConnInfo* getConnInfo() const { return conn_info; }
 
     void start();
 
@@ -60,9 +70,9 @@ public:
     void redraw(const Client* c, int client_socket);
 };
 
-std::optional<LEDTCPServer> create_server(uint32_t addr,
-                                          uint16_t start_port,
-                                          uint16_t end_port,
-                                          std::vector<Client*> clients);
+std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
+                                            uint16_t start_port,
+                                            uint16_t end_port,
+                                            std::vector<Client*> clients);
 
 #endif

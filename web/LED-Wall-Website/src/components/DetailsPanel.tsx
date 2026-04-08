@@ -29,14 +29,13 @@ function DetailsPanel(props: Props) {
 
   const dispatch = useDispatch();
 
-  async function handleChange(e: React.KeyboardEvent<HTMLInputElement>) {
+  async function handleChange() {
     if (scale < 0) {
       await setScale(0);
     }
     if (fontSize < 0) {
       await setFontSize(0);
     }
-    if (e.key === "Enter") {
       if (type === "image") {
         dispatch(
           updateElement({
@@ -80,11 +79,9 @@ function DetailsPanel(props: Props) {
           y: location[1],
         }),
       });
-    }
   }
 
-  async function handleLayerChange(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
+  async function handleLayerChange() {
       const oldElements = configState.elements;
 
       //Clamp layer value to 1-length of elements and if the layer is the same as current, return early
@@ -180,7 +177,6 @@ function DetailsPanel(props: Props) {
       }
       dispatch(setSelectedElement(layer));
       setId(layer);
-    }
   }
 
   function handleFontChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -290,7 +286,13 @@ function DetailsPanel(props: Props) {
                 className={styles.box}
                 style={{ width: "75%" }}
                 onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => handleChange(e)}
+                onBlur={() => handleChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleChange();
+                  }
+                }}
+
                 type="text"
                 value={name}
               />
@@ -312,7 +314,13 @@ function DetailsPanel(props: Props) {
                 onChange={(e) => {
                   setLayer(e.target.valueAsNumber);
                 }}
-                onKeyDown={(e) => handleLayerChange(e)}
+                onBlur={() => handleLayerChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleLayerChange();
+                  }
+                }}
+
                 type="number"
                 value={layer}
               />
@@ -337,7 +345,13 @@ function DetailsPanel(props: Props) {
                   onChange={(e) => {
                     setLocation([e.target.valueAsNumber, location[1]]);
                   }}
-                  onKeyDown={(e) => handleChange(e)}
+                  onBlur={() => handleChange()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleChange();
+                    }
+                  }}
+
                   type="number"
                   value={location[0]}
                   style={{
@@ -351,7 +365,13 @@ function DetailsPanel(props: Props) {
                   onChange={(e) => {
                     setLocation([location[0], e.target.valueAsNumber]);
                   }}
-                  onKeyDown={(e) => handleChange(e)}
+                  onBlur={() => handleChange()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleChange();
+                    }
+                  }}
+
                   type="number"
                   value={location[1]}
                   style={{
@@ -383,7 +403,13 @@ function DetailsPanel(props: Props) {
                     setScale(0);
                   }
                 }}
-                onKeyDown={(e) => handleChange(e)}
+                onBlur={() => handleChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleChange();
+                  }
+                }}
+
                 type="number"
                 value={scale}
               />
@@ -403,7 +429,13 @@ function DetailsPanel(props: Props) {
                 className={styles.box}
                 style={{ width: "75%" }}
                 onChange={(e) => setContent(e.target.value)}
-                onKeyDown={(e) => handleChange(e)}
+                onBlur={() => handleChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleChange();
+                  }
+                }}
+
                 type="text"
                 value={content}
               />
@@ -430,7 +462,13 @@ function DetailsPanel(props: Props) {
                 onChange={(e) => {
                   setFontSize(e.target.valueAsNumber);
                 }}
-                onKeyDown={(e) => handleChange(e)}
+                onBlur={() => handleChange()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleChange();
+                  }
+                }}
+
                 type="number"
                 value={fontSize}
               />
@@ -474,6 +512,40 @@ function DetailsPanel(props: Props) {
                   );
                 })}
               </select>
+            </li>
+          )}
+          {type == "text" && (
+            <li
+              key={8}
+              style={{
+                display: "flex",
+              }}
+            >
+              <p
+                className={styles.box}
+                style={{
+                  width: "24%",
+                }}
+              >
+                color
+              </p>
+              <input
+                className={styles.box}
+                style={{
+                  width: "76%",
+                  height: "40px",
+                  margin: "0px",
+                  position: "static",
+                  left: "0",
+                  transform: "none",
+                  padding: "5px",
+                  boxShadow: "none",
+                }}
+                onChange={(e) => setColor(e.target.value)}
+                onKeyDown={() => handleChange()}
+                type="color"
+                value={color}
+              />
             </li>
           )}
         </ul>

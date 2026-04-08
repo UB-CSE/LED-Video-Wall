@@ -50,6 +50,19 @@ function Canvas(props: Props) {
     e.preventDefault();
   }
 
+  function handleClick(e: React.MouseEvent) {
+    //Context menu comes up when right click
+    if(e.button === 2) {
+      e.preventDefault();
+    }
+
+    //Deselects element if click on canvas
+    if (e.target === e.currentTarget) {
+      dispatch({ type: "config/setSelectedElement", payload: 0 });
+    } 
+  }
+
+
   function createJSXElement(element: Elem) {
     if (element.visible === false) return null;
     if (element.type === "image") {
@@ -85,6 +98,21 @@ function Canvas(props: Props) {
         />
       );
     }
+   else if (element.type === "carousel" || element.type === "video" || element.type === "webcam" || element.type === "rtmp") {
+    return (
+      <Element
+        key={element.id}
+        name={element.name}
+        id={element.id}
+        type={element.type}
+        location={[element.location[0], element.location[1]]}
+        sizeMultiplier={props.sizeMultiplier}
+        zoomScale={scale}
+        panOffset={pan}
+        size={element.type === "rtmp" ? element.size : undefined}
+      />
+    );
+  }
   }
 
   return (
@@ -159,7 +187,7 @@ function Canvas(props: Props) {
           width: props.canvasDimensions[0] * scale,
           height: props.canvasDimensions[1] * scale,
           cursor: isZoomedIn ? "grab" : "default",
-          zIndex: 2,
+          zIndex: 0,
         }}
       >
         {configState.elements.map(createJSXElement)}

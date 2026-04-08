@@ -20,6 +20,8 @@ function ContextMenu(props: Props) {
         left: `${props.location[0]}px`,
         top: `${props.location[1]}px`,
         padding: "0",
+        //the zIndex is to make sure the context menu isn't behind other layers
+        zIndex: 999,
       }}
     >
       <ul style={{ listStyle: "none", padding: "0" }}>

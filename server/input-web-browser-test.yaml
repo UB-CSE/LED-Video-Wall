@@ -1,0 +1,20 @@
+settings:
+  gamma: 1.05
+elements:
+  "elem1":
+    id: 1
+    type: "web-browser"
+    url: "https://threejs.org/examples/webgl_interactive_cubes"
+    location: [0, 0]
+    framerate: 30
+    size: [64,40] # Size of the element on the video wall
+    view-size: [1200, 750] # Size at which the web page is rendered at. This is optional, if not provided _size_ will be used. However, this is recommended because webpages are usually designed for larger screens
+  "elem2":
+    id: 2
+    type: "web-browser"
+    url: "https://buffalo.edu"
+    location: [0, 40]
+    framerate: 30
+    size: [64,24]
+    view-size: [1200, 450]
+    # rotation: 45

@@ -5,65 +5,89 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
-#include <algorithm>
+#include <optional>
 #include "input-parser.hpp"
-#include "text-render.hpp"
-
+#include "rtmp.hpp"
+#include "web-browser.hpp"
 
 class Element {
 
     private:
         int id;
         cv::Point location;
+        cv::Point locationOffset {0,0};
         int frameRate;
+        double angleDegrees = 0.0;
+        cv::Mat originalPixelMatrix; // Before scaling or rotation
+        double scaleFactor = 1.0;
         
-        
+        cv::Mat pixelMatrix;
+
+        // Scales pixelMatrix by scaleFactor
+        void scaleFrame();
+        // Rotates pixelMatrix by rotationDegrees
+        void rotateFrame();
+
     public:
 
         int getId() const { return id;};
-        cv::Point& getLocation() { return location;};
-        int getFrameRate() {return frameRate;};
-        cv::Mat getPixelMatrix() {return pixelMatrix;};
+        cv::Point getLocation() const { return location + locationOffset;};
+        void setLocation(const cv::Point& newLocation) { location = newLocation; }
+        int getFrameRate() const { return frameRate; };
+        cv::Mat getPixelMatrix() { return pixelMatrix; };
 
-        virtual bool nextFrame(cv::Mat& frame) = 0;
-        virtual void reset() = 0;
+        void setRotation(double rotationDegrees) {
+            angleDegrees = rotationDegrees;
+            pixelMatrix = originalPixelMatrix.clone();
+            scaleFrame();
+            rotateFrame();
+        }
+
+        void rotateBy(double rotationDegrees) {
+            angleDegrees += rotationDegrees;
+            pixelMatrix = originalPixelMatrix.clone();
+            scaleFrame();
+            rotateFrame();
+        }
+
+        double getRotation() const { return angleDegrees; }
+
+        void setScale(double s) {
+            if (s <= 0.0) return;
+            scaleFactor = s;
+            pixelMatrix = originalPixelMatrix.clone();
+            scaleFrame();
+            rotateFrame();
+        }
+
+        double getScale() const { return scaleFactor; }
+
+        // Set pixelMatrix to the next frame
+        virtual bool nextFrame() { return false; }
+        virtual void reset() {}
         virtual ~Element() {}
 
     protected:
+        void setPixelMatrix(const cv::Mat& mat) {
+            originalPixelMatrix = mat.clone();
+            pixelMatrix = mat.clone();
+            scaleFrame();
+            rotateFrame();
+        }
         
-        cv::Mat pixelMatrix;
-        Element(int id, cv::Point loc, int frameRate) : id(id), location(loc), frameRate(frameRate) {}
+        Element(int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0, double scaleFactor = 0.0) : id(id), location(loc), frameRate(frameRate), angleDegrees(rotationDegrees), scaleFactor(scaleFactor) {}
     };
     
 class ImageElement : public Element {
     private:
         bool provided;
-        cv::Mat original_;   
-        double  scale_;
         std::string filePath_;
     
     public:
-        ImageElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double scale);
+        ImageElement(const std::string& filepath, int id, cv::Point loc, double scale, double rotationDegrees = 0.0);
 
         const std::string& getFilePath() const { return filePath_; }
-        const double getScale() const {return scale_; }
 
-        void setScale(double s) {
-            if (s <= 0.0) return;
-            scale_ = s;
-            if (original_.empty()) return;
-
-            if (std::abs(scale_ - 1.0) < 1e-6) {
-                pixelMatrix = original_.clone();
-            } else {
-                cv::resize(
-                    original_, pixelMatrix, cv::Size(),
-                    scale_, scale_,
-                    (scale_ < 1.0) ? cv::INTER_AREA : cv::INTER_LINEAR
-                );
-            }
-        }
-        bool nextFrame(cv::Mat& frame) override;
         void reset() override;
     };
     
@@ -73,8 +97,8 @@ class CarouselElement : public Element {
         size_t current; //This is the internal counter for carousel objects to remember which frame they are on
     
     public:
-        CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc, int frameRate);
-        bool nextFrame(cv::Mat& frame) override;
+        CarouselElement(const std::vector<std::string>& filepaths, int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0);
+        bool nextFrame() override;
         void reset() override;
     };
     
@@ -83,9 +107,37 @@ class VideoElement : public Element {
         cv::VideoCapture cap;
     
     public:
-        VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate);
-        VideoElement(int webcamNum, int id, cv::Point loc, int frameRate);
-        bool nextFrame(cv::Mat& frame) override;
+        VideoElement(const std::string& filepath, int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0);
+        VideoElement(int webcamNum, int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0);
+        bool nextFrame() override;
+        void reset() override;
+    };
+
+class RTMPStreamElement : public Element {
+    private:
+        RTMPServer& rtmpServer;
+        std::string streamName;
+        cv::Size size;
+
+        const cv::Mat noFrameMat = cv::Mat(100, 100, CV_8UC3, cv::Scalar(0, 255, 0)); // green
+    
+    public:
+        RTMPStreamElement(RTMPServer& rtmpServer, const std::string& streamName, int id, cv::Point loc, int frameRate, cv::Size size = cv::Size(0, 0), double rotationDegrees = 0.0);
+        bool nextFrame() override;
+        void reset() override;
+    };
+
+class WebBrowserElement : public Element {
+    private:
+        cv::Size size;
+        cv::Size viewSize;
+        WebBrowser webBrowser;
+
+        const cv::Mat noFrameMat = cv::Mat(size.width, size.height, CV_8UC3, cv::Scalar(255, 0, 0)); // red
+    
+    public:
+        WebBrowserElement(const std::string& url, int id, cv::Point loc, int frameRate, cv::Size size, cv::Size viewSize = cv::Size(0, 0), double rotationDegrees = 0.0);
+        bool nextFrame() override;
         void reset() override;
     };
 
@@ -98,23 +150,7 @@ class TextElement : public Element {
         cv::Scalar color;      
 
    
-        TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, const std::string& text, const std::string& font, int size, cv::Scalar col, int frameRate = 0) : Element(id, loc, frameRate),
-        content(text),
-        fontPath(font),
-        fontSize(size),
-        color(col)
-    {
-        pixelMatrix = imgBGR.clone();
-    }
-
-    bool nextFrame(cv::Mat& frame) override {
-        pixelMatrix.copyTo(frame);
-        return false;
-    }
-
-    void reset() override {
-       
-    }
+        TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, const std::string& text, const std::string& font, int size, cv::Scalar col, double rotationDegrees = 0.0);
 };
   
 
@@ -122,18 +158,14 @@ class TextElement : public Element {
 class VirtualCanvas{        
     
     public:
-        int elementCount;
-
+        int elementCount = 0;
 
         cv::Mat pixelMatrix;
         cv::Mat canvasLut;
         cv::Size dim;
         std::vector<Element *> elementPtrList;
 
-        //Default Constructor
-        VirtualCanvas(){}
-
-        VirtualCanvas(const cv::Size& size) : dim(size) {
+        explicit VirtualCanvas(const cv::Size& size) : dim(size) {
             pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);
         }
         
@@ -145,9 +177,15 @@ class VirtualCanvas{
         const std::vector<Element *>& getElementList() const { return elementPtrList; }
         void clear() {pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);}
         bool moveElement(int elementId, cv::Point loc);
+        bool rotateElement(int elementId, double rotationDegrees);
+        bool setElementRotation(int elementId, double rotationDegrees);
+        bool setElementScale(int elementId, double scaleFactor);
         void addElementToCanvas(Element* element);
         bool removeElementFromCanvas(int elementId);
         void pushToCanvas();
+
+    private:
+        void overlayImage(const cv::Mat& overlay, cv::Rect roi);
     };
 
 
