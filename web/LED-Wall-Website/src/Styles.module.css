@@ -15,6 +15,7 @@
   width: 350px;
   height: 250px;
   padding-bottom: 10px;
+  z-index: 10;
 }
 .panelHeader{
   background-color:dimgrey;
@@ -68,6 +69,8 @@
   justify-content: center;
   align-items: center;
   gap: 10px;
+  z-index: 100000;
+
 }
 .download{
   background-color: silver;

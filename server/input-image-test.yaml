@@ -1,21 +1,27 @@
 settings:
   gamma: 1.05
 elements:
-  "elem1":
-    id: 1
-    type: "image"
-    filepath: "images/apple.png"
-    location: [18, 54]
-    scale: 1
-  "elem2":
+  elem2:
     id: 2
-    type: "image"
-    filepath: "images/img.jpg"
-    location: [4, 0]
+    type: image
+    filepath: images/img.jpg
+    location:
+    - 4
+    - 0
     scale: 0.025
-  "elem3":
+  elem1:
+    id: 1
+    type: image
+    filepath: images/apple.png
+    location:
+    - 18
+    - 54
+    scale: 1
+  elem3:
     id: 3
-    type: "image"
-    filepath: "images/Alan_32x32_Transparent.png"
-    location: [5, 20]
+    type: image
+    filepath: images/rainbow.png
+    location:
+    - 5
+    - 20
     scale: 1

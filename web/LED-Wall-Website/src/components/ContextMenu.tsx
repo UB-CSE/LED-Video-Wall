@@ -23,13 +23,15 @@ function ContextMenu(props: Props) {
         //the zIndex is to make sure the context menu isn't behind other layers
         zIndex: 999,
       }}
+      onClick={(e) => e.stopPropagation()}
     >
+    
       <ul style={{ listStyle: "none", padding: "0" }}>
         {props.options.map((option) => (
           <li>
             <button
               className={styles.contextButton}
-              onClick={(e) => option.function(e)}
+              onClick={(e) => { e.stopPropagation(); option.function(e); }}
             >
               {option.name}
             </button>

@@ -1,9 +1,35 @@
 settings:
   gamma: 1.05
 elements:
-  "elem1":
+  "zz":
     id: 1
+    type: "text"
+    content: "zzz"
+    size: 24
+    color: "#0025ff"
+    font_path: "ttf/Roboto-Regular.ttf"
+    location: [33,18]
+  "elem1 (3)":
+    id: 2
     type: "image"
     filepath: "images/rainbow.png"
-    location: [0, 0]
+    location: [0,0]
+    scale: 0.5
+  "elem1 (2)":
+    id: 3
+    type: "image"
+    filepath: "images/rainbow.png"
+    location: [19,19]
+    scale: 0.5
+  "elem1 (1)":
+    id: 4
+    type: "image"
+    filepath: "images/rainbow.png"
+    location: [30,9]
+    scale: 0.5
+  "elem1":
+    id: 5
+    type: "image"
+    filepath: "images/rainbow.png"
+    location: [0,35]
     scale: 0.5

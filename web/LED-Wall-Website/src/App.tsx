@@ -214,7 +214,7 @@ function App() {
       ></Canvas>
       <h1>LED Video Wall Controls</h1>
       <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
-      <div style={{ position: "fixed", right: "0%", top: "0%" }}>
+      <div style={{ position: "fixed", right: "0%", top: "0%", zIndex: 10000 }}>
         <DetailsPanel sizeMultiplier={sizeMultiplier}></DetailsPanel>
         <ElementList sizeMultiplier={sizeMultiplier}></ElementList>
       </div>
