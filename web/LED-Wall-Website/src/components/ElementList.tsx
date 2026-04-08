@@ -5,9 +5,10 @@ import { useDispatch } from "react-redux";
 import {
   setSelectedElement,
   updateElement,
-  addElement,
+  reorderElements,
   toggleElementVisibility,
 } from "../state/config/configSlice.ts";
+import type { Elem } from "../state/config/configSlice.ts";
 import type React from "react";
 import { useState } from "react";
 import ContextMenu from "./ContextMenu.tsx";
@@ -15,6 +16,10 @@ import useContextMenu from "../hooks/useContextMenu.tsx";
 import { type Option } from "./ContextMenu.tsx";
 import AddImagePopup from "./AddImagePopup.tsx";
 import AddTextPopup from "./AddTextPopup.tsx";
+import AddCarouselPopup from "./AddCarouselPopup.tsx";
+import AddVideoPopup from "./AddVideoPopup.tsx";
+import AddWebcamPopup from "./AddWebcamPopup.tsx";
+import AddRtmpPopup from "./AddRtmpPopup.tsx";
 
 type Props = {
   sizeMultiplier: number;
@@ -43,7 +48,10 @@ function ElementList(props: Props) {
   const { location: contextLocation, setLocation: setContextLocation, isClicked: contextIsClicked, setIsClicked: setContextIsClicked } = useContextMenu();
   const { isClicked: addImageIsClicked, setIsClicked: setAddImageIsClicked } = useContextMenu();
   const { isClicked: addTextIsClicked, setIsClicked: setAddTextIsClicked } = useContextMenu();
-  const [contextElementId, setContextElementId] = useState<number | null>(null);
+  const { isClicked: addCarouselIsClicked, setIsClicked: setAddCarouselIsClicked } = useContextMenu();
+  const { isClicked: addVideoIsClicked, setIsClicked: setAddVideoIsClicked } = useContextMenu();
+  const { isClicked: addWebcamIsClicked, setIsClicked: setAddWebcamIsClicked } = useContextMenu();
+  const { isClicked: addRtmpIsClicked, setIsClicked: setAddRtmpIsClicked } = useContextMenu();
   const [contextOptions, setContextOptions] = useState<Option[]>([]);
 
   // ── Drag-to-reorder ───────────────────────────────────────────────────────
@@ -79,12 +87,10 @@ function ElementList(props: Props) {
     const [draggedItem] = reordered.splice(draggedIndex, 1);
     reordered.splice(targetIndex, 0, draggedItem);
 
-    reordered.forEach((el, index) => {
-      const newId = index + 1;
-      if (el.id !== newId) dispatch(updateElement({ ...el, id: newId }));
-    });
+    const finalElements: Elem[] = reordered.map((el, index) => ({ ...el, id: index + 1 }));
+    dispatch(reorderElements(finalElements));
 
-    const newId = reordered.findIndex((el) => el.name === draggedItem.name) + 1;
+    const newId = finalElements.findIndex((el) => el.name === draggedItem.name) + 1;
     dispatch(setSelectedElement(newId));
     setDraggedId(null);
 
@@ -92,7 +98,7 @@ function ElementList(props: Props) {
       await fetch("/api/reorder-layers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ layer_list: reordered.map((el) => el.name) }),
+        body: JSON.stringify({ layer_list: finalElements.map((el) => el.name) }),
       });
     } catch (error) {
       console.error("Failed to reach reorder-layers endpoint:", error);
@@ -105,64 +111,42 @@ function ElementList(props: Props) {
     dispatch(toggleElementVisibility(id));
   }
 
-  // ── Duplicate ─────────────────────────────────────────────────────────────
-  async function duplicateElement() {
-    if (contextElementId === null) return;
-    const element = configState.elements.find((el) => el.id === contextElementId);
-    if (!element) return;
+  // ── Duplicate (fully in memory, no backend call) ──────────────────────────
+  function duplicateElement(id: number) {
+    const elementToCopy = configState.elements.find((el) => el.id === id);
+    if (!elementToCopy) return;
 
-    try {
-      const response = await fetch("/api/duplicate-layer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: element.name }),
-      });
-      if (!response.ok) { console.error("Failed to duplicate layer"); return; }
-      const data = await response.json();
-
-      const newId = configState.elements.length + 1;
-      if (element.type === "image") {
-        dispatch(addElement({
-          name: data.new_name,
-          id: newId,
-          type: "image",
-          filepath: element.filepath,
-          location: [element.location[0] + props.sizeMultiplier, element.location[1] + props.sizeMultiplier],
-          scale: element.scale,
-          visible: true,
-        }));
-      } else if (element.type === "text") {
-        dispatch(addElement({
-          name: data.new_name,
-          id: newId,
-          type: "text",
-          content: element.content,
-          size: element.size,
-          color: element.color,
-          font_path: element.font_path,
-          location: [element.location[0] + props.sizeMultiplier, element.location[1] + props.sizeMultiplier],
-          visible: true,
-        }));
-      }
-      dispatch(setSelectedElement(newId));
-    } catch (error) {
-      console.error("Failed to duplicate layer:", error);
+    const existingNames = new Set(configState.elements.map((el) => el.name));
+    const baseName = elementToCopy.name.replace(/ \(\d+\)$/, "");
+    let newName = baseName;
+    let i = 1;
+    while (existingNames.has(newName)) {
+      newName = `${baseName} (${i})`;
+      i++;
     }
+
+    const newElement: Elem = { ...elementToCopy, id: 1, name: newName, visible: true };
+    const shifted = configState.elements.map((el) => ({ ...el, id: el.id + 1 }));
+    dispatch(reorderElements([newElement, ...shifted]));
+    dispatch(setSelectedElement(1));
   }
 
-  // ── Delete (pre-existing stub) ────────────────────────────────────────────
+  // ── Delete (stub) ─────────────────────────────────────────────────────────
   function deleteElement() {}
 
   // ── Add ───────────────────────────────────────────────────────────────────
-  function addImage(e: React.MouseEvent) { setAddImageIsClicked(true); e.preventDefault(); e.stopPropagation(); }
-  function addText(e: React.MouseEvent) { setAddTextIsClicked(true); e.preventDefault(); e.stopPropagation(); }
+  function addImage(e: React.MouseEvent) { setAddImageIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addText(e: React.MouseEvent) { setAddTextIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addCarousel(e: React.MouseEvent) { setAddCarouselIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addVideo(e: React.MouseEvent) { setAddVideoIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addWebcam(e: React.MouseEvent) { setAddWebcamIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addRtmp(e: React.MouseEvent) { setAddRtmpIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
 
   function handleClick(id: number) { dispatch(setSelectedElement(id)); }
 
   function handleRightClick(e: React.MouseEvent<HTMLLIElement>, id: number) {
-    setContextElementId(id);
     setContextOptions([
-      { name: "duplicate", function: duplicateElement },
+      { name: "duplicate", function: () => duplicateElement(id) },
       { name: "delete", function: deleteElement },
     ]);
     e.preventDefault();
@@ -174,6 +158,10 @@ function ElementList(props: Props) {
     setContextOptions([
       { name: "image", function: addImage },
       { name: "text", function: addText },
+      { name: "carousel", function: addCarousel },
+      { name: "video", function: addVideo },
+      { name: "webcam", function: addWebcam },
+      { name: "rtmp", function: addRtmp },
     ]);
     e.preventDefault();
     e.stopPropagation();
@@ -262,6 +250,10 @@ function ElementList(props: Props) {
       {contextIsClicked && <ContextMenu options={contextOptions} location={contextLocation} />}
       {addImageIsClicked && <AddImagePopup sizeMultiplier={props.sizeMultiplier} setAddImageIsClicked={setAddImageIsClicked} />}
       {addTextIsClicked && <AddTextPopup sizeMultiplier={props.sizeMultiplier} setAddTextIsClicked={setAddTextIsClicked} />}
+      {addCarouselIsClicked && <AddCarouselPopup sizeMultiplier={props.sizeMultiplier} setAddCarouselIsClicked={setAddCarouselIsClicked} />}
+      {addVideoIsClicked && <AddVideoPopup sizeMultiplier={props.sizeMultiplier} setAddVideoIsClicked={setAddVideoIsClicked} />}
+      {addWebcamIsClicked && <AddWebcamPopup sizeMultiplier={props.sizeMultiplier} setAddWebcamIsClicked={setAddWebcamIsClicked} />}
+      {addRtmpIsClicked && <AddRtmpPopup sizeMultiplier={props.sizeMultiplier} setAddRtmpIsClicked={setAddRtmpIsClicked} />}
     </div>
   );
 }
