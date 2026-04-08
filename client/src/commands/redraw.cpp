@@ -23,6 +23,9 @@ IRAM_ATTR static void redraw_task(void *) {
       ESP_ERROR_CHECK(led_strip_refresh(strip));
     }
     xSemaphoreGive(pin_to_handle_mutex);
+    //if (dma_display != nullptr) {
+      //  dma_display->flip_buffer();
+    //}
 
     // ESP_LOGI(TAG, "Completed full LED redraw.");
   }

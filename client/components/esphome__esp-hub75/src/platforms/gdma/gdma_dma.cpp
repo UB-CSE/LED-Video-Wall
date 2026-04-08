@@ -148,7 +148,7 @@ bool GdmaDma::init() {
   // ESP-IDF 5.4 - 6.0-beta1: gdma_new_ahb_channel (2-arg)
   gdma_channel_alloc_config_t dma_alloc_config = {.sibling_chan = nullptr,
                                                   .direction = GDMA_CHANNEL_DIRECTION_TX,
-                                                  .flags = {.reserve_sibling = 0, .isr_cache_safe = 0}};
+                                                  .flags = {.reserve_sibling = 0}};
   esp_err_t err = gdma_new_ahb_channel(&dma_alloc_config, &dma_chan_);
 
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
