@@ -43,3 +43,17 @@ elements:
     filepath: "images/conway_pulsar.mp4"
     framerate: 1
     location: [16, 144]
+
+  "elem7":
+    id: 7
+    type: "video"
+    filepath: "images/cat64.mp4"
+    framerate: 60
+    location: [0, 192]
+
+  "elem8":
+    id: 8
+    type: "video"
+    filepath: "images/conway_pulsar.mp4"
+    framerate: 1
+    location: [16, 272]
