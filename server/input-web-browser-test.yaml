@@ -18,3 +18,19 @@ elements:
     size: [64,24]
     view-size: [1200, 450]
     # rotation: 45
+    cookies:
+      - name: "ubCookieBannerAccepted" # When this cookie is set to true, buffalo.edu will not show the cookie popup in the bottom left corner of the page
+        value: "true"
+        domain: ".buffalo.edu"
+        path: "/"
+
+        # Other optional cookie parameters that can be set:
+
+        # secure: false
+        # httpOnly: false
+        # sameSite: ""
+
+      - name: "otherCookie"
+        value: "value"
+        domain: "example.com"
+        path: "/"

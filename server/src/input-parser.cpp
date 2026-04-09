@@ -321,7 +321,45 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
                     rotationDegrees = value["rotation"].as<double>();
                 }
 
-                Element* elem = new WebBrowserElement(url, id, loc, frameRate, size, viewSize, rotationDegrees);
+                WebBrowserElement* elem = new WebBrowserElement(url, id, loc, frameRate, size, viewSize, rotationDegrees);
+
+                if (value["cookies"]) {
+                    for (const auto& cookie : value["cookies"]) {
+                        std::string name = cookie["name"].as<std::string>();
+                        std::string value = cookie["value"].as<std::string>();
+                        std::string domain = cookie["domain"].as<std::string>();
+                        std::string path = "/";
+                        if (cookie["path"]) {
+                            path = cookie["path"].as<std::string>();
+                        }
+                        bool secure = false;
+                        if (cookie["secure"]) {
+                            secure = cookie["secure"].as<bool>();
+                        }
+                        bool httpOnly = false;
+                        if (cookie["httpOnly"]) {
+                            httpOnly = cookie["httpOnly"].as<bool>();
+                        }
+                        cef_cookie_same_site_t sameSite = CEF_COOKIE_SAME_SITE_UNSPECIFIED;
+                        if (cookie["sameSite"]) {
+                            std::string sameSiteStr = cookie["sameSite"].as<std::string>();
+                            if (sameSiteStr == "None") {
+                                sameSite = CEF_COOKIE_SAME_SITE_NO_RESTRICTION;
+                            }
+                            else if (sameSiteStr == "Lax") {
+                                sameSite = CEF_COOKIE_SAME_SITE_LAX_MODE;
+                            }
+                            else if (sameSiteStr == "Strict") {
+                                sameSite = CEF_COOKIE_SAME_SITE_STRICT_MODE;
+                            }
+                            else if (!sameSiteStr.empty()) {
+                                std::cerr << "Invalid sameSite value for cookie: " << sameSiteStr << std::endl;
+                            }
+                        }
+
+                        elem->setCookie(name, value, domain, path, secure, httpOnly, sameSite);
+                    }
+                }
 
                 vCanvas.addElementToCanvas(elem);
             }

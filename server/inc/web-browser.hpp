@@ -2,10 +2,10 @@
 #define WEB_BROWSER_HPP
 
 #include <cef_browser.h>
-#include <string>
-#include <span>
 #include <mutex>
 #include <opencv2/core.hpp>
+#include <span>
+#include <string>
 
 class WebBrowser {
 public:
@@ -13,6 +13,11 @@ public:
   ~WebBrowser();
 
   void loadURL(const std::string &url);
+  void
+  setCookie(const std::string &name, const std::string &value,
+            const std::string &domain, const std::string &path,
+            bool secure = false, bool httpOnly = false,
+            cef_cookie_same_site_t sameSite = CEF_COOKIE_SAME_SITE_UNSPECIFIED);
 
   bool getLatestFrame(cv::Mat &frame);
 
@@ -20,10 +25,12 @@ private:
   friend class WebBrowserClient;
 
   CefRect getViewRect() const { return viewRect; }
-  void onPaint(const std::span<const CefRect> dirtyRects, const void *buffer, int width,
-               int height);
+  void onPaint(const std::span<const CefRect> dirtyRects, const void *buffer,
+               int width, int height);
 
 private:
+  CefString url;
+
   CefWindowInfo windowInfo;
   CefBrowserSettings browserSettings;
 

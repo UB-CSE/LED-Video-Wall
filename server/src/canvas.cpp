@@ -266,6 +266,10 @@ void WebBrowserElement::reset() {
     setPixelMatrix(frame);
 }
 
+void WebBrowserElement::setCookie(const std::string& name, const std::string& value, const std::string& domain, const std::string& path, bool secure, bool httpOnly, cef_cookie_same_site_t sameSite) {
+    webBrowser.setCookie(name, value, domain, path, secure, httpOnly, sameSite);
+}
+
 // TextElement implementation
 
 TextElement::TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, const std::string& text, const std::string& font, int size, cv::Scalar col, double rotationDegrees)
