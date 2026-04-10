@@ -58,6 +58,7 @@ int main(int argc, char* argv[]) {
     // Initialize CEF in the main process.
     CefSettings settings;
     settings.windowless_rendering_enabled = true;
+    settings.no_sandbox = true;
     std::filesystem::path cachePath = std::filesystem::current_path() / "cef-cache";
     CefString(&settings.cache_path).FromString(cachePath.string());
     if (!CefInitialize(args, settings, nullptr, nullptr)) {

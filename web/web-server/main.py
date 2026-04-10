@@ -266,7 +266,7 @@ def start_server():
         if app.debug:
             cmd = ["./led-wall-server", server_config_File]
         else:
-            cmd = ["./led-wall-server", server_config_File, "--prod"]
+            cmd = ["./led-wall-server", server_config_File, "--prod", "--ozone-platform=headless", "--disable-gpu"] # Server doesn't have a GPU!
         
         server_process = subprocess.Popen(
             cmd,
