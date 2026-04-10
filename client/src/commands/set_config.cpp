@@ -53,7 +53,8 @@ int set_config(SetConfigMessage *msg) {
     //config.double_buffer = true;
     config.layout_cols = p3_panel_count;
     config.layout_rows = 1;
-    config.output_clock_speed = Hub75ClockSpeed::HZ_10M;
+    config.brightness = 64;
+    config.output_clock_speed = Hub75ClockSpeed::HZ_20M;
     config.pins.r1 = 42; config.pins.g1 = 41; config.pins.b1 = 40;
     config.pins.r2 = 38; config.pins.g2 = 39; config.pins.b2 = 37;
     config.pins.a = 45; config.pins.b = 36; config.pins.c = 48; config.pins.d = 35; config.pins.e = 21;

@@ -20,6 +20,7 @@
 #include "commands/set_leds.hpp"
 #include "network.hpp"
 #include "protocol.hpp"
+#include "esp_heap_caps.h"
 
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
@@ -315,13 +316,13 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   if (message_size == 0) {
     ESP_LOGE(TAG, "msg size of 0");
     return -1;
-  } else if (message_size > 150000) {
+  } else if (message_size > 200000) {
     ESP_LOGE(TAG, "msg is way too big");
     return -1;
   }
 
   if (message_size > *buffer_size) {
-    uint8_t *new_buffer = (uint8_t *)realloc(*buffer, message_size);
+    uint8_t *new_buffer = (uint8_t *)heap_caps_realloc(*buffer, message_size, MALLOC_CAP_SPIRAM);
     if (new_buffer) {
       *buffer = new_buffer;
       *buffer_size = message_size;
