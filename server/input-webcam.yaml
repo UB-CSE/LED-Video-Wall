@@ -1,9 +1,17 @@
 settings:
-  gamma: 2.0
+  gamma: 2
 elements:
-  "elem1":
+  "aaa":
     id: 1
-    type: "webcam"
-    camera-number: 2
-    framerate: 10
-    location: [0, 0]
+    type: "carousel"
+    filepaths:
+    framerate: 1
+    location: [0,0]
+  "sss":
+    id: 2
+    type: "text"
+    content: "ss"
+    size: 24
+    color: "#0025ff"
+    font_path: "ttf/Roboto-Regular.ttf"
+    location: [38,0]

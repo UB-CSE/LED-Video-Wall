@@ -1,21 +1,111 @@
 settings:
   gamma: 1.05
 elements:
-  "elem1":
+  "bjlkjbkb (1)":
     id: 1
-    type: "image"
-    filepath: "images/apple.png"
-    location: [18, 54]
-    scale: 1
-  "elem2":
+    type: "carousel"
+    filepaths:
+    framerate: 1
+    location: [10,2]
+  "bjlkjbkb":
     id: 2
+    type: "carousel"
+    filepaths:
+    framerate: 1
+    location: [10,2]
+  "khbkjb":
+    id: 3
+    type: "webcam"
+    camera-number: 0
+    framerate: 30
+    location: [20,2]
+  "bjbkjb":
+    id: 4
+    type: "rtmp"
+    stream-name: ""
+    framerate: 30
+    location: [23,0]
+  "efwefw":
+    id: 5
+    type: "webcam"
+    camera-number: 0
+    framerate: 30
+    location: [22,4]
+  "qdewqecw":
+    id: 6
+    type: "video"
+    filepath: ""
+    framerate: 30
+    location: [13,17]
+  "fwfwecw":
+    id: 7
+    type: "webcam"
+    camera-number: 0
+    framerate: 30
+    location: [20,17]
+  "ewfew":
+    id: 8
+    type: "video"
+    filepath: ""
+    framerate: 30
+    location: [5,14]
+  "eewew":
+    id: 9
+    type: "video"
+    filepath: ""
+    framerate: 30
+    location: [13,11]
+  "seres":
+    id: 10
+    type: "carousel"
+    filepaths:
+    framerate: 1
+    location: [45,0]
+  "skdkd":
+    id: 12
+    type: "webcam"
+    camera-number: 0
+    framerate: 30
+    location: [17,13]
+  "ssss":
+    id: 14
+    type: "video"
+    filepath: ""
+    framerate: 30
+    location: [32,11]
+  "sss":
+    id: 15
+    type: "rtmp"
+    stream-name: ""
+    framerate: 30
+    location: [12,17]
+  "ss":
+    id: 16
+    type: "carousel"
+    filepaths:
+    framerate: 1
+    location: [29,16]
+  "elem2 (1)":
+    id: 17
     type: "image"
     filepath: "images/img.jpg"
-    location: [4, 0]
+    location: [4,9]
+    scale: 0.025
+  "elem1":
+    id: 18
+    type: "image"
+    filepath: "images/apple.png"
+    location: [18,54]
+    scale: 1
+  "elem2":
+    id: 19
+    type: "image"
+    filepath: "images/img.jpg"
+    location: [20,0]
     scale: 0.025
   "elem3":
-    id: 3
+    id: 20
     type: "image"
-    filepath: "images/Alan_32x32_Transparent.png"
-    location: [5, 20]
+    filepath: "images/rainbow.png"
+    location: [5,20]
     scale: 1
