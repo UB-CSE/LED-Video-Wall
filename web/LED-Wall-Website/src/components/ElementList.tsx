@@ -8,6 +8,7 @@ import {
   setSelectedElement,
   updateElement,
   addElement,
+  clearElement,
   reorderElements,
   toggleElementVisibility,
 } from "../state/config/configSlice.ts";
@@ -147,8 +148,16 @@ function ElementList(props: Props) {
     dispatch(setSelectedElement(1));
   }
   // ── Delete ────────────────────────────────────────────────────────────────
-  function deleteElement() {}
-
+  function deleteElement(id: number) {
+    dispatch(clearElement(id));
+    // Reassign ids after deletion
+    const remaining = configState.elements
+      .filter((el) => el.id !== id)
+      .sort((a, b) => a.id - b.id)
+      .map((el, index) => ({ ...el, id: index + 1 }));
+    dispatch(reorderElements(remaining));
+    dispatch(setSelectedElement(0));
+  }
   // ── Add (Closes Popup on Selection) ───────────────────────────────────────
   function addImage(e: React.MouseEvent) { setAddImageIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
   function addText(e: React.MouseEvent) { setAddTextIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
@@ -168,8 +177,8 @@ function ElementList(props: Props) {
         // This ensures the current ID of the element is locked into the function call
         function: () => duplicateElement(id) 
       },
-      { name: "delete", function: deleteElement },
-    ]);
+      { name: "delete", function: () => deleteElement(id) },    ]);
+
     e.preventDefault();
     setContextLocation([e.clientX, e.clientY]);
     setContextIsClicked(true);
@@ -190,7 +199,7 @@ function ElementList(props: Props) {
     setContextIsClicked(true);
   }
 
-  const sortedElements = configState.elements;
+const sortedElements = [...configState.elements].sort((a, b) => a.id - b.id);
   return (
     <div className={styles.panel} style={{ height: "325px" }}>
       <div style={{ display: "flex", backgroundColor: "dimgrey" }}>

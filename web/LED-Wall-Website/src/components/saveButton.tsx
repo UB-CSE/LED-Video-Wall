@@ -41,7 +41,53 @@ function SaveButton(props: Props) {
           ],
         };
         console.log("font_path: " + element.font_path);
+      } else if (element.type === "carousel") {
+        elements[element.name] = {
+          id: element.id,
+          type: element.type,
+          filepaths: element.filepaths,
+          framerate: element.framerate,
+          location: [
+            Math.trunc(element.location[0] / props.sizeMultiplier),
+            Math.trunc(element.location[1] / props.sizeMultiplier),
+          ],
+        };
+      } else if (element.type === "video") {
+        elements[element.name] = {
+          id: element.id,
+          type: element.type,
+          filepath: element.filepath,
+          framerate: element.framerate,
+          location: [
+            Math.trunc(element.location[0] / props.sizeMultiplier),
+            Math.trunc(element.location[1] / props.sizeMultiplier),
+          ],
+        };
+      } else if (element.type === "webcam") {
+        elements[element.name] = {
+          id: element.id,
+          type: element.type,
+          camera_number: element.camera_number,
+          framerate: element.framerate,
+          location: [
+            Math.trunc(element.location[0] / props.sizeMultiplier),
+            Math.trunc(element.location[1] / props.sizeMultiplier),
+          ],
+        };
+      } else if (element.type === "rtmp") {
+        elements[element.name] = {
+          id: element.id,
+          type: element.type,
+          stream_name: element.stream_name,
+          framerate: element.framerate,
+          location: [
+            Math.trunc(element.location[0] / props.sizeMultiplier),
+            Math.trunc(element.location[1] / props.sizeMultiplier),
+          ],
+          ...(element.size ? { size: element.size } : {}),
+        };
       }
+      
     }
     //Sends JSON to web server
     fetch("/api/set-yaml-config", {
