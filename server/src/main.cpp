@@ -25,6 +25,9 @@
 #include <unistd.h>  
 #include <sys/stat.h>
 #include <signal.h>
+#include <filesystem>
+#include <cef_app.h>
+#include <cef_command_line.h>
 
 //Change this flag as needed. Debug mode displays virtual canvas locally per update
 #define TMP_CMD "/tmp/led-cmd"
@@ -32,70 +35,97 @@
 volatile sig_atomic_t stop_signal = 0;
 
 static void signal_handler(int signum) {
-    stop_signal = 1;
-    std::cout << "Received signal, exiting now...\n";
+  if (stop_signal) {
+    std::cout << "Received second signal, exiting immediately...\n";
+    exit(1);
+  }
+
+  stop_signal = 1;
+  std::cout << "Received signal, exiting now...\n";
 }
 
 int main(int argc, char* argv[]) {
-     signal(SIGINT, signal_handler);
+    CefMainArgs args(argc, argv);
 
-     //Required for webcam streaming
-     setenv("RDMAV_FORK_SAFE", "1", 1);
-     setenv("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;udp", 1);
+    // Execute the sub-process logic, if any. This will either return immediately for the browser
+    // process or block until the sub-process should exit.
+    int result = CefExecuteProcess(args, nullptr, nullptr);
+    if (result >= 0) {
+        // The sub-process terminated, exit now.
+        return result;
+    }
 
-     ServerConfig server_config;
-     std::optional<ServerConfig> server_config_opt;
-     try {
-         server_config_opt = parse_config_throws("config.yaml");
-     } catch (std::exception& ex) {
-         std::cerr << "Error Parsing config file: " << ex.what() << "\n";
-         exit(-1);
-     }
-     server_config = server_config_opt.value();
+    // Initialize CEF in the main process.
+    CefSettings settings;
+    settings.windowless_rendering_enabled = true;
+    std::filesystem::path cachePath = std::filesystem::current_path() / "cef-cache";
+    CefString(&settings.cache_path).FromString(cachePath.string());
+    if (!CefInitialize(args, settings, nullptr, nullptr)) {
+      exit(-1);
+    }
+
+    signal(SIGINT, signal_handler); // Ctrl+C
+    signal(SIGTERM, signal_handler); // Web server sends TERM signal to shutdown
+
+    //Required for webcam streaming
+    setenv("RDMAV_FORK_SAFE", "1", 1);
+    setenv("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;udp", 1);
+
+    ServerConfig server_config;
+    std::optional<ServerConfig> server_config_opt;
+    try {
+        server_config_opt = parse_config_throws("config.yaml");
+    } catch (std::exception& ex) {
+        std::cerr << "Error Parsing config file: " << ex.what() << "\n";
+        exit(-1);
+    }
+    server_config = server_config_opt.value();
  
-     VirtualCanvas vCanvas(server_config.canvas_size);
-     vCanvas.pixelMatrix = cv::Mat::zeros(vCanvas.dim, CV_8UC3);
+    VirtualCanvas vCanvas(server_config.canvas_size);
+    vCanvas.pixelMatrix = cv::Mat::zeros(vCanvas.dim, CV_8UC3);
+
+    CefRefPtr<CefCommandLine> cmdLine = CefCommandLine::GetGlobalCommandLine();
+    std::map<CefString, CefString> switches;
+    cmdLine->GetSwitches(switches);
+    std::vector<CefString> arguments;
+    cmdLine->GetArguments(arguments);
+
+    std::string inputFilePath;
+    bool debug_mode = true;
+
+    std::string rtmpCertPath, rtmpKeyPath;
+
+    if (arguments.empty()) {
+        std::cerr << "Error, no input file specified!" << "\n";
+        exit(-1);
+    }
+    inputFilePath = arguments.front().ToString();
+
+    if (switches.contains("prod")) {
+       debug_mode = false;
+    }
+
+    if (switches.contains("rtmp-tls-cert")) {
+       rtmpCertPath = switches.at("rtmp-tls-cert").ToString();
+    }
+    if (switches.contains("rtmp-tls-key")) {
+       rtmpKeyPath = switches.at("rtmp-tls-key").ToString();
+    }
+    if (rtmpCertPath.empty() != rtmpKeyPath.empty()) {
+       std::cerr << "Error: Both --rtmp-tls-cert and --rtmp-tls-key must be provided together to enable RTMP TLS.\n";
+       exit(-1);
+    }
+
+    RTMPServer rtmpServer(rtmpCertPath, rtmpKeyPath);
  
-     std::string inputFilePath;
-     bool debug_mode = true;
-
-     const char* rtmpCertPath = nullptr, *rtmpKeyPath = nullptr;
-
-     if (argc >= 2) {
-         inputFilePath = std::string(argv[1]);
-         for (int i = 2; i < argc; i++) {
-             std::string arg = argv[i];
-             if (arg == "--prod") {
-                 debug_mode = false;
-             } else if (arg == "--rtmp-tls") {
-                 if (i + 2 < argc) {
-                   rtmpCertPath = argv[++i];
-                   rtmpKeyPath = argv[++i];
-                 }
-                 else {
-                   std::cerr << "Error: --rtmp-tls flag requires two arguments: <cert_path> <key_path>\n";
-                   exit(-1);
-                 }
-             } else {
-                 std::cerr << "Unknown argument: " << arg << "\n";
-                 exit(-1);
-             }
-         }
-     } else {
-         std::cerr << "Error, no image input file specified!" << "\n";
-         exit(-1);
-     }
-
-     RTMPServer rtmpServer(rtmpCertPath, rtmpKeyPath);
- 
-     try {
-         parseInput(vCanvas, inputFilePath, rtmpServer);
-     } catch (std::exception& ex) {
-         std::cerr << "Error Parsing image input file ("
-                   << inputFilePath << "):"
-                   << ex.what() << "\n";
-         exit(-1);
-     }
+    try {
+        parseInput(vCanvas, inputFilePath, rtmpServer);
+    } catch (std::exception& ex) {
+        std::cerr << "Error Parsing image input file ("
+                  << inputFilePath << "):"
+                  << ex.what() << "\n";
+        exit(-1);
+    }
 
  
      std::shared_ptr<LEDTCPServer> server =
@@ -105,10 +135,10 @@ int main(int argc, char* argv[]) {
      }
      server->start();
  
-     Controller cont(vCanvas,
-                     server_config.clients,
-                     server,
-                     server_config.ns_per_frame);
+    Controller cont(vCanvas,
+                    server_config.clients,
+                    server,
+                    server_config.ns_per_frame);
     
 
 
@@ -122,6 +152,7 @@ int main(int argc, char* argv[]) {
     char buf[256];
     std::cout << "\nWrite your command to " << TMP_CMD << std::endl << "Example: `echo \"move 5 10 10 > " << TMP_CMD << "\'" << std::endl <<  "Available Commands : \n- pause\n- resume\n- quit\n- move <ElementID> <x-coord> <y-coord>\n- add <type> <ElementID> <x-coord> <y-coord>\n- remove <ElementID>\n";
     while(!stop_signal) {
+        CefDoMessageLoopWork();
 
         /*
         ======================================================================================
@@ -170,5 +201,8 @@ int main(int argc, char* argv[]) {
     EXIT_PROGRAM:
     close(pipe);
     unlink(TMP_CMD);
+
+    CefShutdown();
+
     return 0;
 }

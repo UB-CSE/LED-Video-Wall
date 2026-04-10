@@ -8,8 +8,11 @@
 #include <string>
 
 Element* renderTextToElement(const std::string &text,
-                            const std::string &fontPath, int fontSize,
-                            cv::Scalar textColor, int elementId = 0,
-                            cv::Point position = cv::Point(0, 0));
+                             const std::string &fontPath,
+                             int fontSize,
+                             cv::Scalar textColor,
+                             int elementId,
+                             cv::Point position,
+                             double rotationDegrees = 0.0);
 
 #endif

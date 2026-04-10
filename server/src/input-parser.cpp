@@ -96,7 +96,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
                     
                 } 
 
-                Element * elem = new ImageElement(filepath, id, loc, -1, scale); 
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
+                Element * elem = new ImageElement(filepath, id, loc, scale, rotationDegrees);
                 vCanvas.addElementToCanvas(elem);
                 
             }
@@ -123,9 +128,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
 
                 }
 
-                
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
 
-                Element * elem = new CarouselElement(filepaths, id, loc, frameRate);
+                Element * elem = new CarouselElement(filepaths, id, loc, frameRate, rotationDegrees);
                 vCanvas.addElementToCanvas(elem);
             }
 
@@ -149,7 +157,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
 
                 cv::Point loc(locVec[0], locVec[1]);
 
-                Element * elem = new VideoElement(filepath, id, loc, frameRate);
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
+                Element * elem = new VideoElement(filepath, id, loc, frameRate, rotationDegrees);
 
                 vCanvas.addElementToCanvas(elem);
 
@@ -174,7 +187,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
 
                 cv::Point loc(locVec[0], locVec[1]);
 
-                Element * elem = new VideoElement(webcamNum, id, loc, frameRate);
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
+                Element * elem = new VideoElement(webcamNum, id, loc, frameRate, rotationDegrees);
 
                 vCanvas.addElementToCanvas(elem);
 
@@ -205,8 +223,13 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
                 }
                 cv::Point posPoint(locVec[0], locVec[1]);
 
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
                 // create the element via the renderer (returns Element* or nullptr)
-                Element* elem = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint);
+                Element* elem = renderTextToElement(content, filepath, fontSize, fontColor, id, posPoint, rotationDegrees);
                 if (!elem) {
                     std::cerr << "Error parsing config: text failed to render (check TTF path/permissions): " 
                                 << filepath << std::endl;
@@ -217,13 +240,12 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
             }
 
             else if (type == "rtmp") {
-                //what do we do here
                 if (!value["stream-name"] || !value["location"] || !value["framerate"]){
                     std:: cerr << "Missing stream-name, location, or framerate for RTMP element:" << key << std:: endl;
                     continue;
                 }
 
-                std:: string streamName = value["stream-name"].as<std::string>();
+                std::string streamName = value["stream-name"].as<std::string>();
                 int frameRate = value["framerate"].as<int>();
                 std::vector<int> locVec = value["location"].as<std::vector<int>>();
 
@@ -247,10 +269,61 @@ void parseInput(VirtualCanvas& vCanvas,  std::string& inputFile, RTMPServer& rtm
                    size = cv::Size(sizeVec[0], sizeVec[1]);
                 }
 
-                Element * elem = new RTMPStreamElement(rtmpServer, streamName, id, loc, frameRate, size);
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
+                Element* elem = new RTMPStreamElement(rtmpServer, streamName, id, loc, frameRate, size, rotationDegrees);
 
                 vCanvas.addElementToCanvas(elem);
+            }
 
+            else if (type == "web-browser") {
+                if (!value["url"] || !value["location"] || !value["framerate"] || !value["size"]){
+                    std:: cerr << "Missing url, location, framerate, or size for browser element:" << key << std:: endl;
+                    continue;
+                }
+
+                std::string url = value["url"].as<std::string>();
+                int frameRate = value["framerate"].as<int>();
+                std::vector<int> locVec = value["location"].as<std::vector<int>>();
+                std::vector<int> sizeVec = value["size"].as<std::vector<int>>();
+
+                if (locVec.size() != 2 || locVec[0] < 0 || locVec[1] < 0){
+                    std::cerr << "Location for the element" << key << " malformed" << std::endl;
+                    continue;
+                }
+
+                cv::Point loc(locVec[0], locVec[1]);
+
+                if (sizeVec.size() != 2 || sizeVec[0] <= 0 || sizeVec[1] <= 0){
+                    std::cerr << "Size for the element" << key << " malformed" << std::endl;
+                    continue;
+                }
+
+                cv::Size size(sizeVec[0], sizeVec[1]);
+
+                cv::Size viewSize(0, 0);
+                if (value["view-size"]) {
+                  std::vector<int> viewSizeVec = value["view-size"].as<std::vector<int>>();
+
+                  if (viewSizeVec.size() != 2 || viewSizeVec[0] <= 0 || viewSizeVec[1] <= 0){
+                      std::cerr << "View Size for the element" << key << " malformed" << std::endl;
+                      continue;
+                  }
+
+                   viewSize = cv::Size(viewSizeVec[0], viewSizeVec[1]);
+                }
+
+                double rotationDegrees = 0.0;
+                if (value["rotation"]) {
+                    rotationDegrees = value["rotation"].as<double>();
+                }
+
+                Element* elem = new WebBrowserElement(url, id, loc, frameRate, size, viewSize, rotationDegrees);
+
+                vCanvas.addElementToCanvas(elem);
             }
 
             else {

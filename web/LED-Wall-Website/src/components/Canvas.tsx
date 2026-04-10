@@ -42,6 +42,19 @@ function Canvas(props: Props) {
     e.preventDefault();
   }
 
+  function handleClick(e: React.MouseEvent) {
+    //Context menu comes up when right click
+    if(e.button === 2) {
+      e.preventDefault();
+    }
+
+    //Deselects element if click on canvas
+    if (e.target === e.currentTarget) {
+      dispatch({ type: "config/setSelectedElement", payload: 0 });
+    } 
+  }
+
+
   function createJSXElement(element: Elem) {
     if (element.type === "image") {
       return (
@@ -79,6 +92,7 @@ function Canvas(props: Props) {
       className={styles.canvas}
       onDrop={(e) => handleDrop(e)}
       onDragOver={(e) => handleDragOver(e)}
+      onMouseDown={handleClick}
       style={{
         cursor: "grab",
         width: props.canvasDimensions[0],

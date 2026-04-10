@@ -6,6 +6,10 @@ import {
 } from "../state/config/configSlice.ts";
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
+import ContextMenu from "./ContextMenu.tsx";
+import useContextMenu from "../hooks/useContextMenu.tsx";
+import { type Option } from "./ContextMenu.tsx";
+import { clearElement } from "../state/config/configSlice.ts";
 
 
 type ImageProps = {
@@ -50,6 +54,18 @@ function Element(props: ElementProps) {
   //Store is font loaded
   const [fontLoaded, setFontLoaded] = useState(false);
 
+  // ── Context menu ────────────────────────────────────────────────────────────
+  const {
+    location: contextLocation,
+    setLocation: setContextLocation,
+    isClicked: contextIsClicked,
+    setIsClicked: setContextIsClicked,
+  } = useContextMenu();
+
+  const deleteOptions: Option[] = [{ name: "delete", function: deleteElement }];
+  const [contextOptions, setContextOptions] = useState<Option[]>(deleteOptions);
+
+
   //Overwrites redux state of this element in the config
   function updateState() {
     if (props.type === "image") {
@@ -79,11 +95,27 @@ function Element(props: ElementProps) {
     }
   }
 
-  function startDragging(e: React.MouseEvent) {
-    dispatch(setSelectedElement(props.id));
-    setIsDragging(true);
-    setStartX(e.clientX - x);
-    setStartY(e.clientY - y);
+  function handleClick(e: React.MouseEvent) {
+    //differentiate between left click (to drag) and riht click (to open context menu)
+    if (e.button === 2) {
+      //this is a right click, open context menu
+      //"onContextMenu" prevents the default browser context menu from appearing
+      setContextOptions(deleteOptions);
+      setContextLocation([e.clientX - 380, e.clientY - 60]);
+      setContextIsClicked(true);
+    }
+    else{
+      //this is dragging
+      dispatch(setSelectedElement(props.id));
+      setIsDragging(true);
+      setStartX(e.clientX - x);
+      setStartY(e.clientY - y);
+    }
+  }
+  
+
+  function deleteElement() {
+      dispatch(clearElement(configState.selectedElement));
   }
 
   //Sends the current location of the element to the server
@@ -167,32 +199,40 @@ function Element(props: ElementProps) {
   function createJSXElement() {
     if (props.type === "image") {
       return (
-        <img
-          src={"/api/" + props.path}
-          draggable={false}
-          onMouseDown={(e) => startDragging(e)}
-          onLoad={handleLoad}
-          style={{
-            position: "fixed",
-            left: props.location[0] + x,
-            top: props.location[1] + y,
-            cursor: isDragging ? "grabbing" : "grab",
-            width: dimensions[0] * props.scale,
-            height: dimensions[1] * props.scale,
-            margin: "-3px",
-            boxSizing: "border-box",
-            border:
-              configState.selectedElement == props.id
-                ? "3px solid cornflowerblue"
-                : "3px solid transparent",
-          }}
-        />
-      );
+    <div
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <img
+        src={"/api/" + props.path}
+        draggable={false}
+        onMouseDown={(e) => handleClick(e)}
+        onLoad={handleLoad}
+        style={{
+          position: "fixed",
+          left: props.location[0] + x,
+          top: props.location[1] + y,
+          cursor: isDragging ? "grabbing" : "grab",
+          width: dimensions[0] * props.scale,
+          height: dimensions[1] * props.scale,
+          margin: "-3px",
+          boxSizing: "border-box",
+          border:
+            configState.selectedElement == props.id
+              ? "3px solid cornflowerblue"
+              : "3px solid transparent",
+        }}
+      />
+      {contextIsClicked && (
+        <ContextMenu options={contextOptions} location={contextLocation} />
+      )}
+    </div>
+  );
     } else if (props.type === "text") {
       return (
         <div
           draggable={false}
-          onMouseDown={(e) => startDragging(e)}
+          onMouseDown={(e) => handleClick(e)}
+          onContextMenu={(e) => e.preventDefault()}
           style={{
             position: "fixed",
             left: props.location[0] + x,
@@ -218,6 +258,10 @@ function Element(props: ElementProps) {
           >
             {props.content}
           </p>
+
+          {contextIsClicked && (
+          <ContextMenu options={contextOptions} location={contextLocation} />
+          )}
         </div>
       );
     }

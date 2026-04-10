@@ -9,9 +9,12 @@
 #include <algorithm>
 
 Element* renderTextToElement(const std::string &text,
-                             const std::string &fontPath, int fontSize,
-                             cv::Scalar textColor, int elementId,
-                             cv::Point position) {
+                             const std::string &fontPath,
+                             int fontSize,
+                             cv::Scalar textColor,
+                             int elementId,
+                             cv::Point position,
+                             double rotationDegrees) {
   // FreeType initialization
   FT_Library ft;
   if (FT_Init_FreeType(&ft)) {
@@ -138,16 +141,11 @@ Element* renderTextToElement(const std::string &text,
              cv::Size(std::max(1, actualWidth / 2), std::max(1, actualHeight / 2)),
              0, 0, cv::INTER_AREA);
 
-  // create our output element and convert
-  cv::Mat rgbImg;
-  cv::cvtColor(img, rgbImg, cv::COLOR_BGRA2BGR);
-
-  if (rgbImg.empty()) {
+  if (img.empty()) {
     return nullptr;
   }
 
   // return a concrete element pointer
-  return new TextElement(rgbImg, elementId, position,
-                       text, fontPath, fontSize, textColor, 0);
-
+  return new TextElement(img, elementId, position, text, fontPath, fontSize,
+                         textColor, rotationDegrees);
 }
