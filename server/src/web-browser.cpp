@@ -77,16 +77,16 @@ private:
   WebBrowser *nextWebBrowser = nullptr;
 };
 
-WebBrowser::WebBrowser(const std::string &url, unsigned int width,
+WebBrowser::WebBrowser(const std::string &_url, unsigned int width,
                        unsigned int height)
-    : viewRect(0, 0, width, height) {
+    : url(_url), viewRect(0, 0, width, height) {
   windowInfo.SetAsWindowless(0);
 
   WebBrowserClient::get()->setNextWebBrowser(this);
 
-  browser = CefBrowserHost::CreateBrowserSync(
-      windowInfo, WebBrowserClient::get(), CefString(url), browserSettings,
-      nullptr, nullptr);
+  browser =
+      CefBrowserHost::CreateBrowserSync(windowInfo, WebBrowserClient::get(),
+                                        url, browserSettings, nullptr, nullptr);
 }
 
 WebBrowser::~WebBrowser() {
@@ -95,6 +95,28 @@ WebBrowser::~WebBrowser() {
 
 void WebBrowser::loadURL(const std::string &url) {
   browser->GetMainFrame()->LoadURL(CefString(url));
+}
+
+void WebBrowser::setCookie(const std::string &name, const std::string &value,
+                           const std::string &domain, const std::string &path,
+                            bool secure, bool httpOnly,
+                            cef_cookie_same_site_t sameSite) {
+  CefCookie cookie;
+  CefString(&cookie.name).FromString(name);
+  CefString(&cookie.value).FromString(value);
+  CefString(&cookie.domain).FromString(domain);
+  CefString(&cookie.path).FromString(path);
+  cookie.secure = secure;
+  cookie.httponly = httpOnly;
+  cookie.same_site = sameSite;
+  cookie.has_expires = false; // Add expiration configuration in the future?
+
+  CefRefPtr<CefCookieManager> cookieManager =
+      CefCookieManager::GetGlobalManager(nullptr);
+
+  cookieManager->SetCookie(url, cookie, nullptr);
+
+  cookieManager->FlushStore(nullptr);
 }
 
 bool WebBrowser::getLatestFrame(cv::Mat &frame) {
