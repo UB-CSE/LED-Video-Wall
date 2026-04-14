@@ -5,10 +5,12 @@
 
 #include "protocol.hpp"
 #include "set_config.hpp"
+#include "hub75.h"
+Hub75Driver *dma_display = nullptr;
 
 static const char *TAG = "SetConfig";
 
-std::map<uint8_t, led_strip_handle_t> pin_to_handle;
+std::map<int8_t, led_strip_handle_t> pin_to_handle;
 SemaphoreHandle_t pin_to_handle_mutex = xSemaphoreCreateMutex();
 
 void clear_led_strips() {
@@ -37,13 +39,40 @@ int set_config(SetConfigMessage *msg) {
     return -1;
   }
 
+  int p3_panel_count = 0;
+  for (int i = 0; i < num_pins; i++) {
+    if (msg->pin_info[i].pin_num < 0) {
+      p3_panel_count++;
+    }
+  }
+
+ if (p3_panel_count > 0 && !dma_display) {
+    Hub75Config config{};
+    config.panel_width = 64; 
+    config.panel_height = 64;
+    //config.double_buffer = true;
+    config.layout_cols = p3_panel_count;
+    config.layout_rows = 1;
+    config.brightness = 64;
+    config.output_clock_speed = Hub75ClockSpeed::HZ_20M;
+    config.pins.r1 = 42; config.pins.g1 = 41; config.pins.b1 = 40;
+    config.pins.r2 = 38; config.pins.g2 = 39; config.pins.b2 = 37;
+    config.pins.a = 45; config.pins.b = 36; config.pins.c = 48; config.pins.d = 35; config.pins.e = 21;
+    config.pins.lat = 47; config.pins.oe = 14; config.pins.clk = 2;
+    dma_display = new Hub75Driver(config);
+    dma_display->begin();
+  }
+
   for (int i = 0; i < num_pins; i++) {
     PinInfo *pinfo = &msg->pin_info[i];
-    uint8_t gpio_pin = pinfo->pin_num;
+    int8_t gpio_pin = pinfo->pin_num;
+    if (gpio_pin < 0) {
+      continue;
+    }
     uint16_t num_leds = pinfo->max_leds;
 
     if (num_leds == 0) {
-      ESP_LOGE(TAG, "num_leds is zero for pin %u", (unsigned int)gpio_pin);
+      ESP_LOGE(TAG, "num_leds is zero for pin %d", (unsigned int)gpio_pin);
       continue;
     }
 
@@ -76,7 +105,7 @@ int set_config(SetConfigMessage *msg) {
     esp_err_t ret =
         led_strip_new_rmt_device(&strip_config, &rmt_config, &strip);
     if (ret != ESP_OK) {
-      ESP_LOGE(TAG, "Failed to create LED strip for pin %u",
+      ESP_LOGE(TAG, "Failed to create LED strip for pin %d",
                (unsigned int)gpio_pin);
       clear_led_strips();
       xSemaphoreGive(pin_to_handle_mutex);

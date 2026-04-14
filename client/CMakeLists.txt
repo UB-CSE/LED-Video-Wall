@@ -18,3 +18,5 @@ add_custom_target(generate_version_txt ALL
 )
 
 project(client)
+
+add_compile_options(-Wno-error=format -Wno-format)

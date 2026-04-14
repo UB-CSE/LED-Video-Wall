@@ -20,7 +20,7 @@ uint8_t get_message_op_code(const uint8_t *buffer) {
 
 void free_message_buffer(void *buffer) { free(buffer); }
 
-uint8_t *encode_set_leds(uint8_t gpio_pin, const uint8_t *pixel_data,
+uint8_t *encode_set_leds(int8_t gpio_pin, const uint8_t *pixel_data,
                          uint32_t data_size, uint32_t *out_size) {
 
   *out_size = sizeof(SetLedsMessage) + data_size;
@@ -74,7 +74,7 @@ uint8_t *encode_set_leds_batched(uint8_t batch_count, const LedsBatch *batches,
 
 // Like encode_set_leds, but doesn't copy the pixel data for you; that is, only
 // the fixed size parts of the message are set.
-SetLedsMessage *encode_fixed_set_leds(uint8_t gpio_pin, uint32_t data_size,
+SetLedsMessage *encode_fixed_set_leds(int8_t gpio_pin, uint32_t data_size,
                                       uint32_t *out_size) {
   *out_size = sizeof(SetLedsMessage) + data_size;
   uint8_t *buffer = allocate_message_buffer(*out_size);

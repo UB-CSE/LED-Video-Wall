@@ -60,7 +60,7 @@ public:
 
 class MatricesConnection {
 public:
-    uint8_t pin;
+    int8_t pin;
     std::vector<LEDMatrix*> matrices;
 
     std::string to_string();
