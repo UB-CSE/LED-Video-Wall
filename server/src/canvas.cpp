@@ -9,6 +9,21 @@
 #include <cmath>
 #include <algorithm>
 
+void Element::scaleFrame() {
+    if (scaleFactor <= 0.0) return;
+    if (pixelMatrix.empty()) return;
+
+    if (std::abs(scaleFactor - 1.0) < 1e-6) {
+      return;
+    }
+
+    cv::resize(
+        pixelMatrix, pixelMatrix, cv::Size(),
+        scaleFactor, scaleFactor,
+        (scaleFactor < 1.0) ? cv::INTER_AREA : cv::INTER_LINEAR
+    );
+}
+
 void Element::rotateFrame() {
     if (angleDegrees == 0.f || pixelMatrix.empty()) {
         return;
@@ -59,20 +74,19 @@ void Element::rotateFrame() {
 
     // Keep the center of the element in the same place on the canvas
 
-    adjustedLocation = cv::Point(location.x - paddingX, location.y - paddingY);
+    locationOffset = cv::Point(-paddingX, -paddingY);
 }
 
 //ImageElement implementation
 
-ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, double scale, double rotationDegreees) : Element(id, loc, -1, rotationDegreees) {
-    pixelMatrix = cv::imread(filepath, cv::IMREAD_UNCHANGED);
-    if (pixelMatrix.empty()) {
+ImageElement::ImageElement(const std::string& filepath, int id, cv::Point loc, double scale, double rotationDegreees) : Element(id, loc, -1, rotationDegreees, scale) {
+    cv::Mat frame = cv::imread(filepath, cv::IMREAD_UNCHANGED);
+    if (frame.empty()) {
         throw std::runtime_error("Failed to load image: " + filepath);
     }
-    original_ = pixelMatrix.clone();  
     filePath_ = filepath; 
-    setScale(scale);
-    rotateFrame();
+    setPixelMatrix(frame);
+    provided = true;
 }
 
 void ImageElement::reset() {
@@ -97,20 +111,18 @@ CarouselElement::CarouselElement(const std::vector<std::string>& filepaths, int 
     if (pixelMatrices.empty())
         throw std::runtime_error("No images loaded.");
 
-    pixelMatrix = pixelMatrices[0].clone();  //Init current matrix with top matrix
-    rotateFrame();
+    setPixelMatrix(pixelMatrices[0].clone());  //Init current matrix with top matrix
 }
 
 bool CarouselElement::nextFrame() {
-    pixelMatrix = pixelMatrices[current];  // Update stored frame
+    setPixelMatrix(pixelMatrices[current]);  // Update stored frame
     current = (current + 1) % pixelMatrices.size();
-    rotateFrame();
     return true;
 }
 
 void CarouselElement::reset() {
     current = 0;
-    pixelMatrix = pixelMatrices[0];
+    setPixelMatrix(pixelMatrices[0]);
 }
 
 //VideoElement implementation
@@ -125,9 +137,10 @@ VideoElement::VideoElement(const std::string& filepath, int id, cv::Point loc, i
         throw std::runtime_error("Failed to open video: " + filepath);
 
     //Load first frame
-    cap.read(pixelMatrix);
+    cv::Mat frame;
+    cap.read(frame);
     cap.set(cv::CAP_PROP_POS_FRAMES, 0);
-    rotateFrame();
+    setPixelMatrix(frame);
 }
 
 //VideoElement implementation
@@ -139,22 +152,23 @@ VideoElement::VideoElement(int webcamNum, int id, cv::Point loc, int frameRate, 
         throw std::runtime_error("Failed to open webcam: " + std::to_string(webcamNum));
 
     //Load first frame
-    cap.read(pixelMatrix);
+    cv::Mat frame;
+    cap.read(frame);
     cap.set(cv::CAP_PROP_POS_FRAMES, 0);
-    rotateFrame();
+    setPixelMatrix(frame);
 }
 
 
 bool VideoElement::nextFrame() {
-    if (!cap.read(pixelMatrix)) {
+    cv::Mat frame;
+    if (!cap.read(frame)) {
         //Rewind and try again
         cap.set(cv::CAP_PROP_POS_FRAMES, 0);
-        if (!cap.read(pixelMatrix)) {
+        if (!cap.read(frame)) {
             return false;
         }
     }
-
-    rotateFrame();
+    setPixelMatrix(frame);
 
     return true;
 }
@@ -163,8 +177,10 @@ void VideoElement::reset() {
     cap.set(cv::CAP_PROP_POS_FRAMES, 0);
 
     //Reload first frame back into pixelMatrix
-    cap.read(pixelMatrix);
+    cv::Mat frame;
+    cap.read(frame);
     cap.set(cv::CAP_PROP_POS_FRAMES, 0);
+    setPixelMatrix(frame);
 }
 
 // RTMPStreamElement implementation
@@ -176,9 +192,9 @@ RTMPStreamElement::RTMPStreamElement(RTMPServer& rtmpServer, const std::string& 
 bool RTMPStreamElement::nextFrame() {
   std::optional<cv::Mat> receivedFrame = rtmpServer.receiveStreamFrame(streamName);
   if (receivedFrame.has_value()) {
-    pixelMatrix = receivedFrame.value();
+    cv::Mat frame = receivedFrame.value();
 
-    cv::Size frameSize = pixelMatrix.size();
+    cv::Size frameSize = frame.size();
 
     if (size != cv::Size(0, 0) && frameSize != cv::Size(0, 0)) {
       // preserve aspect ratio, do no exceed specified size
@@ -191,30 +207,74 @@ bool RTMPStreamElement::nextFrame() {
       }
       cv::Size newSize(newWidth, newHeight);
       
-      cv::resize(pixelMatrix, pixelMatrix, newSize);
+      cv::resize(frame, frame, newSize);
     }
 
-    rotateFrame();
+    setPixelMatrix(frame);
   }
 
   return true;
 }
 
 void RTMPStreamElement::reset() {
-    pixelMatrix = noFrameMat.clone();
+    cv::Mat frame = noFrameMat.clone();
     
     if (size != cv::Size(0, 0)) {
-      cv::resize(pixelMatrix, pixelMatrix, size);
+      cv::resize(frame, frame, size);
     }
-    rotateFrame();
+    setPixelMatrix(frame);
+}
+
+// WebBrowserElement implementation
+
+WebBrowserElement::WebBrowserElement(const std::string& url, int id, cv::Point loc, int frameRate, cv::Size size, cv::Size viewSize, double rotationDegrees) : Element(id, loc, frameRate, rotationDegrees), size(size), viewSize(viewSize.empty() ? size : viewSize), webBrowser(url, this->viewSize.width, this->viewSize.height) {
+    reset();
+}
+
+bool WebBrowserElement::nextFrame() {
+    cv::Mat frame;
+    bool hasFrame = webBrowser.getLatestFrame(frame);
+    if (hasFrame) {
+        cv::Size frameSize = frame.size();
+    
+        if (size != cv::Size(0, 0) && frameSize != cv::Size(0, 0)) {
+            // preserve aspect ratio, do no exceed specified size
+            double aspectRatio = static_cast<double>(frameSize.width) / frameSize.height;
+            int newWidth = size.width;
+            int newHeight = static_cast<int>(newWidth / aspectRatio);
+            if (newHeight > size.height) {
+                newHeight = size.height;
+                newWidth = static_cast<int>(newHeight * aspectRatio);
+            }
+            cv::Size newSize(newWidth, newHeight);
+            
+            cv::resize(frame, frame, newSize);
+        }
+    
+        setPixelMatrix(frame);
+    }
+    
+    return true;
+}
+
+void WebBrowserElement::reset() {
+    cv::Mat frame = noFrameMat.clone();
+    
+    if (size != cv::Size(0, 0)) {
+      cv::resize(frame, frame, size);
+    }
+    setPixelMatrix(frame);
+}
+
+void WebBrowserElement::setCookie(const std::string& name, const std::string& value, const std::string& domain, const std::string& path, bool secure, bool httpOnly, cef_cookie_same_site_t sameSite) {
+    webBrowser.setCookie(name, value, domain, path, secure, httpOnly, sameSite);
 }
 
 // TextElement implementation
 
 TextElement::TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, const std::string& text, const std::string& font, int size, cv::Scalar col, double rotationDegrees)
     : Element(id, loc, -1, rotationDegrees), content(text), fontPath(font), fontSize(size), color(col) {
-    pixelMatrix = imgBGR.clone();
-    rotateFrame();
+    setPixelMatrix(imgBGR.clone());
 }
 
 /*
@@ -377,13 +437,51 @@ bool VirtualCanvas::moveElement(int elementId, cv::Point loc){
     });
 
     if (it != elementPtrs.end()) {
-        (*it)->getLocation() = loc;
+        (*it)->setLocation(loc);
     }
 
     return 0;
 
 }
 
+bool VirtualCanvas::rotateElement(int elementId, double rotationDegrees) {
+    std::vector<Element *> elementPtrs = getElementList();
+    auto it = std::find_if(elementPtrs.begin(), elementPtrs.end(), [elementId](const Element* ptr) {
+        return ptr && ptr->getId() == elementId;
+    });
+
+    if (it != elementPtrs.end()) {
+        (*it)->rotateBy(rotationDegrees);
+    }
+
+    return 0;
+}
+
+bool VirtualCanvas::setElementRotation(int elementId, double rotationDegrees) {
+    std::vector<Element *> elementPtrs = getElementList();
+    auto it = std::find_if(elementPtrs.begin(), elementPtrs.end(), [elementId](const Element* ptr) {
+        return ptr && ptr->getId() == elementId;
+    });
+
+    if (it != elementPtrs.end()) {
+        (*it)->setRotation(rotationDegrees);
+    }
+
+    return 0;
+}
+
+bool VirtualCanvas::setElementScale(int elementId, double scaleFactor) {
+    std::vector<Element *> elementPtrs = getElementList();
+    auto it = std::find_if(elementPtrs.begin(), elementPtrs.end(), [elementId](const Element* ptr) {
+        return ptr && ptr->getId() == elementId;
+    });
+
+    if (it != elementPtrs.end()) {
+        (*it)->setScale(scaleFactor);
+    }
+
+    return 0;
+}
 
 bool VirtualCanvas::removeElementFromCanvas(int elementId) {
     clear();

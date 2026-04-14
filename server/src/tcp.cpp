@@ -96,11 +96,12 @@ void LEDTCPServer::handle_conns() {
                 for (LEDMatrix* mat : conn.matrices) {
                     max_leds += mat->spec->width * mat->spec->height;
                 }
+                uint8_t led_type = (conn.pin < 0) ? LED_TYPE_P3 : LED_TYPE_WS2811;
                 pin_info.push_back((PinInfo){
                         conn.pin,
                         COLOR_ORDER_GRB,
                         max_leds,
-                        LED_TYPE_WS2811
+                        led_type
                     });
             }
             const PinInfo* inf = pin_info.data();
@@ -121,7 +122,8 @@ void LEDTCPServer::handle_conns() {
 std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
                                             uint16_t start_port,
                                             uint16_t end_port,
-                                            std::vector<Client*> clients) {
+                                            std::vector<Client*> clients,
+                                            float brightness_percent) {
     struct protoent* protocol_entry = getprotobyname("tcp");
     const int tcp_protocol_num = protocol_entry->p_proto;
     
@@ -170,18 +172,26 @@ std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
         return nullptr;
     }
 
-    return std::make_shared<LEDTCPServer>(addr, port, server_socket, clients);
+    return std::make_shared<LEDTCPServer>(addr, port, server_socket, clients, brightness_percent);
 }
 
 LEDTCPServer::LEDTCPServer(uint32_t addr,
                            uint16_t port,
                            int socket,
-                           std::vector<Client*> clients)
+                           std::vector<Client*> clients,
+                           float brightness_percent)
     : addr(addr),
       port(port),
       socket(socket),
-      conn_info(new ClientConnInfo(clients))
-{}
+      conn_info(new ClientConnInfo(clients)),
+      brightness_percent(brightness_percent)
+{
+    if (this->brightness_percent < 1.0) {
+        this->brightness_percent = 1.0;
+    } else if (this->brightness_percent > 100.0) {
+        this->brightness_percent = 100.0;
+    }
+}
 
 LEDTCPServer::~LEDTCPServer() {
   if (is_running) {
@@ -261,7 +271,7 @@ bool ClientConnInfo::isConnected(const Client *c) {
     return this->connected.find(c) != this->connected.end();
     this->mut.unlock();
 }
-
+/*
 void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
     int sent = send(socket, data, size, MSG_NOSIGNAL);
     if (sent != size) {
@@ -275,6 +285,29 @@ void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
         }
     }
 }
+*/
+ void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
+    int total_sent = 0;
+    while (total_sent < size) {
+        int sent = send(socket, (char*)data + total_sent, size - total_sent, MSG_NOSIGNAL);
+        if (sent < 0) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                continue;
+            }
+            std::cout << "Error sending: " << strerror(errno) << "\n";
+            if (errno == ECONNRESET || errno == EPIPE) {
+                auto socket_opt = this->conn_info->getSocket(c);
+                if (socket_opt.has_value()) {
+                    close(socket_opt.value());
+                }
+                this->conn_info->setDisconnected(c);
+            }
+            break;
+        }
+        total_sent += sent;
+    }
+} 
 
 MessageHeader LEDTCPServer::tcp_recv_header(int socket) {
     MessageHeader header;
@@ -319,7 +352,7 @@ void LEDTCPServer::set_leds(const Client* c,
         // temp_buf is a buffer that will contain all the re-oriented/processed submatrices
         // of each led strip for the client
         uint8_t* temp_buf = (uint8_t*)malloc(total_size);
-        uint8_t pin = conn.pin;
+        int8_t pin = conn.pin;
 
         // This loop processes each submatrix (corresponding to a ledstrip) one at a time.
         // pixel_buf points to the next part of the temp_buf for the current submatrix.
@@ -332,13 +365,15 @@ void LEDTCPServer::set_leds(const Client* c,
             rotation rot = ledmat->pos.rot;
             if (rot == LEFT || rot == RIGHT) {
                 uint32_t temp = width;
-                height = width;
+                width = height;
                 height = temp;
             }
             uint32_t x = ledmat->pos.x;
             uint32_t y = ledmat->pos.y;
 
             cv::Mat sub_cvmat = canvas.getPixelMatrix()(cv::Rect(x, y, width, height)).clone();
+            sub_cvmat.convertTo(sub_cvmat, -1, this->brightness_percent / 100.0);
+
             if (rot == LEFT) {
                 cv::rotate(sub_cvmat, sub_cvmat, cv::ROTATE_90_CLOCKWISE);
             } else if (rot == RIGHT) {
@@ -349,20 +384,20 @@ void LEDTCPServer::set_leds(const Client* c,
 
             const uint8_t* data = sub_cvmat.data;
             // todo: brightness_reduction should be configurable!
-            const int brightness_reduction = 10;
+            //Added brightness percent and removed brightness_reduction;
             uint32_t num_leds = ledmat->packed_pixel_array_size / 3;
             for (uint32_t i = 0; (i < num_leds); ++i) {
                 uint32_t a = i * 3;
-                if ((i / width) % 2 != 0) {
-                    pixel_buf[a + 2] = data[a] / brightness_reduction;
-                    pixel_buf[a + 1] = data[a + 1] / brightness_reduction;
-                    pixel_buf[a] = data[a + 2] / brightness_reduction;
+                if (pin < 0 || (i / width) % 2 != 0) {
+                    pixel_buf[a + 2] = data[a];
+                    pixel_buf[a + 1] = data[a + 1];
+                    pixel_buf[a] = data[a + 2];
                 } else {
                     uint32_t irem = i % width;
                     uint32_t b = (((width - 1) - irem) + (i - irem)) * 3;
-                    pixel_buf[a + 2] = data[b] / brightness_reduction;
-                    pixel_buf[a + 1] = data[b + 1] / brightness_reduction;
-                    pixel_buf[a] = data[b + 2] / brightness_reduction;
+                    pixel_buf[a + 2] = data[b];
+                    pixel_buf[a + 1] = data[b + 1];
+                    pixel_buf[a] = data[b + 2];
                 }
             }
             pixel_buf += ledmat->packed_pixel_array_size;

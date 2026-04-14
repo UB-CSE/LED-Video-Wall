@@ -2,7 +2,13 @@ import styles from "../Styles.module.css";
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
 import { useDispatch } from "react-redux";
-import { setSelectedElement, updateElement } from "../state/config/configSlice.ts";
+import {
+  setSelectedElement,
+  updateElement,
+  reorderElements,
+  toggleElementVisibility,
+} from "../state/config/configSlice.ts";
+import type { Elem } from "../state/config/configSlice.ts";
 import type React from "react";
 import { useState } from "react";
 import ContextMenu from "./ContextMenu.tsx";
@@ -10,40 +16,51 @@ import useContextMenu from "../hooks/useContextMenu.tsx";
 import { type Option } from "./ContextMenu.tsx";
 import AddImagePopup from "./AddImagePopup.tsx";
 import AddTextPopup from "./AddTextPopup.tsx";
-import { clearElement } from "../state/config/configSlice.ts";
+import AddCarouselPopup from "./AddCarouselPopup.tsx";
+import AddVideoPopup from "./AddVideoPopup.tsx";
+import AddWebcamPopup from "./AddWebcamPopup.tsx";
+import AddRtmpPopup from "./AddRtmpPopup.tsx";
 
 type Props = {
   sizeMultiplier: number;
 };
 
-// List of all elements in the current configuration with ability to add elements.
-// Elements are ordered back-to-front: index 0 = back (id 1), last index = front (highest id).
+function EyeIcon({ visible }: { visible: boolean }) {
+  return visible ? (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ) : (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="1" y1="1" x2="23" y2="23" />
+      <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19" />
+    </svg>
+  );
+}
+
 function ElementList(props: Props) {
   const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
 
-  // ── Context menu ────────────────────────────────────────────────────────────
-  const {
-    location: contextLocation,
-    setLocation: setContextLocation,
-    isClicked: contextIsClicked,
-    setIsClicked: setContextIsClicked,
-  } = useContextMenu();
+  // ── Context menu ──────────────────────────────────────────────────────────
+  const { location: contextLocation, setLocation: setContextLocation, isClicked: contextIsClicked, setIsClicked: setContextIsClicked } = useContextMenu();
+  const { isClicked: addImageIsClicked, setIsClicked: setAddImageIsClicked } = useContextMenu();
+  const { isClicked: addTextIsClicked, setIsClicked: setAddTextIsClicked } = useContextMenu();
+  const { isClicked: addCarouselIsClicked, setIsClicked: setAddCarouselIsClicked } = useContextMenu();
+  const { isClicked: addVideoIsClicked, setIsClicked: setAddVideoIsClicked } = useContextMenu();
+  const { isClicked: addWebcamIsClicked, setIsClicked: setAddWebcamIsClicked } = useContextMenu();
+  const { isClicked: addRtmpIsClicked, setIsClicked: setAddRtmpIsClicked } = useContextMenu();
+  const [contextOptions, setContextOptions] = useState<Option[]>([]);
 
-  const { isClicked: addImageIsClicked, setIsClicked: setAddImageIsClicked } =
-    useContextMenu();
-  const { isClicked: addTextIsClicked, setIsClicked: setAddTextIsClicked } =
-    useContextMenu();
-
-  // ── Drag-and-drop state ──────────────────────────────────────────────────────
-  // draggedId  – the element.id of the item being dragged
-  // dragOverId – the element.id of the slot currently being hovered over
+  // ── Drag-to-reorder ───────────────────────────────────────────────────────
   const [draggedId, setDraggedId] = useState<number | null>(null);
   const [dragOverId, setDragOverId] = useState<number | null>(null);
 
   function handleDragStart(e: React.DragEvent<HTMLLIElement>, id: number) {
     setDraggedId(id);
-    dispatch(setSelectedElement(id)); // select the item being dragged immediately
+    dispatch(setSelectedElement(id));
     e.dataTransfer.effectAllowed = "move";
   }
 
@@ -53,116 +70,105 @@ function ElementList(props: Props) {
     if (id !== dragOverId) setDragOverId(id);
   }
 
-  function handleDragLeave() {
-    setDragOverId(null);
-  }
+  function handleDragLeave() { setDragOverId(null); }
+  function handleDragEnd() { setDraggedId(null); setDragOverId(null); }
 
-  function handleDragEnd() {
-    setDraggedId(null);
-    setDragOverId(null);
-  }
-
-  // Reorders layers so that the dragged element lands at the position occupied
-  // by the target element. Mirrors the ID-reassignment logic in DetailsPanel's
-  // handleLayerChange so both paths stay in sync.
   async function handleDrop(e: React.DragEvent<HTMLLIElement>, targetId: number) {
     e.preventDefault();
     setDragOverId(null);
+    if (draggedId === null || draggedId === targetId) { setDraggedId(null); return; }
 
-    if (draggedId === null || draggedId === targetId) {
-      setDraggedId(null);
-      return;
-    }
-
-    // Work on a stable copy sorted by current id (back → front)
     const sorted = [...configState.elements].sort((a, b) => a.id - b.id);
     const draggedIndex = sorted.findIndex((el) => el.id === draggedId);
     const targetIndex = sorted.findIndex((el) => el.id === targetId);
+    if (draggedIndex === -1 || targetIndex === -1) { setDraggedId(null); return; }
 
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggedId(null);
-      return;
-    }
-
-    // Reorder: remove dragged item, insert at target position
     const reordered = [...sorted];
     const [draggedItem] = reordered.splice(draggedIndex, 1);
     reordered.splice(targetIndex, 0, draggedItem);
 
-    // Reassign ids 1…n to match new visual order, then dispatch to Redux
-    reordered.forEach((el, index) => {
-      const newId = index + 1;
-      if (el.id !== newId) {
-        dispatch(updateElement({ ...el, id: newId }));
-      }
-    });
+    const finalElements: Elem[] = reordered.map((el, index) => ({ ...el, id: index + 1 }));
+    dispatch(reorderElements(finalElements));
 
-    // Keep the dragged element selected at its new id —
-    // derive from reordered array so it's always correct regardless of direction
-    const newId = reordered.findIndex((el) => el.name === draggedItem.name) + 1;
+    const newId = finalElements.findIndex((el) => el.name === draggedItem.name) + 1;
     dispatch(setSelectedElement(newId));
     setDraggedId(null);
 
-    // Persist the new order to the backend (fire-and-forget; no reload needed)
-    const newOrder = reordered.map((el) => el.name);
     try {
-      const response = await fetch("/api/reorder-layers", {
+      await fetch("/api/reorder-layers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ layer_list: newOrder }),
+        body: JSON.stringify({ layer_list: finalElements.map((el) => el.name) }),
       });
-      if (!response.ok) {
-        console.error("Failed to persist layer order:", await response.text());
-      }
     } catch (error) {
       console.error("Failed to reach reorder-layers endpoint:", error);
     }
   }
 
-  // ── Context menu options ─────────────────────────────────────────────────────
-  const deleteOptions: Option[] = [{ name: "delete", function: deleteElement }];
-  const addOptions: Option[] = [
-    { name: "image", function: addImage },
-    { name: "text", function: addText },
-  ];
-  const [contextOptions, setContextOptions] = useState<Option[]>(deleteOptions);
-
-  function handleClick(id: number) {
-    dispatch(setSelectedElement(id));
+  // ── Visibility (UI only, resets on refresh) ───────────────────────────────
+  function handleToggleVisibility(e: React.MouseEvent, id: number) {
+    e.stopPropagation();
+    dispatch(toggleElementVisibility(id));
   }
 
-  function handleRightClick(e: React.MouseEvent<HTMLLIElement>) {
-    setContextOptions(deleteOptions);
+  // ── Duplicate (fully in memory, no backend call) ──────────────────────────
+  function duplicateElement(id: number) {
+    const elementToCopy = configState.elements.find((el) => el.id === id);
+    if (!elementToCopy) return;
+
+    const existingNames = new Set(configState.elements.map((el) => el.name));
+    const baseName = elementToCopy.name.replace(/ \(\d+\)$/, "");
+    let newName = baseName;
+    let i = 1;
+    while (existingNames.has(newName)) {
+      newName = `${baseName} (${i})`;
+      i++;
+    }
+
+    const newElement: Elem = { ...elementToCopy, id: 1, name: newName, visible: true };
+    const shifted = configState.elements.map((el) => ({ ...el, id: el.id + 1 }));
+    dispatch(reorderElements([newElement, ...shifted]));
+    dispatch(setSelectedElement(1));
+  }
+
+  // ── Delete (stub) ─────────────────────────────────────────────────────────
+  function deleteElement() {}
+
+  // ── Add ───────────────────────────────────────────────────────────────────
+  function addImage(e: React.MouseEvent) { setAddImageIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addText(e: React.MouseEvent) { setAddTextIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addCarousel(e: React.MouseEvent) { setAddCarouselIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addVideo(e: React.MouseEvent) { setAddVideoIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addWebcam(e: React.MouseEvent) { setAddWebcamIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+  function addRtmp(e: React.MouseEvent) { setAddRtmpIsClicked(true); setContextIsClicked(false); e.preventDefault(); e.stopPropagation(); }
+
+  function handleClick(id: number) { dispatch(setSelectedElement(id)); }
+
+  function handleRightClick(e: React.MouseEvent<HTMLLIElement>, id: number) {
+    setContextOptions([
+      { name: "duplicate", function: () => duplicateElement(id) },
+      { name: "delete", function: deleteElement },
+    ]);
     e.preventDefault();
     setContextLocation([e.clientX, e.clientY]);
     setContextIsClicked(true);
   }
 
   function handleAdd(e: React.MouseEvent) {
-    setContextOptions(addOptions);
+    setContextOptions([
+      { name: "image", function: addImage },
+      { name: "text", function: addText },
+      { name: "carousel", function: addCarousel },
+      { name: "video", function: addVideo },
+      { name: "webcam", function: addWebcam },
+      { name: "rtmp", function: addRtmp },
+    ]);
     e.preventDefault();
     e.stopPropagation();
     setContextLocation([e.clientX, e.clientY]);
     setContextIsClicked(true);
   }
 
-  function deleteElement() {
-    dispatch(clearElement(configState.selectedElement));
-  }
-
-  function addImage(e: React.MouseEvent) {
-    setAddImageIsClicked(true);
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  function addText(e: React.MouseEvent) {
-    setAddTextIsClicked(true);
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  // Render sorted back→front so the visual order matches the layer stack
   const sortedElements = [...configState.elements].sort((a, b) => a.id - b.id);
 
   return (
@@ -175,7 +181,7 @@ function ElementList(props: Props) {
       </div>
       <header style={{ display: "flex" }}>
         <h3>back</h3>
-        <h3 style={{ marginLeft: "178px" }}>type</h3>
+        <h3 style={{ marginLeft: "155px" }}>type</h3>
       </header>
       <div style={{ width: "100%", height: "100%", overflowY: "scroll" }}>
         <ul style={{ paddingLeft: "0px" }}>
@@ -183,6 +189,7 @@ function ElementList(props: Props) {
             const isSelected = configState.selectedElement === element.id;
             const isBeingDragged = draggedId === element.id;
             const isDropTarget = dragOverId === element.id && !isBeingDragged;
+            const isVisible = element.visible !== false;
 
             return (
               <li
@@ -194,49 +201,44 @@ function ElementList(props: Props) {
                 onDrop={(e) => handleDrop(e, element.id)}
                 onDragEnd={handleDragEnd}
                 onClick={() => handleClick(element.id)}
-                onContextMenu={(e) => handleRightClick(e)}
+                onContextMenu={(e) => handleRightClick(e, element.id)}
                 style={{
                   display: "flex",
+                  alignItems: "center",
                   cursor: "grab",
-                  opacity: isBeingDragged ? 0.4 : 1,
-                  // Blue selection border takes priority; drop-target gets a
-                  // dashed orange indicator so the user can see where it'll land
+                  opacity: isBeingDragged ? 0.4 : isVisible ? 1 : 0.45,
                   border: "2px solid",
-                  borderColor: isSelected
-                    ? "cornflowerblue"
-                    : isDropTarget
-                    ? "orange"
-                    : "transparent",
+                  borderColor: isSelected ? "cornflowerblue" : isDropTarget ? "orange" : "transparent",
                   borderStyle: isDropTarget ? "dashed" : "solid",
                   backgroundColor: isDropTarget ? "rgba(255,165,0,0.12)" : "transparent",
-                  transition: "border-color 80ms ease, background-color 80ms ease",
                   boxSizing: "border-box",
                 }}
               >
-                {/* Drag handle hint */}
-                <span
+                <span style={{ padding: "0 4px", color: "#aaa", fontSize: "12px", userSelect: "none", letterSpacing: "-1px" }}>⠿</span>
+                <p className={styles.box} style={{ width: "15%" }}>{element.id}</p>
+                <p className={styles.box} style={{ width: "42%", fontStyle: isVisible ? "normal" : "italic" }}>{element.name}</p>
+                <p className={styles.box} style={{ width: "25%" }}>{element.type}</p>
+                <button
+                  onClick={(e) => handleToggleVisibility(e, element.id)}
+                  title={isVisible ? "Hide layer" : "Show layer"}
                   style={{
+                    width: "18%",
+                    left: "unset",
+                    transform: "none",
+                    margin: 0,
+                    padding: "4px",
+                    border: "none",
+                    boxShadow: "none",
+                    backgroundColor: "transparent",
+                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    padding: "0 4px",
-                    color: "#aaa",
-                    fontSize: "12px",
-                    userSelect: "none",
-                    letterSpacing: "-1px",
+                    justifyContent: "center",
+                    color: isVisible ? "rgb(29,41,58)" : "#aaa",
                   }}
-                  title="Drag to reorder"
                 >
-                  ⠿
-                </span>
-                <p className={styles.box} style={{ width: "15%" }}>
-                  {element.id}
-                </p>
-                <p className={styles.box} style={{ width: "55%" }}>
-                  {element.name}
-                </p>
-                <p className={styles.box} style={{ width: "30%" }}>
-                  {element.type}
-                </p>
+                  <EyeIcon visible={isVisible} />
+                </button>
               </li>
             );
           })}
@@ -245,21 +247,13 @@ function ElementList(props: Props) {
       <header style={{ display: "flex" }}>
         <h3>front</h3>
       </header>
-      {contextIsClicked && (
-        <ContextMenu options={contextOptions} location={contextLocation} />
-      )}
-      {addImageIsClicked && (
-        <AddImagePopup
-          sizeMultiplier={props.sizeMultiplier}
-          setAddImageIsClicked={setAddImageIsClicked}
-        />
-      )}
-      {addTextIsClicked && (
-        <AddTextPopup
-          sizeMultiplier={props.sizeMultiplier}
-          setAddTextIsClicked={setAddTextIsClicked}
-        />
-      )}
+      {contextIsClicked && <ContextMenu options={contextOptions} location={contextLocation} />}
+      {addImageIsClicked && <AddImagePopup sizeMultiplier={props.sizeMultiplier} setAddImageIsClicked={setAddImageIsClicked} />}
+      {addTextIsClicked && <AddTextPopup sizeMultiplier={props.sizeMultiplier} setAddTextIsClicked={setAddTextIsClicked} />}
+      {addCarouselIsClicked && <AddCarouselPopup sizeMultiplier={props.sizeMultiplier} setAddCarouselIsClicked={setAddCarouselIsClicked} />}
+      {addVideoIsClicked && <AddVideoPopup sizeMultiplier={props.sizeMultiplier} setAddVideoIsClicked={setAddVideoIsClicked} />}
+      {addWebcamIsClicked && <AddWebcamPopup sizeMultiplier={props.sizeMultiplier} setAddWebcamIsClicked={setAddWebcamIsClicked} />}
+      {addRtmpIsClicked && <AddRtmpPopup sizeMultiplier={props.sizeMultiplier} setAddRtmpIsClicked={setAddRtmpIsClicked} />}
     </div>
   );
 }

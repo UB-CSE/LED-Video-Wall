@@ -5,6 +5,9 @@
 #include "redraw.hpp"
 #include "set_config.hpp"
 
+#include "hub75.h"
+extern Hub75Driver *dma_display;
+
 static const char *TAG = "Redraw";
 
 TaskHandle_t notify_handle = nullptr;
@@ -20,6 +23,9 @@ IRAM_ATTR static void redraw_task(void *) {
       ESP_ERROR_CHECK(led_strip_refresh(strip));
     }
     xSemaphoreGive(pin_to_handle_mutex);
+    //if (dma_display != nullptr) {
+      //  dma_display->flip_buffer();
+    //}
 
     // ESP_LOGI(TAG, "Completed full LED redraw.");
   }
@@ -32,7 +38,7 @@ int redraw(RedrawMessage *msg) {
     ESP_LOGW(TAG, "Invalid redraw message (null)");
     return -1;
   }
-  if (pin_to_handle.empty()) {
+  if (pin_to_handle.empty() && dma_display == nullptr) {
     ESP_LOGE(TAG, "No LED strips configured");
     return -1;
   }

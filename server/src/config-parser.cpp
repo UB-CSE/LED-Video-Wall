@@ -23,10 +23,12 @@ ServerConfig::ServerConfig()
 
 ServerConfig::ServerConfig(std::vector<Client*> clients,
                            cv::Size canvas_size,
-                           int64_t ns_per_frame)
+                           int64_t ns_per_frame,
+                           float brightness_percent)
     : clients(clients),
       canvas_size(canvas_size),
-      ns_per_frame(ns_per_frame)
+      ns_per_frame(ns_per_frame), 
+      brightness_percent(brightness_percent)
 {}
 
 std::string parse_error(std::string error) {
@@ -244,7 +246,8 @@ parse_clients(YAML::Node ynode_clients, std::map<std::string, LEDMatrix*> matric
         std::vector<MatricesConnection> mat_connections;
         for (size_t i = 0; i < connections_node.size(); ++i) {
             YAML::Node connection_node = connections_node[i];
-            uint8_t pin = connection_node["pin"].as<uint8_t>();
+            int pin_raw = connection_node["pin"].as<int>();
+            int8_t pin = (int8_t)pin_raw;
             MatricesConnection conn;
             conn.pin = pin;
             YAML::Node matrices_node = yaml_key_present_and_unique(connection_node, "matrices");
@@ -281,7 +284,11 @@ ServerConfig parse_config_throws(std::string file) {
     std::map<std::string, LEDMatrixSpec*> matrix_specs =
         parse_matrix_specs(ynode_matrix_specs);
     
-
+    YAML::Node ynode_brightness = config["brightness_percent"];
+    float brightness_percent = 100.0f;
+    if (ynode_brightness){
+        brightness_percent = ynode_brightness.as<float>();
+    }
     // Parse Matrices
     std::pair<std::map<std::string, LEDMatrix*>, cv::Size> matrices =
         parse_matrices(ynode_matrices, matrix_specs);
@@ -295,5 +302,5 @@ ServerConfig parse_config_throws(std::string file) {
     std::vector<Client*> clients =
         parse_clients(ynode_clients, matrices.first);
 
-    return ServerConfig(clients, matrices.second, ns_per_frame);
+    return ServerConfig(clients, matrices.second, ns_per_frame, brightness_percent);
 }

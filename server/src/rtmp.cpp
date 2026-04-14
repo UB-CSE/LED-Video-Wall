@@ -11,9 +11,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <chrono>
 #include <cstdlib>
 #include <string_view>
-#include <chrono>
 
 #define NUM_WORKER_THREADS 5
 
@@ -77,16 +77,19 @@ enum RTMPAudioFrameType {
 };
 
 RTMPServer::RTMPServer(int port /*= 1935*/, const char *address /*= "0.0.0.0"*/,
-                       const char *cert /*= nullptr*/,
-                       const char *key /*= nullptr*/)
+                       const std::string &cert /*= ""*/,
+                       const std::string &key /*= ""*/)
     : port(port), address(address) {
   initRTMPLogLevel();
   initFFmpegLogLevel();
 
-  if (cert && key) {
-    sslContext = RTMP_TLS_AllocServerContext(cert, key);
+  if (!cert.empty() && !key.empty()) {
+    sslContext = RTMP_TLS_AllocServerContext(cert.c_str(), key.c_str());
     if (!sslContext) {
-      fprintf(stderr, "RTMPServer: failed to initialize TLS context with cert %s and key %s\n", cert, key);
+      fprintf(stderr,
+              "RTMPServer: failed to initialize TLS context with cert %s and "
+              "key %s\n",
+              cert.c_str(), key.c_str());
       return;
     }
   }
@@ -1076,4 +1079,3 @@ cv::Mat RTMPServer::avFrameToCvMat(const AVFrame *avFrame) {
   sws_freeContext(conversion);
   return mat;
 }
-

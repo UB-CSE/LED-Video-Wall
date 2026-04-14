@@ -5,25 +5,62 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 #include <vector>
+#include <optional>
 #include "input-parser.hpp"
 #include "rtmp.hpp"
-
+#include "web-browser.hpp"
 
 class Element {
 
     private:
         int id;
         cv::Point location;
-        cv::Point adjustedLocation;
+        cv::Point locationOffset {0,0};
         int frameRate;
         double angleDegrees = 0.0;
+        cv::Mat originalPixelMatrix; // Before scaling or rotation
+        double scaleFactor = 1.0;
         
+        cv::Mat pixelMatrix;
+
+        // Scales pixelMatrix by scaleFactor
+        void scaleFrame();
+        // Rotates pixelMatrix by rotationDegrees
+        void rotateFrame();
+
     public:
 
         int getId() const { return id;};
-        cv::Point& getLocation() { return adjustedLocation;};
-        int getFrameRate() {return frameRate;};
-        cv::Mat getPixelMatrix() {return pixelMatrix;};
+        cv::Point getLocation() const { return location + locationOffset;};
+        void setLocation(const cv::Point& newLocation) { location = newLocation; }
+        int getFrameRate() const { return frameRate; };
+        cv::Mat getPixelMatrix() { return pixelMatrix; };
+
+        void setRotation(double rotationDegrees) {
+            angleDegrees = rotationDegrees;
+            pixelMatrix = originalPixelMatrix.clone();
+            scaleFrame();
+            rotateFrame();
+        }
+
+        void rotateBy(double rotationDegrees) {
+            angleDegrees += rotationDegrees;
+            pixelMatrix = originalPixelMatrix.clone();
+            scaleFrame();
+            rotateFrame();
+        }
+
+        double getRotation() const { return angleDegrees; }
+
+        void setScale(double s) {
+            if (s <= 0.0) return;
+            scaleFactor = s;
+            pixelMatrix = originalPixelMatrix.clone();
+            scaleFrame();
+            rotateFrame();
+        }
+
+        double getScale() const { return scaleFactor; }
 
         // Set pixelMatrix to the next frame
         virtual bool nextFrame() { return false; }
@@ -31,42 +68,26 @@ class Element {
         virtual ~Element() {}
 
     protected:
+        void setPixelMatrix(const cv::Mat& mat) {
+            originalPixelMatrix = mat.clone();
+            pixelMatrix = mat.clone();
+            scaleFrame();
+            rotateFrame();
+        }
         
-        cv::Mat pixelMatrix;
-        Element(int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0) : id(id), location(loc), adjustedLocation(loc), frameRate(frameRate), angleDegrees(rotationDegrees) {}
-
-        // Rotates pixelMatrix by rotationDegrees
-        void rotateFrame();
+        Element(int id, cv::Point loc, int frameRate, double rotationDegrees = 0.0, double scaleFactor = 0.0) : id(id), location(loc), frameRate(frameRate), angleDegrees(rotationDegrees), scaleFactor(scaleFactor) {}
     };
     
 class ImageElement : public Element {
     private:
         bool provided;
-        cv::Mat original_;   
-        double  scale_;
         std::string filePath_;
     
     public:
         ImageElement(const std::string& filepath, int id, cv::Point loc, double scale, double rotationDegrees = 0.0);
 
         const std::string& getFilePath() const { return filePath_; }
-        const double getScale() const {return scale_; }
 
-        void setScale(double s) {
-            if (s <= 0.0) return;
-            scale_ = s;
-            if (original_.empty()) return;
-
-            if (std::abs(scale_ - 1.0) < 1e-6) {
-                pixelMatrix = original_.clone();
-            } else {
-                cv::resize(
-                    original_, pixelMatrix, cv::Size(),
-                    scale_, scale_,
-                    (scale_ < 1.0) ? cv::INTER_AREA : cv::INTER_LINEAR
-                );
-            }
-        }
         void reset() override;
     };
     
@@ -106,6 +127,22 @@ class RTMPStreamElement : public Element {
         void reset() override;
     };
 
+class WebBrowserElement : public Element {
+    private:
+        cv::Size size;
+        cv::Size viewSize;
+        WebBrowser webBrowser;
+
+        const cv::Mat noFrameMat = cv::Mat(size.width, size.height, CV_8UC3, cv::Scalar(255, 0, 0)); // red
+    
+    public:
+        WebBrowserElement(const std::string& url, int id, cv::Point loc, int frameRate, cv::Size size, cv::Size viewSize = cv::Size(0, 0), double rotationDegrees = 0.0);
+        bool nextFrame() override;
+        void reset() override;
+
+        void setCookie(const std::string& name, const std::string& value, const std::string& domain, const std::string& path, bool secure = false, bool httpOnly = false, cef_cookie_same_site_t sameSite = CEF_COOKIE_SAME_SITE_UNSPECIFIED);
+    };
+
 class TextElement : public Element {
 
     public:
@@ -142,6 +179,9 @@ class VirtualCanvas{
         const std::vector<Element *>& getElementList() const { return elementPtrList; }
         void clear() {pixelMatrix = cv::Mat::zeros(dim, CV_8UC3);}
         bool moveElement(int elementId, cv::Point loc);
+        bool rotateElement(int elementId, double rotationDegrees);
+        bool setElementRotation(int elementId, double rotationDegrees);
+        bool setElementScale(int elementId, double scaleFactor);
         void addElementToCanvas(Element* element);
         bool removeElementFromCanvas(int elementId);
         void pushToCanvas();
