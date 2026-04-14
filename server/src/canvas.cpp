@@ -225,6 +225,51 @@ void RTMPStreamElement::reset() {
     setPixelMatrix(frame);
 }
 
+// WebBrowserElement implementation
+
+WebBrowserElement::WebBrowserElement(const std::string& url, int id, cv::Point loc, int frameRate, cv::Size size, cv::Size viewSize, double rotationDegrees) : Element(id, loc, frameRate, rotationDegrees), size(size), viewSize(viewSize.empty() ? size : viewSize), webBrowser(url, this->viewSize.width, this->viewSize.height) {
+    reset();
+}
+
+bool WebBrowserElement::nextFrame() {
+    cv::Mat frame;
+    bool hasFrame = webBrowser.getLatestFrame(frame);
+    if (hasFrame) {
+        cv::Size frameSize = frame.size();
+    
+        if (size != cv::Size(0, 0) && frameSize != cv::Size(0, 0)) {
+            // preserve aspect ratio, do no exceed specified size
+            double aspectRatio = static_cast<double>(frameSize.width) / frameSize.height;
+            int newWidth = size.width;
+            int newHeight = static_cast<int>(newWidth / aspectRatio);
+            if (newHeight > size.height) {
+                newHeight = size.height;
+                newWidth = static_cast<int>(newHeight * aspectRatio);
+            }
+            cv::Size newSize(newWidth, newHeight);
+            
+            cv::resize(frame, frame, newSize);
+        }
+    
+        setPixelMatrix(frame);
+    }
+    
+    return true;
+}
+
+void WebBrowserElement::reset() {
+    cv::Mat frame = noFrameMat.clone();
+    
+    if (size != cv::Size(0, 0)) {
+      cv::resize(frame, frame, size);
+    }
+    setPixelMatrix(frame);
+}
+
+void WebBrowserElement::setCookie(const std::string& name, const std::string& value, const std::string& domain, const std::string& path, bool secure, bool httpOnly, cef_cookie_same_site_t sameSite) {
+    webBrowser.setCookie(name, value, domain, path, secure, httpOnly, sameSite);
+}
+
 // TextElement implementation
 
 TextElement::TextElement(const cv::Mat& imgBGR, int id, cv::Point loc, const std::string& text, const std::string& font, int size, cv::Scalar col, double rotationDegrees)

@@ -12,12 +12,14 @@ public:
     std::vector<Client*> clients;
     cv::Size canvas_size;
     int64_t ns_per_frame;
+    float brightness_percent;
 
     ServerConfig();
 
     ServerConfig(std::vector<Client*> clients,
                  cv::Size canvas_size,
-                 int64_t ns_per_frame);
+                 int64_t ns_per_frame,
+                 float brightness_percent);
 };
 
 ServerConfig parse_config_throws(std::string file);

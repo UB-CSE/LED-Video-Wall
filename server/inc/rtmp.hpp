@@ -23,14 +23,15 @@ extern "C" { // Janky as hell
 class RTMPServer {
 public:
   explicit RTMPServer(int port = 1935, const char *address = "0.0.0.0",
-                      const char *cert = nullptr, const char *key = nullptr);
-  RTMPServer(const char *cert, const char *key)
+                      const std::string &cert = "",
+                      const std::string &key = "");
+  RTMPServer(const std::string &cert, const std::string &key)
       : RTMPServer(1935, "0.0.0.0", cert, key) {}
 
   ~RTMPServer();
 
-  RTMPServer(const RTMPServer&) = delete;
-  RTMPServer& operator=(const RTMPServer&) = delete;
+  RTMPServer(const RTMPServer &) = delete;
+  RTMPServer &operator=(const RTMPServer &) = delete;
 
   bool isRunning() const { return isActive; }
 

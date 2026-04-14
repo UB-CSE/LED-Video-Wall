@@ -8,7 +8,7 @@
 #include <optional>
 #include "input-parser.hpp"
 #include "rtmp.hpp"
-
+#include "web-browser.hpp"
 
 class Element {
 
@@ -125,6 +125,22 @@ class RTMPStreamElement : public Element {
         RTMPStreamElement(RTMPServer& rtmpServer, const std::string& streamName, int id, cv::Point loc, int frameRate, cv::Size size = cv::Size(0, 0), double rotationDegrees = 0.0);
         bool nextFrame() override;
         void reset() override;
+    };
+
+class WebBrowserElement : public Element {
+    private:
+        cv::Size size;
+        cv::Size viewSize;
+        WebBrowser webBrowser;
+
+        const cv::Mat noFrameMat = cv::Mat(size.width, size.height, CV_8UC3, cv::Scalar(255, 0, 0)); // red
+    
+    public:
+        WebBrowserElement(const std::string& url, int id, cv::Point loc, int frameRate, cv::Size size, cv::Size viewSize = cv::Size(0, 0), double rotationDegrees = 0.0);
+        bool nextFrame() override;
+        void reset() override;
+
+        void setCookie(const std::string& name, const std::string& value, const std::string& domain, const std::string& path, bool secure = false, bool httpOnly = false, cef_cookie_same_site_t sameSite = CEF_COOKIE_SAME_SITE_UNSPECIFIED);
     };
 
 class TextElement : public Element {
