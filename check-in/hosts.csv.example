@@ -1,3 +1,3 @@
-mac_address,host
-12:34:56:78:90:AB,example.com
-AB-CD-EF-12-34-56,example.com
+mac_address,host,host_port
+12:34:56:78:90:AB,example.com,7070
+AB-CD-EF-12-34-56,example.com,7070
