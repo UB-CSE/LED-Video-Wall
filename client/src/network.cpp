@@ -337,12 +337,13 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   }
 
   if (message_size > *buffer_size) {
-    uint8_t *new_buffer = (uint8_t *)heap_caps_realloc(*buffer, message_size, MALLOC_CAP_SPIRAM);
+    // uint8_t *new_buffer = (uint8_t *)heap_caps_realloc(*buffer, message_size, MALLOC_CAP_SPIRAM);
+    uint8_t *new_buffer = (uint8_t *)realloc(*buffer, message_size);
     if (new_buffer) {
       *buffer = new_buffer;
       *buffer_size = message_size;
     } else {
-      ESP_LOGW(TAG, "Failed to resize message buffer");
+      ESP_LOGW(TAG, "Failed to resize message buffer from %u to %u bytes", (unsigned int)*buffer_size, (unsigned int)message_size);
       return -1;
     }
   }
