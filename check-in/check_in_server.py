@@ -23,9 +23,10 @@ def get_host_by_mac_address(target_mac_address: str) -> str:
         for row in csv_reader:
             mac: str = row["mac_address"]
             host: str = row["host"]
+            port: int = int(row["host_port"])
             clean_mac: str = clean_mac_address(mac)
             if target_clean_mac == clean_mac:
-                return host
+                return host + ":" + str(port)
 
     return ""
 
