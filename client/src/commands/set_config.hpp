@@ -5,6 +5,7 @@
 
 #include "led_strip.h"
 #include "protocol.hpp"
+#include "freertos/FreeRTOS.h"
 
 extern std::map<int8_t, led_strip_handle_t> pin_to_handle;
 extern SemaphoreHandle_t pin_to_handle_mutex;

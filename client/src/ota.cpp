@@ -13,10 +13,10 @@
 // helper to download a file into buffer
 static esp_err_t http_download(const char *url, char *buf, size_t buf_sz,
                                int *out_len) {
-  esp_http_client_config_t cfg = {
-      .url = url,
-      .timeout_ms = 5000,
-  };
+  esp_http_client_config_t cfg;
+  memset(&cfg, 0, sizeof(cfg));
+  cfg.url = url;
+  cfg.timeout_ms = 5000;
   esp_http_client_handle_t http_client = esp_http_client_init(&cfg);
   if (!http_client)
     return ESP_FAIL;
