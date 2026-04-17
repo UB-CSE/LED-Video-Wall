@@ -48,7 +48,13 @@ static const char *TAG = "Network";
 #define WIFI_PASSWORD ""
 #endif
 
+// #define LOCAL_CHECKIN_TESTING
+
+#ifdef LOCAL_CHECKIN_TESTING
+#define DISCOVERY_URL_BASE "http://192.168.1.123/client/get-server/"
+#else
 #define DISCOVERY_URL_BASE "https://ledvwci.cse.buffalo.edu/client/get-server/"
+#endif
 
 //Buffer to hold full discovery URL
 static char discovery_url[128];
@@ -132,6 +138,10 @@ static int update_server_ip_from_http(void) {
   config.user_data = &resp;
   config.transport_type = HTTP_TRANSPORT_OVER_SSL;
   config.crt_bundle_attach = esp_crt_bundle_attach;
+#ifdef LOCAL_CHECKIN_TESTING
+  config.port = 5513;
+  config.transport_type = HTTP_TRANSPORT_OVER_TCP;
+#endif
 
   esp_http_client_handle_t client = esp_http_client_init(&config);
   if (client == nullptr) {
