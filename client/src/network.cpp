@@ -4,15 +4,16 @@
 #include "freertos/task.h"
 
 #include <arpa/inet.h>
+#include <cstring>
 #include <errno.h>
 #include <netinet/in.h>
-#include <netdb.h>  
+#include <netdb.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <stdio.h> 
+#include <stdio.h>
 
 #include "commands/get_logs.hpp"
 #include "commands/redraw.hpp"
@@ -54,6 +55,7 @@ static char discovery_url[128];
 
 //bigger buffer for host/IP
 static char server_ip[64] = SERVER_IP;
+static int server_port = SERVER_DEFAULT_PORT;
 
 struct HttpResponseBuffer {
   char *buf;
@@ -95,7 +97,7 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
 
     int copy_len = evt->data_len;
     if (resp->data_len + copy_len >= resp->buf_size) {
-      copy_len = resp->buf_size - resp->data_len - 1; 
+      copy_len = resp->buf_size - resp->data_len - 1;
     }
     if (copy_len > 0) {
       memcpy(resp->buf + resp->data_len, evt->data, copy_len);
@@ -106,7 +108,7 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt) {
   return ESP_OK;
 }
 
-//Fetch server IP/host from HTTPS endpoint and store in server_ip. 
+//Fetch server IP/host from HTTPS endpoint and store in server_ip.
 //It returns -1 if failed to update host ip.
 
 static int update_server_ip_from_http(void) {
@@ -173,6 +175,22 @@ static int update_server_ip_from_http(void) {
     return -1;
   }
 
+  // ip:port
+  char* colon = strrchr(p, ':');
+  if (colon) {
+    *colon = '\0';
+    colon++;
+    int port = atoi(colon);
+    if (port <= 0 || port > 65535) {
+      ESP_LOGW(TAG, "Invalid port in discovery response: '%s'", colon);
+    } else {
+      server_port = port;
+    }
+  }
+  else {
+    ESP_LOGW(TAG, "No port specified in discovery response");
+  }
+
   strncpy(server_ip, p, sizeof(server_ip) - 1);
   server_ip[sizeof(server_ip) - 1] = '\0';
 
@@ -208,8 +226,8 @@ int checkin(int *out_sockfd) {
   ESP_LOGI(TAG, "Sending check-in message");
 
   if (update_server_ip_from_http() != 0) {
-    ESP_LOGW(TAG, "Server discovery via HTTP failed, using default IP: %s",
-             server_ip);
+    ESP_LOGW(TAG, "Server discovery via HTTP failed, using default IP and Port: %s:%d",
+             server_ip, server_port);
   }
 
   int sockfd = -1;
@@ -239,41 +257,28 @@ int checkin(int *out_sockfd) {
     freeaddrinfo(res);
   }
 
-  for (uint16_t port = SERVER_PORT_START; port <= SERVER_PORT_END; port++) {
-    if (sockfd >= 0) {
-      close(sockfd);
-    }
-
-    sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-    if (sockfd < 0) {
-      ESP_LOGE(TAG, "Failed to create socket: %d", errno);
-      continue;
-    }
-
-    struct timeval tv {
-      RECV_TIMEOUT_SEC, 0
-    };
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
-      ESP_LOGE(TAG, "Failed to set socket recv timeout");
-      close(sockfd);
-      return -1;
-    }
-
-    dest_addr.sin_port = htons(port);
-
-    if (connect(sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) ==
-        0) {
-      ESP_LOGI(TAG, "Connected to %s:%u", server_ip, port);
-      break;
-    } else {
-      ESP_LOGD(TAG, "Connect to port %u failed: %d", port, errno);
-      close(sockfd);
-      sockfd = -1;
-    }
+  sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+  if (sockfd < 0) {
+    ESP_LOGE(TAG, "Failed to create socket: %d", errno);
+    return -1;
   }
 
-  if (sockfd < 0) {
-    ESP_LOGI(TAG, "Unable to connect to any server port");
+  struct timeval tv {
+    RECV_TIMEOUT_SEC, 0
+  };
+  if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
+    ESP_LOGE(TAG, "Failed to set socket recv timeout");
+    close(sockfd);
+    return -1;
+  }
+
+  dest_addr.sin_port = htons(server_port);
+
+  if (connect(sockfd, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) == 0) {
+    ESP_LOGI(TAG, "Connected to %s:%u", server_ip, server_port);
+  } else {
+    ESP_LOGI(TAG, "Unable to connect to server port %u: %d", server_port, errno);
+    close(sockfd);
     return -1;
   }
 
