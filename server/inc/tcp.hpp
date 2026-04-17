@@ -47,10 +47,12 @@ class LEDTCPServer {
     void handle_conns();
 
 public:
+    float brightness_percent;
     LEDTCPServer(uint32_t addr,
                  uint16_t port,
                  int socket,
-                 std::vector<Client*> clients);
+                 std::vector<Client*> clients,
+                 float brightness_percent);
     ~LEDTCPServer();
 
     LEDTCPServer(const LEDTCPServer&) = delete;

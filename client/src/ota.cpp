@@ -76,7 +76,8 @@ static esp_err_t do_http_ota(const char *url) {
   ESP_RETURN_ON_ERROR(esp_ota_begin(next, OTA_SIZE_UNKNOWN, &ota_handle), TAG,
                       "ota_begin");
 
-  esp_http_client_config_t cfg = {.url = url};
+  esp_http_client_config_t cfg = {};
+  cfg.url = url;
   esp_http_client_handle_t http_client = esp_http_client_init(&cfg);
   ESP_RETURN_ON_FALSE(http_client, ESP_FAIL, TAG, "http init");
 
