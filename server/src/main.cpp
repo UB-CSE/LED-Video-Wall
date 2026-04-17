@@ -22,7 +22,7 @@
 #include <thread>
 #include <chrono>
 #include <fcntl.h>
-#include <unistd.h>  
+#include <unistd.h>
 #include <sys/stat.h>
 #include <signal.h>
 #include <filesystem>
@@ -32,7 +32,7 @@
 //Change this flag as needed. Debug mode displays virtual canvas locally per update
 #define TMP_CMD "/tmp/led-cmd"
 
-volatile sig_atomic_t stop_signal = 0;
+static volatile sig_atomic_t stop_signal = 0;
 
 static void signal_handler(int signum) {
   if (stop_signal) {
@@ -42,6 +42,82 @@ static void signal_handler(int signum) {
 
   stop_signal = 1;
   std::cout << "Received signal, exiting now...\n";
+}
+
+static std::string inputFilePath;
+static bool debug_mode = true;
+static int ledvwPort = 7070;
+static int rtmpPort = 1935;
+static std::string rtmpCertPath, rtmpKeyPath;
+
+static bool validate_port(int port) {
+    if (port < 1 || port > 65535) {
+        std::cerr << "Error: Port must be a valid port number (0-65535).\n";
+        return false;
+    }
+    if (port < 1024) {
+        std::cerr << "Error: System ports (0-1023) are reserved.\n";
+        return false;
+    }
+    return true;
+}
+
+static bool handle_command_line() {
+    CefRefPtr<CefCommandLine> cmdLine = CefCommandLine::GetGlobalCommandLine();
+
+    std::map<CefString, CefString> switches;
+    cmdLine->GetSwitches(switches);
+    std::vector<CefString> arguments;
+    cmdLine->GetArguments(arguments);
+
+    if (arguments.empty()) {
+        std::cerr << "Error, no input file specified!" << "\n";
+        return false;
+    }
+    inputFilePath = arguments.front().ToString();
+
+    if (switches.contains("prod")) {
+       debug_mode = false;
+    }
+
+    if (switches.contains("rtmp-tls-cert")) {
+       rtmpCertPath = switches.at("rtmp-tls-cert").ToString();
+    }
+    if (switches.contains("rtmp-tls-key")) {
+       rtmpKeyPath = switches.at("rtmp-tls-key").ToString();
+    }
+    if (rtmpCertPath.empty() != rtmpKeyPath.empty()) {
+       std::cerr << "Error: Both --rtmp-tls-cert and --rtmp-tls-key must be provided together to enable RTMP TLS.\n";
+       return false;
+    }
+
+    if (switches.contains("ledvw-port")) {
+        try {
+            ledvwPort = std::stoi(switches.at("ledvw-port").ToString());
+        } catch (const std::exception& ex) {
+            std::cerr << "Error: LEDVW port is not a valid integer.\n";
+            return false;
+        }
+    }
+    if (switches.contains("rtmp-port")) {
+        try {
+            rtmpPort = std::stoi(switches.at("rtmp-port").ToString());
+        } catch (const std::exception& ex) {
+            std::cerr << "Error: RTMP port is not a valid integer.\n";
+            return false;
+        }
+    }
+
+    if (!validate_port(ledvwPort) || !validate_port(rtmpPort)) {
+        return false;
+    }
+
+    if(ledvwPort == rtmpPort) {
+        std::cerr << "Error: LEDVW port and RTMP port cannot be the same.\n";
+        return false;
+    }
+
+    return true;
 }
 
 int main(int argc, char* argv[]) {
@@ -77,69 +153,45 @@ int main(int argc, char* argv[]) {
         server_config_opt = parse_config_throws("config.yaml");
     } catch (std::exception& ex) {
         std::cerr << "Error Parsing config file: " << ex.what() << "\n";
-        exit(-1);
+        CefShutdown();
+        exit(1);
     }
     server_config = server_config_opt.value();
- 
+
     VirtualCanvas vCanvas(server_config.canvas_size);
     vCanvas.pixelMatrix = cv::Mat::zeros(vCanvas.dim, CV_8UC3);
 
-    CefRefPtr<CefCommandLine> cmdLine = CefCommandLine::GetGlobalCommandLine();
-    std::map<CefString, CefString> switches;
-    cmdLine->GetSwitches(switches);
-    std::vector<CefString> arguments;
-    cmdLine->GetArguments(arguments);
-
-    std::string inputFilePath;
-    bool debug_mode = true;
-
-    std::string rtmpCertPath, rtmpKeyPath;
-
-    if (arguments.empty()) {
-        std::cerr << "Error, no input file specified!" << "\n";
-        exit(-1);
-    }
-    inputFilePath = arguments.front().ToString();
-
-    if (switches.contains("prod")) {
-       debug_mode = false;
+    if (!handle_command_line()) {
+        CefShutdown();
+        exit(1);
     }
 
-    if (switches.contains("rtmp-tls-cert")) {
-       rtmpCertPath = switches.at("rtmp-tls-cert").ToString();
-    }
-    if (switches.contains("rtmp-tls-key")) {
-       rtmpKeyPath = switches.at("rtmp-tls-key").ToString();
-    }
-    if (rtmpCertPath.empty() != rtmpKeyPath.empty()) {
-       std::cerr << "Error: Both --rtmp-tls-cert and --rtmp-tls-key must be provided together to enable RTMP TLS.\n";
-       exit(-1);
-    }
+    RTMPServer rtmpServer(rtmpPort, "0.0.0.0", rtmpCertPath, rtmpKeyPath);
 
-    RTMPServer rtmpServer(rtmpCertPath, rtmpKeyPath);
- 
     try {
         parseInput(vCanvas, inputFilePath, rtmpServer);
     } catch (std::exception& ex) {
         std::cerr << "Error Parsing image input file ("
                   << inputFilePath << "):"
                   << ex.what() << "\n";
-        exit(-1);
+        CefShutdown();
+        exit(1);
     }
 
- 
+
     std::shared_ptr<LEDTCPServer> server =
-        create_server(INADDR_ANY, 7070, 7074, server_config.clients);
+        create_server(INADDR_ANY, ledvwPort, server_config.clients);
     if (!server) {
-        exit(-1);
+        CefShutdown();
+        exit(1);
     }
     server->start();
- 
+
     Controller cont(vCanvas,
                     server_config.clients,
                     server,
                     server_config.ns_per_frame);
-    
+
 
 
     //Setup for pipes
@@ -159,13 +211,13 @@ int main(int argc, char* argv[]) {
         Command line shenanigans: Using Pipes now:
 
         From another process, you now enter commands by writing to the FIFO file in "TMP_CMD"
-        By default, it is "/tmp/led-cmd". 
-        
+        By default, it is "/tmp/led-cmd".
+
         For example, open another terminal, and if I want to move an element, I would do:
 
         `echo "move 5 10 10" > /tmp/led-cmd`
 
-        Available Commands : 
+        Available Commands :
         - pause
         - resume
         - quit
