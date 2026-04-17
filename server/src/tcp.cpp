@@ -120,13 +120,11 @@ void LEDTCPServer::handle_conns() {
 }
 
 std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
-                                            uint16_t start_port,
-                                            uint16_t end_port,
-                                            std::vector<Client*> clients,
-                                            float brightness_percent) {
+                                            uint16_t port,
+                                            std::vector<Client*> clients) {
     struct protoent* protocol_entry = getprotobyname("tcp");
     const int tcp_protocol_num = protocol_entry->p_proto;
-    
+
     int server_socket = socket(AF_INET, SOCK_STREAM, tcp_protocol_num);
     if (server_socket == -1) {
         std::cerr << "Bad socket!\n";
@@ -136,25 +134,15 @@ std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
     int enable = 1;
     setsockopt(server_socket, tcp_protocol_num, SO_REUSEPORT, &enable, sizeof(enable));
 
-    uint16_t port;
-    for (port = start_port; port <= end_port; port ++) {
-        struct sockaddr_in s_addr;
-        s_addr.sin_family = AF_INET;
-        s_addr.sin_port = htons(port);
-        s_addr.sin_addr.s_addr = addr;
+    struct sockaddr_in s_addr;
+    s_addr.sin_family = AF_INET;
+    s_addr.sin_port = htons(port);
+    s_addr.sin_addr.s_addr = addr;
 
-        int res = bind(server_socket, (struct sockaddr *)&s_addr, sizeof(s_addr));
-        if (res == -1) {
-            std::cerr << "Failed bind: " << strerror(errno) << "\n";
-            if (port == end_port) {
-                std::cerr << "ERROR: could not bind to any of the ports in the range "
-                          << start_port << " to "
-                          << end_port << "\n";
-                return nullptr;
-            }
-        } else {
-            break;
-        }
+    int res = bind(server_socket, (struct sockaddr *)&s_addr, sizeof(s_addr));
+    if (res == -1) {
+        std::cerr << "Failed bind: " << strerror(errno) << "\n";
+        return nullptr;
     }
 
     // Set the socket to non-blocking
