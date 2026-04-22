@@ -1,68 +1,41 @@
 settings:
   gamma: 1.05
 elements:
-  "ddddd":
-    id: 2
-    type: "rtmp"
-    stream-name: ""
-    framerate: 30
-    location: [21,23]
-  "nono":
-    id: 4
-    type: "video"
-    filepath: ""
-    framerate: 30
-    location: [10,24]
-  "dddd":
-    id: 5
-    type: "rtmp"
-    stream-name: ""
-    framerate: 30
-    location: [15,9]
-  "ssss":
-    id: 6
-    type: "webcam"
-    camera-number: 0
-    framerate: 30
-    location: [21,9]
-  "xxxx":
-    id: 7
-    type: "video"
-    filepath: ""
-    framerate: 30
-    location: [0,9]
   "elem1":
-    id: 8
+    id: 1
     type: "video"
     filepath: "images/alan/alan_ca_4_64x64.mp4"
+    location: [0, 0]
     framerate: 30
-    location: [10,6]
+    rotation: 180
   "elem2":
-    id: 9
+    id: 2
     type: "carousel"
-    filepaths:
-      - "images/creeper.png"
-      - "images/hello-rainbow.png"
+    filepaths: ["images/creeper.png", "images/hello-rainbow.png"]
+    location: [12, -12]
     framerate: 2
-    location: [12,-12]
+    rotation: 90
   "elem3":
-    id: 10
+    id: 3
     type: "image"
     filepath: "images/img.jpg"
     location: [40,10]
     scale: 0.015
+    rotation: 30.0
   "elem4":
-    id: 11
+    id: 4
     type: "rtmp"
     stream-name: "test"
     framerate: 60
     location: [0,44]
     size: [20,20]
+    rotation: -45
   "elem5":
-    id: 12
+    id: 5
     type: "text"
     content: "Hello"
     size: 24
     color: "#0025ff"
     font_path: "ttf/Lobster-Regular.ttf"
     location: [5,30]
+    rotation: -15.0
