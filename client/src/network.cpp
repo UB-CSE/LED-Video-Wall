@@ -337,8 +337,11 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   }
 
   if (message_size > *buffer_size) {
-    // uint8_t *new_buffer = (uint8_t *)heap_caps_realloc(*buffer, message_size, MALLOC_CAP_SPIRAM);
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+    uint8_t *new_buffer = (uint8_t *)heap_caps_realloc(*buffer, message_size, MALLOC_CAP_SPIRAM);
+#else // CONFIG_IDF_TARGET_ESP32
     uint8_t *new_buffer = (uint8_t *)realloc(*buffer, message_size);
+#endif
     if (new_buffer) {
       *buffer = new_buffer;
       *buffer_size = message_size;
