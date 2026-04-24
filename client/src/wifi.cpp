@@ -50,13 +50,13 @@ void init_wifi(void) {
   ESP_ERROR_CHECK(esp_event_handler_instance_register(
       IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL, &instance_got_ip));
 
-  wifi_config_t wifi_config = {
-      .sta =
-          {
-              .ssid = WIFI_SSID,
-              .password = WIFI_PASSWORD,
-          },
-  };
+  wifi_config_t wifi_config;
+  memset(&wifi_config, 0, sizeof(wifi_config));
+  strncpy((char *)wifi_config.sta.ssid, WIFI_SSID,
+          sizeof(wifi_config.sta.ssid) - 1);
+  strncpy((char *)wifi_config.sta.password, WIFI_PASSWORD,
+          sizeof(wifi_config.sta.password) - 1);
+
   ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_start());

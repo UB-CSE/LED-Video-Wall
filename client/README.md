@@ -10,7 +10,7 @@
 
 # Installation
 ## Required
-* [`idf.py`](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html#installation) (Tested with `v5.4.1`)
+* [`idf.py`](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/get-started/index.html#installation) (Tested with `v6.0`)
 
 ## Optional
 * [`idf-eclipse-plugin`](https://github.com/espressif/idf-eclipse-plugin/blob/master/README.md) (Eclipse)
@@ -83,6 +83,13 @@ To update settings and install components, run:
 $ idf.py reconfigure
 ```
 
+## Setting the Target
+To set the target microcontroller, run:
+```bash
+$ idf.py set-target esp32
+```
+Set to either `esp32` or `esp32s3` depending on which microcontroller you are flashing to.
+
 ## Building
 To build the project, run:
 ```bash
@@ -153,4 +160,3 @@ If there are issues with `clang` support, try removing the `build-clang/` direct
 ```bash
 rm -rf build-clang
 ```
-

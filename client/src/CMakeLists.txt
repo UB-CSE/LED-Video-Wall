@@ -1,5 +1,3 @@
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-error=format -Wno-format")
-
 idf_component_register(
     SRCS
         "main.cpp"
