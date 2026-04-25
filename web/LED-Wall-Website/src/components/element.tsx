@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import { useDispatch } from "react-redux";
 import {
   setSelectedElement,
@@ -10,6 +10,7 @@ import ContextMenu from "./ContextMenu.tsx";
 import useContextMenu from "../hooks/useContextMenu.tsx";
 import { type Option } from "./ContextMenu.tsx";
 import { clearElement } from "../state/config/configSlice.ts";
+import PortsContext from "../PortContext";
 
 
 type ImageProps = {
@@ -41,6 +42,8 @@ function Element(props: ElementProps) {
   //Redux State
   const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
+  const ports = useContext(PortsContext) as { ledvwPort?: number } | undefined;
+  const ledvwPort = ports?.ledvwPort ?? 7070;
 
   //Store current position
   const [x, setX] = useState(0);
@@ -112,7 +115,7 @@ function Element(props: ElementProps) {
       setStartY(e.clientY - y);
     }
   }
-  
+
 
   function deleteElement() {
       dispatch(clearElement(configState.selectedElement));
@@ -120,7 +123,7 @@ function Element(props: ElementProps) {
 
   //Sends the current location of the element to the server
   function sendPosition() {
-    fetch("/api/send-location", {
+    fetch(`/api/${ledvwPort}/send-location`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -166,7 +169,7 @@ function Element(props: ElementProps) {
       sendPosition();
     }
   }, [isDragging]);
-  
+
 
   useEffect(() => {
     setX(0);

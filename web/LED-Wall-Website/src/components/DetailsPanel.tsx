@@ -1,9 +1,10 @@
 import styles from "../Styles.module.css";
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useDispatch } from "react-redux";
 import { setSelectedElement, updateElement } from "../state/config/configSlice";
+import PortsContext from "../PortContext";
 
 type Props = {
   sizeMultiplier: number;
@@ -17,6 +18,8 @@ function DetailsPanel(props: Props) {
   const [path, setPath] = useState("");
   const [layer, setLayer] = useState(0);
   const [location, setLocation] = useState<number[]>([0, 0]);
+  const ports = useContext(PortsContext) as { ledvwPort?: number } | undefined;
+  const ledvwPort = ports?.ledvwPort ?? 7070;
 
   //image only
   const [scale, setScale] = useState(1);
@@ -68,7 +71,7 @@ function DetailsPanel(props: Props) {
         );
       }
       //Send updated position to server
-      fetch("/api/send-location", {
+      fetch(`/api/${ledvwPort}/send-location`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

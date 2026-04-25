@@ -14,19 +14,23 @@ imageCoords = {}
 
 app = Flask(__name__)
 
-server_process = None
+server_processes = {}
 CONFIG_DIR = "../../server"
 FONT_DIR = "../../server/ttf"
-config_File = None 
-currently_running_file = ""
+config_Files = {}
+currently_running_files = {}
+rtmp_ports = {}
 
 VIDEO_DIR = os.path.join(CONFIG_DIR, "videos")
 THUMBNAIL_DIR = os.path.join(VIDEO_DIR, "thumbnails")
 MAX_VIDEO_SIZE = 50 * 1024 * 1024
 
 
-@app.route("/api/send-location", methods=["POST"])
-def send_location():
+@app.route("/api/<int:ledvw_port>/send-location", methods=["POST"])
+def send_location(ledvw_port):
+    if ledvw_port not in server_processes:
+        return jsonify({"error": f"[ERROR]: No server running on port {ledvw_port}"}), 400
+
     data = (
         request.get_json()
     )  # parses the data as JSON. JSON expected: {"x": 104, "y": 283, "id": "jpeg1"}
@@ -40,15 +44,13 @@ def send_location():
 
     if x is None or y is None or imgId is None:
         print("[ERROR]: Invalid message received")
-        return jsonify({"[ERROR]: Invalid message received"}), 400
+        return jsonify({"error": "[ERROR]: Invalid message received"}), 400
 
-    if server_process is not None:
-        try:
-            LedVideoWall.move(imgId, x, y)
-        
-        except FileNotFoundError:
-            print("ERROR")
+    try:
+        LedVideoWall.move(ledvw_port, imgId, x, y)
 
+    except FileNotFoundError:
+        print("ERROR")
 
     print("Data:")
     print(f"Image Coordinates: ({x}, {y})")
@@ -56,27 +58,33 @@ def send_location():
     return "Main Communication"
 
 
-@app.route("/api/get-yaml-config", methods=["GET"])
-def get_yaml_config():
+@app.route("/api/<int:ledvw_port>/get-yaml-config", methods=["GET"])
+def get_yaml_config(ledvw_port):
+    if ledvw_port not in config_Files:
+        return jsonify({"error": f"[ERROR]: No configuration file in use by server on port {ledvw_port}"}), 400
+
     try:
-        with open(config_File, "r") as file:
+        with open(config_Files[ledvw_port], "r") as file:
             config_Data = yaml.safe_load(file)
 
         if "settings" not in config_Data or "elements" not in config_Data:
             print("[ERROR]: Invalid configuration format")
-            jsonify({"[ERROR]: Invalid configuration format"})
+            return jsonify({"error": "[ERROR]: Invalid configuration format"}), 400
 
         return jsonify(
             config_Data
         )  # Sends the client a JSON file that follows the YAML configuration
     except FileNotFoundError:
-        return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
+        return jsonify({"error": f"[ERROR]: Configuration file, {config_Files[ledvw_port]}, not found"}), 404
 
 
-@app.route("/api/set-yaml-config", methods=["POST"])
-def set_yaml_config():
+@app.route("/api/<int:ledvw_port>/set-yaml-config", methods=["POST"])
+def set_yaml_config(ledvw_port):
+    if ledvw_port not in config_Files:
+        return jsonify({"error": f"[ERROR]: No configuration file in use by server on port {ledvw_port}"}), 400
+
     try:
-        with open(config_File, "w") as file:
+        with open(config_Files[ledvw_port], "w") as file:
             config = (
                 request.get_json()
             )  # parses the data as JSON. JSON expected: {'settings': {'gamma': number},
@@ -132,11 +140,11 @@ def set_yaml_config():
                             + '"'
                             + "\n    size: "
                             + str(element["size"])
-                            + "\n    color: " 
+                            + "\n    color: "
                             + '"'
                             + str(element["color"])
                             + '"'
-                            + "\n    font_path: " 
+                            + "\n    font_path: "
                             + '"'
                             + element["font_path"]
                             + '"'
@@ -149,7 +157,7 @@ def set_yaml_config():
 
         return "Success: config file has been updated"  # Responds with success message
     except FileNotFoundError:
-        return jsonify({"[ERROR]: Configuration file, {config_file}, not found"}), 404
+        return jsonify({"error": f"[ERROR]: Configuration file, {config_Files[ledvw_port]}, not found"}), 404
 
 
 @app.route("/api/upload-file", methods=["POST"])
@@ -215,7 +223,7 @@ def upload_video():
         ], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except subprocess.CalledProcessError as e:
         print(f"[ERROR]: FFmpeg failed -> {e}")
-        return jsonify({"[ERROR]": "Failed to generate thumbnail"}), 500
+        return jsonify({"error": "[ERROR]: Failed to generate thumbnail"}), 500
 
     print(f"[INFO]: Uploaded video saved -> {video_path}")
     print(f"[INFO]: Thumbnail saved -> {thumbnail_path}")
@@ -235,11 +243,12 @@ def get_video_thumbnail(filename):
     return send_from_directory(THUMBNAIL_DIR, filename)
 
 
-@app.route("/api/start-server", methods=['POST'])
-def start_server():
-    global server_process
+@app.route("/api/<int:ledvw_port>/start-server", methods=['POST'])
+def start_server(ledvw_port):
+    global server_processes
+    global rtmp_ports
 
-    if server_process is not None:
+    if ledvw_port in server_processes:
         return jsonify({"error": "Server is already running"}), 400
 
     # Get config file from frontend JSON body
@@ -247,34 +256,42 @@ def start_server():
     if not user_path:
         return jsonify({"error": "No configuration file specified"}), 400
 
+    rtmp_port = request.json.get("rtmp_port")
+    if not rtmp_port:
+        return jsonify({"error": "No RTMP port specified"}), 400
+
+    if rtmp_port in rtmp_ports.values():
+        return jsonify({"error": f"RTMP port {rtmp_port} is already in use by another server"}), 400
+
     # Convert to absolute path
     abs_path = os.path.abspath(user_path)
     if not os.path.exists(abs_path):
         print(f"[ERROR]: File not found -> {abs_path}")
         return jsonify({"error": f"Configuration file not found: {abs_path}"}), 404
 
-    server_config_File = abs_path  
+    server_config_File = abs_path
 
     try:
         # Important: run led-wall-server in same directory as the executable
         exe_dir = os.path.abspath("../../server")
-        
+
         subprocess.run(
             ["make"], cwd=exe_dir, capture_output=True, text=True
         )
 
         if app.debug:
-            cmd = ["./led-wall-server", server_config_File]
+            cmd = ["./led-wall-server", server_config_File, f"--ledvw-port={ledvw_port}", f"--rtmp-port={rtmp_port}"]
         else:
-            cmd = ["./led-wall-server", server_config_File, "--prod", "--ozone-platform=headless", "--disable-gpu"] # Server doesn't have a GPU!
-        
-        server_process = subprocess.Popen(
+            cmd = ["./led-wall-server", server_config_File, "--prod", f"--ledvw-port={ledvw_port}", f"--rtmp-port={rtmp_port}", "--ozone-platform=headless", "--disable-gpu"] # Server doesn't have a GPU!
+
+        server_processes[ledvw_port] = subprocess.Popen(
             cmd,
             cwd=exe_dir,
             preexec_fn = os.setsid
         )
-        global currently_running_file
-        currently_running_file = config_File
+        rtmp_ports[ledvw_port] = rtmp_port
+        global currently_running_files
+        currently_running_files[ledvw_port] = server_config_File
         print(f"[INFO]: Server started with config: {server_config_File}")
         if not app.debug:
             print("[INFO]: Flask not in debug mode, '--prod' flag added")
@@ -285,32 +302,37 @@ def start_server():
 
 
 
-@app.route("/api/stop-server", methods=['POST'])
-def stop_server():
-    global server_process
-    if server_process is None:
-        print("[ERROR]: Server not currently running")
-        return jsonify({"error": "Server not currently running"}), 400
+@app.route("/api/<int:ledvw_port>/stop-server", methods=['POST'])
+def stop_server(ledvw_port):
+    global server_processes
+    if ledvw_port not in server_processes:
+        print(f"[ERROR]: Server on port {ledvw_port} not currently running")
+        return jsonify({"error": f"Server on port {ledvw_port} not currently running"}), 400
 
     try:
-        os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
-        server_process = None
-        print("[INFO]: Server stopped successfully")
+        os.killpg(os.getpgid(server_processes[ledvw_port].pid), signal.SIGTERM)
+        server_processes.pop(ledvw_port)
+        rtmp_ports.pop(ledvw_port)
+        currently_running_files.pop(ledvw_port)
+        print(f"[INFO]: Server on port {ledvw_port} stopped successfully")
         global currently_running_file
         currently_running_file = ""
-        return jsonify({"status": "Server stopped"})
+        return jsonify({"status": f"Server on port {ledvw_port} stopped"}), 200
     except Exception as e:
-        print(f"[ERROR]: Server couldn't be stopped -> {e}")
-        return jsonify({"error": "Server couldn't be stopped"}), 500
-    
+        print(f"[ERROR]: Server on port {ledvw_port} couldn't be stopped -> {e}")
+        return jsonify({"error": f"Server on port {ledvw_port} couldn't be stopped"}), 500
+
 def clean_server():
-    global server_process
-    if server_process is not None:
-        try:
-            os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
-            server_process = None
-        except ProcessLookupError:
-            pass
+    global server_processes
+    for server_process in server_processes.values():
+        if server_process is not None:
+            try:
+                os.killpg(os.getpgid(server_process.pid), signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+    server_processes.clear()
+    rtmp_ports.clear()
+    currently_running_files.clear()
 
 
 def signal_handling(signum = None, frame = None):
@@ -326,7 +348,7 @@ except AttributeError:
     print("[ERROR]: SIGHUP not supported on this platform")
 
 atexit.register(clean_server)
-    
+
 
 @app.route("/api/list-configs", methods=['GET'])
 def list_configs():
@@ -342,6 +364,9 @@ def list_configs():
         print(f"[ERROR]: Failed to list config files -> {e}")
         return jsonify({"error": "Could not list config files"}), 500
 
+@app.route("/api/list-running-servers", methods=['GET'])
+def list_running_servers():
+    return ",".join([f"[Server] LEDVW {ledvw_port} + RTMP {rtmp_port}" for ledvw_port, rtmp_port in rtmp_ports.items()])
 
 @app.route("/api/list-fonts", methods=['GET'])
 def list_fonts():
@@ -355,10 +380,10 @@ def list_fonts():
     except Exception as e:
         print(f"[ERROR]: Failed to list font files -> {e}")
         return jsonify({"error": "Could not list font files"}), 500
-    
-@app.route("/api/update-config", methods=["POST"])
-def update_config():
-    global config_File
+
+@app.route("/api/<int:ledvw_port>/update-config", methods=["POST"])
+def update_config(ledvw_port):
+    global config_Files
     data = request.get_json()
     selected = data.get("config_file")
 
@@ -369,9 +394,9 @@ def update_config():
     if not os.path.exists(abs_path):
         return jsonify({"error": f"Configuration file not found: {abs_path}"}), 404
 
-    config_File = abs_path
-    print(f"[INFO]: Configuration file selected -> {config_File}")
-    return jsonify({"status": "Config selected", "config_file": config_File}), 200
+    config_Files[ledvw_port] = abs_path
+    print(f"[INFO]: Configuration file selected -> {config_Files[ledvw_port]}")
+    return jsonify({"status": "Config selected", "config_file": config_Files[ledvw_port]}), 200
 
 
 @app.route("/api/get-matrix-config", methods=["GET"])
@@ -379,8 +404,8 @@ def get_matrix_config():
     matrix_config_path = os.path.join(CONFIG_DIR, "config.yaml")
     if not os.path.exists(matrix_config_path):
         print("[ERROR]: LED matrix configuration not Found")
-        return jsonify({"[ERROR]: LED matrix configuration not Found"}), 404
-    
+        return jsonify({"error": "[ERROR]: LED matrix configuration not Found"}), 404
+
     try:
         with open(matrix_config_path, "r") as file:
             matrix_config_data = yaml.safe_load(file)
@@ -388,28 +413,30 @@ def get_matrix_config():
         return jsonify(matrix_config_data)
     except Exception as e:
         print("[ERROR]: Failed to read LED configuration")
-        return jsonify({"[ERROR]: Failed to read LED configuration"})
-    
-@app.route("/api/get-current-config", methods=["GET"])
-def get_current_config():
-    return currently_running_file
+        return jsonify({"error": "[ERROR]: Failed to read LED configuration"})
 
-# accepts JSON: {"layer_list": ["elem1", "elem2", ....]}   
-@app.route("/api/reorder-layers", methods = ["POST"])
-def reorder_layers():
-    global config_File
+@app.route("/api/<int:ledvw_port>/get-current-config", methods=["GET"])
+def get_current_config(ledvw_port):
+    if ledvw_port not in currently_running_files:
+        return ""
+    return currently_running_files[ledvw_port]
+
+# accepts JSON: {"layer_list": ["elem1", "elem2", ....]}
+@app.route("/api/<int:ledvw_port>/reorder-layers", methods = ["POST"])
+def reorder_layers(ledvw_port):
+    global config_Files
     json_package = request.get_json()
     new_order = json_package.get("layer_list") #expects JSON to send a list of the new order of layers: ["elem1", "elem3", "elem2"]
 
-    if not config_File:
-        return jsonify({"[ERROR]": "No configuration file selected"}), 400
+    if ledvw_port not in config_Files:
+        return jsonify({"error": f"[ERROR]: No configuration file selected for server on port {ledvw_port}"}), 400
     if not isinstance(new_order, list):
-        return jsonify({"[ERROR]": "There must be a list of element names"}), 400
-    
+        return jsonify({"error": "[ERROR]: There must be a list of element names"}), 400
+
     try:
-        with open(config_File, "r") as f:
+        with open(config_Files[ledvw_port], "r") as f:
             data = yaml.safe_load(f) or {"settings": {}, "elements": {}}
-        
+
         elements = data.get("elements", {})
         new_elements = {}
         for name in new_order:
@@ -417,38 +444,38 @@ def reorder_layers():
                 new_elements[name] = elements[name]
             else:
                 print(f"[WARNING]: '{name}' not found in config")
-        
+
         for name, value in elements.items():
             if name not in new_elements:
                 new_elements[name] = value
-        
+
         data["elements"] = new_elements
 
-        with open(config_File, "w") as f:
+        with open(config_Files[ledvw_port], "w") as f:
             yaml.safe_dump(data, f, sort_keys=False)
-        
-        print(f"[INFO]: Layers reordered to {list(new_elements.keys())}")
+
+        print(f"[INFO]: Layers reordered to {list(new_elements.keys())} in config for server on port {ledvw_port}")
 
         return jsonify({"status": "success","reordered_to": list(new_elements.keys())}), 200
 
     except Exception as e:
-        print(f"[ERROR]: Failed to reorder layers, {e}")
-        return jsonify({"[ERROR]: Failed to reorder layers, {e}"}), 500
+        print(f"[ERROR]: Failed to reorder layers for server on port {ledvw_port} -> {e}")
+        return jsonify({"error": f"[ERROR]: Failed to reorder layers for server on port {ledvw_port}, {e}"}), 500
 
 #accepts JSON: {"name": "elem1"}
-@app.route("/api/delete-layer", methods = ["POST"])
-def delete_layer():
-    global config_File
+@app.route("/api/<int:ledvw_port>/delete-layer", methods = ["POST"])
+def delete_layer(ledvw_port):
+    global config_Files
     json_package = request.get_json()
     name = json_package.get("name") #delete a layer based on the name of the element assigned to that layer
 
-    if not config_File:
-        return jsonify({"[ERROR]": "No configuration file selected"}), 400
-    
+    if ledvw_port not in config_Files:
+        return jsonify({"error": "[ERROR]: No configuration file selected for server on port {ledvw_port}"}), 400
+
     try:
-        with open(config_File, "r") as f:
+        with open(config_Files[ledvw_port], "r") as f:
             data = yaml.safe_load(f) or {"settings": {}, "elements": {}}
-        
+
         elements = data.get("elements", {})
         delete = None
 
@@ -456,28 +483,28 @@ def delete_layer():
             if name in elements:
                 delete = elements.pop(name)
             else:
-                return jsonify({"[ERROR]": f"Element named '{name}' not found"}), 404
-            
+                return jsonify({"error": f"[ERROR]: Element named '{name}' not found"}), 404
+
         data["elements"] = elements
-        with open(config_File, "w") as f:
+        with open(config_Files[ledvw_port], "w") as f:
             yaml.safe_dump(data, f, sort_keys=False)
-        
+
         print(f"[INFO]: Deleted element '{name}' from config")
         return jsonify({"status": "deleted", "name": name, "removed": delete}), 200
     except Exception as e:
         print(f"[ERROR]: Failed to delete layer -> {e}")
-        return jsonify({"[ERROR]": str(e)}), 500
-    
+        return jsonify({"error": f"[ERROR]: {str(e)}"}), 500
+
 #can accept JSON: {"filename": newconfig.yaml} <---- this is for if the user wants to give the file a custom name
-@app.route("/api/new-config", methods = ["POST"])
-def new_config():
-    global CONFIG_DIR, config_File
+@app.route("/api/<int:ledvw_port>/new-config", methods = ["POST"])
+def new_config(ledvw_port):
+    global CONFIG_DIR, config_Files
     json_package = request.get_json() or {}
     filename = json_package.get("filename")
 
     os.makedirs(CONFIG_DIR, exist_ok=True)
 
-    if not filename:  # if there is no filename, then a generic name is given  
+    if not filename:  # if there is no filename, then a generic name is given
         base = "new-config"
         i=1
         while True:
@@ -491,60 +518,59 @@ def new_config():
     target_path = os.path.abspath(os.path.join(CONFIG_DIR, filename))
 
     if os.path.exists(target_path):
-        return jsonify({"[ERROR]": f"File already exists: {target_path}"}), 400
-    
+        return jsonify({"error": f"[ERROR]: File already exists: {target_path}"}), 400
+
     template = {"settings": {"gamma": 1.0},
                 "elements": {}
                 }
-    
-    try: 
+
+    try:
         with open(target_path, "w") as f:
             yaml.safe_dump(template, f, sort_keys=False)
-        
-        config_File = target_path
-        print(f"[INFO]: Created new config -> {config_File}")
-        return jsonify({"status": "created", "config_file": config_File}), 201
+
+        config_Files[ledvw_port] = target_path
+        print(f"[INFO]: Created new config -> {config_Files[ledvw_port]}")
+        return jsonify({"status": "created", "config_file": config_Files[ledvw_port]}), 201
     except Exception as e:
         print(f"[ERROR]: Failed to create new config -> {e}")
         return jsonify({"error": str(e)}), 500
-    
- #accepts JSON: {"new_name": "config_file.yaml"}   
-@app.route("/api/save-config-as", methods = ["POST"])
-def save_config_as():
-    global CONFIG_DIR, config_File
+
+ #accepts JSON: {"new_name": "config_file.yaml"}
+@app.route("/api/<int:ledvw_port>/save-config-as", methods = ["POST"])
+def save_config_as(ledvw_port):
+    global CONFIG_DIR, config_Files
     json_package = request.get_json()
     new_name = json_package.get("new_name")
-    print(config_File)
 
     if not new_name:
-        return jsonify({"[ERROR]": "No filename provided"}), 400
-    
+        return jsonify({"error": "[ERROR]: No filename provided"}), 400
+
     if not new_name.endswith(".yaml"):
         new_name += ".yaml"
-    
+
     new_path = os.path.join(CONFIG_DIR, new_name)
 
-   
 
-    if not config_File or not os.path.exists(config_File):
-        return jsonify({"[ERROR]": "No active configuration file to copy"}), 400
-    
+
+    if ledvw_port not in config_Files or not os.path.exists(config_Files[ledvw_port]):
+        return jsonify({"error": "[ERROR]: No active configuration file to copy"}), 400
+
     try:
-        with open(config_File, "r") as src:
+        with open(config_Files[ledvw_port], "r") as src:
             current_config = src.read()
         with open(new_path, "w") as dest:
             dest.write(current_config)
-        
+
         print(f"[INFO]: Configuration copied to {new_path}")
 
-        config_File = new_path
+        config_Files[ledvw_port] = new_path
         return jsonify({ "status": "success",
             "new_config_file": new_path
         }), 200
     except Exception as e:
         print(f"[ERROR]: Failed to save config -> {e}")
-        return jsonify({"error": f"Failed to save config: {str(e)}"}), 500
-    
+        return jsonify({"error": f"[ERROR]: Failed to save config: {str(e)}"}), 500
+
 
 
 

@@ -21,12 +21,24 @@ function App() {
 
   const configState = useSelector((state: RootState) => state.config);
 
+  const isValidPort = (port: number) =>
+    Number.isInteger(port) && port >= 1024 && port <= 65535;
+
   //Gets the current configuration file from the backend
   //This function is passed down to other components to allow them to refresh the config
-  async function getConfig(multiplier: number) {
+  async function getConfig(multiplier: number, ledvwPort: number) {
+    if (!isValidPort(ledvwPort)) {
+      console.log(`Invalid LEDVW port (${ledvwPort}), skipping getConfig`);
+      return;
+    }
+
     try {
-      //requests config from backend
-      const response = await fetch("/api/get-yaml-config", { method: "GET" });
+      // requests config from backend using the selected LEDVW port
+      const response = await fetch("/api/" + ledvwPort + "/get-yaml-config", { method: "GET" });
+      if (!response.ok) {
+        console.log(`Failed to fetch config from port ${ledvwPort}: ${response.statusText}`);
+        return;
+      }
       const config = await response.json();
       dispatch(resetState(config));
       //Sets the gamma in the state
@@ -170,7 +182,7 @@ function App() {
         configWidth * multiplierY,
         configHeight * multiplierY,
       ]);
-      getConfig(multiplierY);
+      getConfig(multiplierY, 7070);
       console.log(configState.elements.length);
     } else {
       setSizeMultiplier(multiplierX);
@@ -178,7 +190,7 @@ function App() {
         configWidth * multiplierX,
         configHeight * multiplierX,
       ]);
-      getConfig(multiplierX);
+      getConfig(multiplierX, 7070);
       console.log(configState.elements.length);
     }
   }
@@ -191,18 +203,19 @@ function App() {
           dispatch(clearElement(configState.selectedElement));
         }
       };
-  
+
       document.addEventListener("keydown", handleKeyDown);
-  
+
       // cleanup when component unmounts
       return () => document.removeEventListener("keydown", handleKeyDown);
     }, [configState.selectedElement]);
-    
+
 
 
   //Calls get_config when page loads
   useEffect(() => {
     setCanvas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   //Displays button controls, save button,
   //and passes elements to the file upload where the canvas and elements will be

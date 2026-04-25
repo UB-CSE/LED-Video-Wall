@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
+import PortsContext from "../PortContext";
 
 type Props = {
   sizeMultiplier: number;
@@ -9,6 +10,8 @@ type Props = {
 function SaveButton(props: Props) {
   const configState = useSelector((state: RootState) => state.config);
   const [message, setMessage] = useState("");
+  const ports = useContext(PortsContext) as { ledvwPort?: number } | undefined;
+  const ledvwPort = ports?.ledvwPort ?? 7070;
 
   //Sends the current configuration in state to the web server
   function sendToServer() {
@@ -44,7 +47,7 @@ function SaveButton(props: Props) {
       }
     }
     //Sends JSON to web server
-    fetch("/api/set-yaml-config", {
+    fetch(`/api/${ledvwPort}/set-yaml-config`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
