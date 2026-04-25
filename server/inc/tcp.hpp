@@ -74,6 +74,7 @@ public:
 
 std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
                                             uint16_t port,
-                                            std::vector<Client*> clients);
+                                            std::vector<Client*> clients,
+                                            float brightness_percent);
 
 #endif
