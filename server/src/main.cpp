@@ -120,12 +120,26 @@ static bool handle_command_line() {
     return true;
 }
 
+class MyApp : public CefApp {
+public:
+    MyApp() = default;
+
+    void OnBeforeCommandLineProcessing(const CefString& process_type,
+                                  CefRefPtr<CefCommandLine> command_line) override {
+        command_line->AppendSwitchWithValue("ozone-platform", "headless");
+    }
+
+    IMPLEMENT_REFCOUNTING(MyApp);
+};
+
 int main(int argc, char* argv[]) {
     CefMainArgs args(argc, argv);
 
+    CefRefPtr<MyApp> app(new MyApp);
+
     // Execute the sub-process logic, if any. This will either return immediately for the browser
     // process or block until the sub-process should exit.
-    int result = CefExecuteProcess(args, nullptr, nullptr);
+    int result = CefExecuteProcess(args, app.get(), nullptr);
     if (result >= 0) {
         // The sub-process terminated, exit now.
         return result;
@@ -134,10 +148,26 @@ int main(int argc, char* argv[]) {
     // Initialize CEF in the main process.
     CefSettings settings;
     settings.windowless_rendering_enabled = true;
-    std::filesystem::path cachePath = std::filesystem::current_path() / "cef-cache";
+
+    std::filesystem::path cachePath = std::filesystem::current_path() / "cef-caches" / "cef-cache";
+
+    // Janky but necessary solution here... we need to provide a different cache path for each server instance.
+    // Each server gets initialized with a different ledvw port, so we can use that to differentiate cache
+    // paths. CEF doesn't parse command-line arguments until CefInitialize is called, but the cache path needs
+    // to be set before that, so we have to parse that one argument manually.
+    for (int i = 0; i < argc; ++i) {
+        std::string_view arg = argv[i];
+        if (!arg.starts_with("--ledvw-port=")) continue;
+        arg.remove_prefix(13);
+        if (arg.empty()) continue;
+        cachePath += "-" + std::string(arg);
+        break;
+    }
+
     CefString(&settings.cache_path).FromString(cachePath.string());
-    if (!CefInitialize(args, settings, nullptr, nullptr)) {
-      exit(-1);
+    printf("CEF cache path: %s\n", cachePath.string().c_str());
+    if (!CefInitialize(args, settings, app.get(), nullptr)) {
+      exit(1);
     }
 
     signal(SIGINT, signal_handler); // Ctrl+C
@@ -180,7 +210,7 @@ int main(int argc, char* argv[]) {
 
 
     std::shared_ptr<LEDTCPServer> server =
-        create_server(INADDR_ANY, ledvwPort, server_config.clients);
+        create_server(INADDR_ANY, ledvwPort, server_config.clients, server_config.brightness_percent);
     if (!server) {
         CefShutdown();
         exit(1);
@@ -193,16 +223,18 @@ int main(int argc, char* argv[]) {
                     server_config.ns_per_frame);
 
 
+    // Each instance gets its own command pipe based on its ledvw port.
+    const std::string cmd_pipe = std::string(TMP_CMD) + "-" + std::to_string(ledvwPort);
 
     //Setup for pipes
-    unlink(TMP_CMD); //Destroys the existing pipe - dont want leftover commands if any
-    if (mkfifo(TMP_CMD, 0666) == -1 && errno != EEXIST) {std::cerr << "mkfifo failed: " << strerror(errno) << "\n";return 1;} //Creates a fifo style pipe
-    int pipe = open(TMP_CMD, O_RDONLY | O_NONBLOCK); //Opens the pipe for reading only
+    unlink(cmd_pipe.c_str()); //Destroys the existing pipe - dont want leftover commands if any
+    if (mkfifo(cmd_pipe.c_str(), 0666) == -1 && errno != EEXIST) {std::cerr << "mkfifo failed: " << strerror(errno) << "\n";return 1;} //Creates a fifo style pipe
+    int pipe = open(cmd_pipe.c_str(), O_RDONLY | O_NONBLOCK); //Opens the pipe for reading only
     if (pipe < 0) {std::cerr << "open failed: " << strerror(errno) << "\n";return 1;}
 
     bool isPaused = false;
     char buf[256];
-    std::cout << "\nWrite your command to " << TMP_CMD << std::endl << "Example: `echo \"move 5 10 10 > " << TMP_CMD << "\'" << std::endl <<  "Available Commands : \n- pause\n- resume\n- quit\n- move <ElementID> <x-coord> <y-coord>\n- add <type> <ElementID> <x-coord> <y-coord>\n- remove <ElementID>\n";
+    std::cout << "\nWrite your command to " << cmd_pipe << std::endl << "Example: `echo \"move 5 10 10 > " << cmd_pipe << "\'" << std::endl <<  "Available Commands : \n- pause\n- resume\n- quit\n- move <ElementID> <x-coord> <y-coord>\n- add <type> <ElementID> <x-coord> <y-coord>\n- remove <ElementID>\n";
     while(!stop_signal) {
         CefDoMessageLoopWork();
 
@@ -252,7 +284,7 @@ int main(int argc, char* argv[]) {
 
     EXIT_PROGRAM:
     close(pipe);
-    unlink(TMP_CMD);
+    unlink(cmd_pipe.c_str());
 
     CefShutdown();
 

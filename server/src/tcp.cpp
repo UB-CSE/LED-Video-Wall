@@ -121,7 +121,8 @@ void LEDTCPServer::handle_conns() {
 
 std::shared_ptr<LEDTCPServer> create_server(uint32_t addr,
                                             uint16_t port,
-                                            std::vector<Client*> clients) {
+                                            std::vector<Client*> clients,
+                                            float brightness_percent) {
     struct protoent* protocol_entry = getprotobyname("tcp");
     const int tcp_protocol_num = protocol_entry->p_proto;
 
@@ -295,7 +296,7 @@ void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
         }
         total_sent += sent;
     }
-} 
+}
 
 MessageHeader LEDTCPServer::tcp_recv_header(int socket) {
     MessageHeader header;

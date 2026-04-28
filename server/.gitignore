@@ -1,7 +1,7 @@
 led-wall-server*
 obj
 cef
-cef-cache
+cef-cache*
 build
 .cache/
 compile_commands.json

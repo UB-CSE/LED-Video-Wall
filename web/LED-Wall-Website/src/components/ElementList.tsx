@@ -3,8 +3,8 @@ import { useSelector } from "react-redux";
 import type { RootState } from "../state/store";
 import { useDispatch } from "react-redux";
 import { setSelectedElement, updateElement } from "../state/config/configSlice.ts";
-import type React from "react";
-import { useState } from "react";
+import React, { useState, useContext } from "react";
+import { PortsContext } from "../PortContext";
 import ContextMenu from "./ContextMenu.tsx";
 import useContextMenu from "../hooks/useContextMenu.tsx";
 import { type Option } from "./ContextMenu.tsx";
@@ -21,6 +21,8 @@ type Props = {
 function ElementList(props: Props) {
   const configState = useSelector((state: RootState) => state.config);
   const dispatch = useDispatch();
+  const ports = useContext(PortsContext) as { ledvwPort?: number } | undefined;
+  const ledvwPort = ports?.ledvwPort ?? 7070;
 
   // ── Context menu ────────────────────────────────────────────────────────────
   const {
@@ -103,16 +105,16 @@ function ElementList(props: Props) {
     dispatch(setSelectedElement(newId));
     setDraggedId(null);
 
-    // Persist the new order to the backend (fire-and-forget; no reload needed)
+    // Persist the new order to the backend (fire-and-forget; port-specific endpoint)
     const newOrder = reordered.map((el) => el.name);
     try {
-      const response = await fetch("/api/reorder-layers", {
+      const response = await fetch(`/api/${ledvwPort}/reorder-layers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ layer_list: newOrder }),
       });
       if (!response.ok) {
-        console.error("Failed to persist layer order:", await response.text());
+        console.error(`Failed to persist layer order on port ${ledvwPort}:`, await response.text());
       }
     } catch (error) {
       console.error("Failed to reach reorder-layers endpoint:", error);
