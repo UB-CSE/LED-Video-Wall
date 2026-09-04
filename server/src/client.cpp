@@ -1,85 +1,74 @@
 #include "client.hpp"
 #include "tcp.hpp"
 #include <cstdint>
-#include <regex>
-#include <optional>
-#include <string>
 #include <ios>
+#include <optional>
+#include <regex>
+#include <string>
 
 // todo, make configurable later
 const int NUM_CHANNELS = 3;
 const int BIT_DEPTH = 8;
 
-CanvasPos::CanvasPos(uint32_t x,
-                     uint32_t y,
-                     uint32_t width,
-                     uint32_t height,
-                     rotation rot):
-    x(x), y(y), width(width), height(height), rot(rot)
-{}
+CanvasPos::CanvasPos(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
+                     rotation rot)
+    : x(x), y(y), width(width), height(height), rot(rot) {}
 
-LEDMatrixSpec::LEDMatrixSpec(std::string id,
-                             float power_limit_amps,
-                             uint32_t width,
-                             uint32_t height):
-    id(id),
-    power_limit_amps(power_limit_amps),
-    width(width),
-    height(height),
-    total_leds(width * height)
-{}
+LEDMatrixSpec::LEDMatrixSpec(std::string id, float power_limit_amps,
+                             uint32_t width, uint32_t height)
+    : id(id), power_limit_amps(power_limit_amps), width(width), height(height),
+      total_leds(width * height) {}
 
 std::string LEDMatrixSpec::to_string() {
-    std::stringstream ss;
-    ss << "LEDMatrixSpec[";
-    ss << "id: " << this->id << ", ";
-    ss << "power_limit_amps: " << this->power_limit_amps << ", ";
-    ss << "width: " << this->width << ",";
-    ss << "height: " << this->height << ",";
-    ss << "total_leds: " << this->total_leds << "]";
-    return ss.str();
+  std::stringstream ss;
+  ss << "LEDMatrixSpec[";
+  ss << "id: " << this->id << ", ";
+  ss << "power_limit_amps: " << this->power_limit_amps << ", ";
+  ss << "width: " << this->width << ",";
+  ss << "height: " << this->height << ",";
+  ss << "total_leds: " << this->total_leds << "]";
+  return ss.str();
 }
 
 LEDMatrix::LEDMatrix(std::string id, LEDMatrixSpec *spec, CanvasPos pos)
     : id(id), spec(spec), pos(pos) {
-    this->packed_pixel_array_size = spec->total_leds * NUM_CHANNELS;
-    this->packed_pixel_array = static_cast<unsigned char*>(malloc(packed_pixel_array_size));
+  this->packed_pixel_array_size = spec->total_leds * NUM_CHANNELS;
+  this->packed_pixel_array =
+      static_cast<unsigned char *>(malloc(packed_pixel_array_size));
 }
 
 std::string LEDMatrix::to_string() {
-    std::stringstream ss;
-    ss << "LEDMatrix[";
-    ss << "spec: " << this->spec->to_string() << ", ";
-    ss << "pos: " << "(" << this->pos.x << ", " << this->pos.y << ")" << "]";
-    return ss.str();
+  std::stringstream ss;
+  ss << "LEDMatrix[";
+  ss << "spec: " << this->spec->to_string() << ", ";
+  ss << "pos: " << "(" << this->pos.x << ", " << this->pos.y << ")" << "]";
+  return ss.str();
 }
 
 std::string MatricesConnection::to_string() {
-    std::stringstream ss;
-    ss << "MatricesConnection[";
-    ss << "pin: " << std::to_string(this->pin) << ", ";
-    ss << "matrices: (";
-    for (LEDMatrix* mat : this->matrices) {
-        ss << mat->to_string() << ", ";
-    }
-    ss << ")]";
-    return ss.str();
+  std::stringstream ss;
+  ss << "MatricesConnection[";
+  ss << "pin: " << std::to_string(this->pin) << ", ";
+  ss << "matrices: (";
+  for (LEDMatrix *mat : this->matrices) {
+    ss << mat->to_string() << ", ";
+  }
+  ss << ")]";
+  return ss.str();
 }
 
 Client::Client(uint64_t mac_addr,
-               std::vector<MatricesConnection> mat_connections):
-    mac_addr(mac_addr),
-    mat_connections(mat_connections)
-{}
+               std::vector<MatricesConnection> mat_connections)
+    : mac_addr(mac_addr), mat_connections(mat_connections) {}
 
 std::string Client::to_string() {
-    std::stringstream ss;
-    ss << "Client[";
-    ss << "mac-addr: " << std::hex << this->mac_addr << ", ";
-    ss << "mat_connections: (";
-    for (MatricesConnection conn : this->mat_connections) {
-        ss << conn.to_string() << ", ";
-    }
-    ss << ")]";
-    return ss.str();
+  std::stringstream ss;
+  ss << "Client[";
+  ss << "mac-addr: " << std::hex << this->mac_addr << ", ";
+  ss << "mat_connections: (";
+  for (MatricesConnection conn : this->mat_connections) {
+    ss << conn.to_string() << ", ";
+  }
+  ss << ")]";
+  return ss.str();
 }

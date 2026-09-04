@@ -99,8 +99,8 @@ void WebBrowser::loadURL(const std::string &url) {
 
 void WebBrowser::setCookie(const std::string &name, const std::string &value,
                            const std::string &domain, const std::string &path,
-                            bool secure, bool httpOnly,
-                            cef_cookie_same_site_t sameSite) {
+                           bool secure, bool httpOnly,
+                           cef_cookie_same_site_t sameSite) {
   CefCookie cookie;
   CefString(&cookie.name).FromString(name);
   CefString(&cookie.value).FromString(value);

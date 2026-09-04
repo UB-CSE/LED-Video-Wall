@@ -1065,16 +1065,18 @@ bool RTMPServer::sendPublish(RTMP *r, int streamID) {
 }
 
 cv::Mat RTMPServer::avFrameToCvMat(const AVFrame *avFrame) {
-  SwsContext *conversion = sws_getContext(
-      avFrame->width, avFrame->height, static_cast<AVPixelFormat>(avFrame->format),
-      avFrame->width, avFrame->height, AV_PIX_FMT_BGR24, SWS_FAST_BILINEAR, nullptr,
-      nullptr, nullptr);
+  SwsContext *conversion =
+      sws_getContext(avFrame->width, avFrame->height,
+                     static_cast<AVPixelFormat>(avFrame->format),
+                     avFrame->width, avFrame->height, AV_PIX_FMT_BGR24,
+                     SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
 
   cv::Mat mat(avFrame->height, avFrame->width, CV_8UC3);
   uint8_t *dest[4] = {mat.data, nullptr, nullptr, nullptr};
   int destStride[4] = {static_cast<int>(mat.step[0]), 0, 0, 0};
 
-  sws_scale(conversion, avFrame->data, avFrame->linesize, 0, avFrame->height, dest, destStride);
+  sws_scale(conversion, avFrame->data, avFrame->linesize, 0, avFrame->height,
+            dest, destStride);
 
   sws_freeContext(conversion);
   return mat;

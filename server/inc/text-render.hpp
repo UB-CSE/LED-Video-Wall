@@ -7,12 +7,9 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 
-Element* renderTextToElement(const std::string &text,
-                             const std::string &fontPath,
-                             int fontSize,
-                             cv::Scalar textColor,
-                             int elementId,
-                             cv::Point position,
-                             double rotationDegrees = 0.0);
+Element *renderTextToElement(const std::string &text,
+                             const std::string &fontPath, int fontSize,
+                             cv::Scalar textColor, int elementId,
+                             cv::Point position, double rotationDegrees = 0.0);
 
 #endif

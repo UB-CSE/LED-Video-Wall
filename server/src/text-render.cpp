@@ -5,16 +5,13 @@
 #include "opencv2/imgproc.hpp"
 #include <ft2build.h>
 #include FT_FREETYPE_H
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 
-Element* renderTextToElement(const std::string &text,
-                             const std::string &fontPath,
-                             int fontSize,
-                             cv::Scalar textColor,
-                             int elementId,
-                             cv::Point position,
-                             double rotationDegrees) {
+Element *renderTextToElement(const std::string &text,
+                             const std::string &fontPath, int fontSize,
+                             cv::Scalar textColor, int elementId,
+                             cv::Point position, double rotationDegrees) {
   // FreeType initialization
   FT_Library ft;
   if (FT_Init_FreeType(&ft)) {
@@ -76,8 +73,9 @@ Element* renderTextToElement(const std::string &text,
 
     // update dimension trackers
     maxAscender = std::max(maxAscender, face->glyph->bitmap_top);
-    maxDescender = std::max(maxDescender, static_cast<int>(face->glyph->bitmap.rows) -
-                                              face->glyph->bitmap_top);
+    maxDescender =
+        std::max(maxDescender, static_cast<int>(face->glyph->bitmap.rows) -
+                                   face->glyph->bitmap_top);
 
     // render the glyph
     FT_Bitmap bitmap = face->glyph->bitmap;
@@ -137,9 +135,10 @@ Element* renderTextToElement(const std::string &text,
 
   // downsample the cropped image to get better antialiasing
   cv::Mat img;
-  cv::resize(croppedImg, img,
-             cv::Size(std::max(1, actualWidth / 2), std::max(1, actualHeight / 2)),
-             0, 0, cv::INTER_AREA);
+  cv::resize(
+      croppedImg, img,
+      cv::Size(std::max(1, actualWidth / 2), std::max(1, actualHeight / 2)), 0,
+      0, cv::INTER_AREA);
 
   if (img.empty()) {
     return nullptr;
