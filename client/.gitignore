@@ -3,3 +3,4 @@ build-clang/
 managed_components/
 */wifi_credentials.hpp
 sdkconfig.old
+dependencies.lock
