@@ -15,4 +15,7 @@ dependencies:
   #   # All dependencies of `main` are public by default.
   #   public: true
   espressif/led_strip: ^3.0.0
-  esphome/esp-hub75: "^0.3.3"
+  # esphome/esp-hub75: "^0.3.3"
+  esphome/esp-hub75:
+    git: https://github.com/esphome-libs/esp-hub75.git
+    path: components/hub75
