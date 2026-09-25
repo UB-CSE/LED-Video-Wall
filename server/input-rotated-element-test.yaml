@@ -10,28 +10,21 @@ elements:
     rotation: 180
   "elem2":
     id: 2
-    type: "carousel"
-    filepaths: ["images/creeper.png", "images/hello-rainbow.png"]
-    location: [12, -12]
-    framerate: 2
-    rotation: 90
+    type: "image"
+    filepath: "images/treefrog.jpg"
+    location: [40,10]
+    scale: 0.05
+    rotation: 30.0
   "elem3":
     id: 3
-    type: "image"
-    filepath: "images/img.jpg"
-    location: [40,10]
-    scale: 0.015
-    rotation: 30.0
-  "elem4":
-    id: 4
     type: "rtmp"
     stream-name: "test"
     framerate: 60
     location: [0,44]
     size: [20,20]
     rotation: -45
-  "elem5":
-    id: 5
+  "elem4":
+    id: 4
     type: "text"
     content: "Hello"
     size: 24

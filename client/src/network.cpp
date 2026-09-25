@@ -295,16 +295,14 @@ int checkin(int *out_sockfd) {
   uint8_t mac[6];
   ESP_ERROR_CHECK(esp_wifi_get_mac(WIFI_IF_STA, mac));
 
-  uint32_t message_size = 0;
-  uint8_t *buffer = encode_check_in(mac, &message_size);
-  if (!buffer) {
+  std::vector<uint8_t> buffer = encode_check_in(mac);
+  if (buffer.empty()) {
     ESP_LOGW(TAG, "Failed to encode check-in message");
     close(sockfd);
     return -1;
   }
 
-  ssize_t written = send(sockfd, buffer, message_size, 0);
-  free_message_buffer(buffer);
+  ssize_t written = send(sockfd, buffer.data(), buffer.size(), 0);
 
   if (written < 0) {
     ESP_LOGE(TAG, "Send check-in failed: %d", errno);
@@ -358,42 +356,42 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
     return -1;
   }
 
-  uint16_t op_code = get_message_op_code(*buffer);
+  OperationCode op_code = get_message_op_code(*buffer);
   ESP_LOGD(TAG, "Received OpCode: 0x%04X", op_code);
 
   switch (op_code) {
-  case OP_SET_LEDS: {
-    if (set_leds(decode_set_leds(*buffer)) != 0) {
+  case OperationCode::SET_LEDS: {
+    if (set_leds(decode<SetLEDsMessage>(*buffer)) != 0) {
       return -1;
     }
     break;
   }
-  case OP_SET_LEDS_BATCHED: {
-    if (set_leds_batched(decode_set_leds_batched(*buffer)) != 0) {
+  case OperationCode::SET_LEDS_BATCHED: {
+    if (set_leds_batched(decode<SetLEDsBatchedMessage>(*buffer)) != 0) {
       return -1;
     }
     break;
   }
-  case OP_GET_LOGS: {
-    if (get_logs(decode_get_logs(*buffer), sockfd) != 0) {
+  case OperationCode::GET_LOGS: {
+    if (get_logs(decode<GetLogsMessage>(*buffer), sockfd) != 0) {
       return -1;
     }
     break;
   }
-  case OP_REDRAW: {
-    if (redraw(decode_redraw(*buffer)) != 0) {
+  case OperationCode::REDRAW: {
+    if (redraw(decode<RedrawMessage>(*buffer)) != 0) {
       return -1;
     }
     break;
   }
-  case OP_SET_CONFIG: {
-    if (set_config(decode_set_config(*buffer)) != 0) {
+  case OperationCode::SET_CONFIG: {
+    if (set_config(decode<SetConfigMessage>(*buffer)) != 0) {
       return -1;
     }
     break;
   }
   default:
-    ESP_LOGW(TAG, "Unknown OpCode: 0x%02X", op_code);
+    ESP_LOGW(TAG, "Unknown OpCode: 0x%02X", (int)op_code);
     break;
   }
 

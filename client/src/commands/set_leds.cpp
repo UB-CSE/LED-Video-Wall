@@ -4,11 +4,13 @@
 #include "redraw.hpp"
 #include "set_config.hpp"
 #include "hub75.h"
+
 extern Hub75Driver *dma_display;
+extern ImageEncoding image_encoding;
 
 static const char *TAG = "SetLeds";
 
-int set_leds(SetLedsMessage *msg) {
+int set_leds(const SetLEDsMessage *msg) {
   ESP_LOGI(TAG, "Handling set_leds");
 
   if (msg == NULL) {
@@ -16,22 +18,25 @@ int set_leds(SetLedsMessage *msg) {
     return -1;
   }
 
-  int8_t gpio_pin = msg->gpio_pin;
+  int8_t gpio_pin = msg->header.gpio_pin;
   if (gpio_pin < 0) {
     if (!dma_display) return -1;
-    uint32_t data_size = msg->header.size - sizeof(SetLedsMessage);
-    int num_pixels = data_size / 3;
-    uint8_t *pixel_data = msg->pixel_data;
+    int num_pixels = msg->header.num_leds;
+    const uint8_t *pixel_data = msg->pixel_data;
 
+    const uint8_t* head = pixel_data;
+    uint8_t bit = 0;
     for (int i = 0; i < num_pixels; i++) {
-      int panel_index = (-gpio_pin) - 1; 
+      const Pixel pixel = decode_pixel(head, bit, i, image_encoding);
+      const Pixel rgb_pixel = pixel.toRGB();
+
+      int panel_index = (-gpio_pin) - 1;
       int x = (i % 64) + (panel_index * 64); 
       int y = i / 64;
-      dma_display->set_pixel(x, y, pixel_data[i*3], pixel_data[i*3+1], pixel_data[i*3+2]);
+      dma_display->set_pixel(x, y, rgb_pixel.R(), rgb_pixel.G(), rgb_pixel.B());
     }
     return 0;
   }
-
 
   auto it = pin_to_handle.find(gpio_pin);
   if (it == pin_to_handle.end()) {
@@ -45,22 +50,22 @@ int set_leds(SetLedsMessage *msg) {
     return -1;
   }
 
-  uint32_t data_size = msg->header.size - sizeof(SetLedsMessage);
-  int num_pixels = data_size / 3; // assuming RGB
-  uint8_t *pixel_data = msg->pixel_data;
+  int num_pixels = msg->header.num_leds;
+  const uint8_t *pixel_data = msg->pixel_data;
 
+  const uint8_t* head = pixel_data;
+  uint8_t bit = 0;
   for (int i = 0; i < num_pixels; i++) {
-    uint8_t r = pixel_data[i * 3];
-    uint8_t g = pixel_data[i * 3 + 1];
-    uint8_t b = pixel_data[i * 3 + 2];
+    const Pixel pixel = decode_pixel(head, bit, i, image_encoding);
+    const Pixel rgb_pixel = pixel.toRGB();
 
-    ESP_ERROR_CHECK(led_strip_set_pixel(strip, i, r, g, b));
+    ESP_ERROR_CHECK(led_strip_set_pixel(strip, i, rgb_pixel.R(), rgb_pixel.G(), rgb_pixel.B()));
   }
 
   return 0;
 }
 
-int set_leds_batched(SetLedsBatchedMessage *msg) {
+int set_leds_batched(const SetLEDsBatchedMessage *msg) {
   ESP_LOGI(TAG, "Handling set_leds_batched");
 
   if (msg == NULL) {
@@ -68,23 +73,25 @@ int set_leds_batched(SetLedsBatchedMessage *msg) {
     return -1;
   }
 
-  uint32_t total_size = msg->header.size;
-  uint8_t batch_count = msg->batch_count;
-  uint8_t *p = (uint8_t *)msg + sizeof(MessageHeader) + 1;
-  uint8_t *end = (uint8_t *)msg + total_size;
+  uint32_t total_size = msg->header.header.size;
+  uint8_t batch_count = msg->header.batch_count;
+  const uint8_t *p = (uint8_t *)msg->entries;
+  const uint8_t *end = (uint8_t *)msg + total_size;
 
   for (uint8_t i = 0; i < batch_count; ++i) {
-    if (p + sizeof(LedsBatchEntryHeader) > end) {
+    const LEDsBatchEntry* entry = (const LEDsBatchEntry*)p;
+
+    if (p + sizeof(LEDsBatchEntryHeader) > end) {
       ESP_LOGE(TAG, "Batch %d is being read past all %d batches", i,
                batch_count);
       return -1;
     }
 
-    LedsBatchEntryHeader *eh = (LedsBatchEntryHeader *)p;
+    const LEDsBatchEntryHeader *eh = &entry->header;
     int8_t gpio_pin = eh->gpio_pin;
     uint32_t num_leds = eh->num_leds;
-    uint32_t pixel_bytes = num_leds * 3;
-    p += sizeof(LedsBatchEntryHeader);
+    uint32_t pixel_bytes = get_encoded_image_size(num_leds, image_encoding);
+    p += sizeof(LEDsBatchEntryHeader);
     if (p + pixel_bytes > end) {
       ESP_LOGE(
           TAG,
@@ -94,18 +101,21 @@ int set_leds_batched(SetLedsBatchedMessage *msg) {
     }
     if (gpio_pin < 0) {
       if (dma_display) {
+        const uint8_t* head = p;
+        uint8_t bit = 0;
         for (uint32_t idx = 0; idx < num_leds; ++idx) {
+          const Pixel pixel = decode_pixel(head, bit, idx, image_encoding);
+          const Pixel rgb_pixel = pixel.toRGB();
+
           int panel_index = (-gpio_pin) - 1; 
           int x = (idx % 64) + (panel_index * 64); 
           int y = idx / 64;
-          dma_display->set_pixel(x, y, p[idx*3], p[idx*3+1], p[idx*3+2]);
+          dma_display->set_pixel(x, y, rgb_pixel.R(), rgb_pixel.G(), rgb_pixel.B());
         }
       }
       p += pixel_bytes;
       continue;
     }
-    
-
 
     auto it = pin_to_handle.find(gpio_pin);
     if (it == pin_to_handle.end()) {
@@ -119,11 +129,12 @@ int set_leds_batched(SetLedsBatchedMessage *msg) {
       return -1;
     }
 
+    const uint8_t* head = p;
+    uint8_t bit = 0;
     for (uint32_t idx = 0; idx < num_leds; ++idx) {
-      uint8_t r = p[idx * 3 + 0];
-      uint8_t g = p[idx * 3 + 1];
-      uint8_t b = p[idx * 3 + 2];
-      ESP_ERROR_CHECK(led_strip_set_pixel(strip, idx, r, g, b));
+      const Pixel pixel = decode_pixel(head, bit, idx, image_encoding);
+      const Pixel rgb_pixel = pixel.toRGB();
+      ESP_ERROR_CHECK(led_strip_set_pixel(strip, idx, rgb_pixel.R(), rgb_pixel.G(), rgb_pixel.B()));
     }
 
     p += pixel_bytes;

@@ -8,7 +8,7 @@ elements:
     type: "image"
     filepath: "images/rainbow.png"
     location: [0, 0]
-    scale: 0.5
+    scale: 0.125
   "elem2":
     id: 2
     type: "text"

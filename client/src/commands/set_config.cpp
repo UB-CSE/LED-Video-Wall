@@ -6,7 +6,9 @@
 #include "protocol.hpp"
 #include "set_config.hpp"
 #include "hub75.h"
+
 Hub75Driver *dma_display = nullptr;
+ImageEncoding image_encoding = ImageEncoding::RGB_24;
 
 static const char *TAG = "SetConfig";
 
@@ -20,7 +22,7 @@ void clear_led_strips() {
   pin_to_handle.clear();
 }
 
-int set_config(SetConfigMessage *msg) {
+int set_config(const SetConfigMessage *msg) {
   ESP_LOGI(TAG, "Handling set_config");
 
   if (msg == NULL) {
@@ -31,7 +33,8 @@ int set_config(SetConfigMessage *msg) {
   xSemaphoreTake(pin_to_handle_mutex, portMAX_DELAY);
   clear_led_strips();
 
-  uint8_t num_pins = msg->pins_used;
+  uint8_t num_pins = msg->header.pins_used;
+  image_encoding = msg->header.encoding;
 
   if (num_pins == 0) {
     ESP_LOGE(TAG, "num_pins cannot be zero");
@@ -64,7 +67,7 @@ int set_config(SetConfigMessage *msg) {
   }
 
   for (int i = 0; i < num_pins; i++) {
-    PinInfo *pinfo = &msg->pin_info[i];
+    const PinInfo *pinfo = &msg->pin_info[i];
     int8_t gpio_pin = pinfo->pin_num;
     if (gpio_pin < 0) {
       continue;

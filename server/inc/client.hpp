@@ -43,8 +43,7 @@ public:
   std::string id;
   LEDMatrixSpec *spec;
   CanvasPos pos;
-  uint32_t packed_pixel_array_size;
-  unsigned char *packed_pixel_array;
+  uint32_t rgb24_pixel_array_size;
 
   LEDMatrix(std::string id, LEDMatrixSpec *spec, CanvasPos pos);
 

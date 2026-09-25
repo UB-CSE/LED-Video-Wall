@@ -8,12 +8,23 @@
 
 ## Local Installation
 
-* If you're using Windows, install this in WSL
-* Install dependencies with `sudo apt install -y g++ make cmake libopencv-dev libyaml-cpp-dev libasound2t64`
+* The server can only be build for Linux. If you're using Windows, install WSL. If you're using macOS, set up a Linux VM with VMWare Fusion or install Asahi on your machine (if supported).
+* Install dependencies:
+  - For Ubuntu/Debian: 
+    ```bash
+    sudo apt install -y g++ make cmake libopencv-dev libyaml-cpp-dev libasound2t64
+    ```
 * Navigate to the `server` directory in this repository (the parent of this README file)
-* Run `make` to compile the server application
-    * Note that the first time you run `make`, it will also download and build CEF, which may take a while. Future builds will be considerably faster
-* Start the server with `./led-wall-server <configuration file>`, e.g., `./led-wall-server input-text.yaml`
+* Configure the project (for release add `-DCMAKE_BUILD_TYPE=Release`):
+    ```bash
+    cmake -S . -B build/
+    ```
+    This step may take a few minutes to download dependencies (primary CEF binaries).
+* Build the program:
+    ```bash
+    cmake --build build/
+    ```
+* Start the server with `./build/led-wall-server <input file>`, e.g., `./build/led-wall-server input-text.yaml`
     * The following command-line arguments are also supported:
         * `--ledvw-port=<port>` : The port which the microcontrollers will connect to for communication (default: 7070)
             * This port number is also used as a kind of "id" for the server. The command pipe will be named `/tmp/led-cmd-<ledvw-port>`, and CEF caches will be stored in `./cef-caches/cef-cache-<ledvw-port>`.
@@ -21,9 +32,27 @@
         * `--prod` : When present, the video wall preview window is not shown.
 * If you see the following error message on startup:
     ```
-    The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /path/to/LED-Video-Wall/server/cef/lib/chrome-sandbox is owned by root and has mode 4755.
+    The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /path/to/LED-Video-Wall/server/build/_deps/cef-src/Release/chrome-sandbox is owned by root and has mode 4755.
     ```
     Then run the following script as root to fix the permissions of the sandbox binary:
     ```bash
-    sudo ./scripts/configure-cef-sandbox.bash ./cef/lib/chrome-sandbox
+    find . -name 'chrome-sandbox' -exec sudo ./scripts/configure-cef-sandbox.bash {} \;
     ```
+
+## Unit Testing
+
+[GoogleTest](https://google.github.io/googletest/primer.html) is used for unit testing. Unit tests are located in the `tests/`.
+
+To run tests:
+- Compile the server (see local installation section).
+    - Make sure that the `BUILD_TESTS` configuration option set to `ON` (default).
+- Run the tests:
+    ```bash
+    cd build/
+    ctest
+    ```
+
+
+
+
+

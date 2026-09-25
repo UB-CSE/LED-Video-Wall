@@ -32,9 +32,7 @@ std::string LEDMatrixSpec::to_string() {
 
 LEDMatrix::LEDMatrix(std::string id, LEDMatrixSpec *spec, CanvasPos pos)
     : id(id), spec(spec), pos(pos) {
-  this->packed_pixel_array_size = spec->total_leds * NUM_CHANNELS;
-  this->packed_pixel_array =
-      static_cast<unsigned char *>(malloc(packed_pixel_array_size));
+  this->rgb24_pixel_array_size = spec->total_leds * NUM_CHANNELS;
 }
 
 std::string LEDMatrix::to_string() {

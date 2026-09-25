@@ -406,7 +406,7 @@ void RTMPServer::handleClient(ClientInfo clientInfo) {
         break;
       }
 
-      RTMPPacket packet = {0};
+      RTMPPacket packet{};
       while (RTMP_IsConnected(rtmp) && RTMP_ReadPacket(rtmp, &packet)) {
         if (!RTMPPacket_IsReady(&packet)) {
           continue;
@@ -880,9 +880,9 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
   // Video data
   else if (avcPacketType == 1) {
 
-    AVPacket *packet = av_packet_alloc();
-    packet->data = const_cast<uint8_t *>(body + 5);
-    packet->size = static_cast<int>(bodySize - 5);
+    AVPacket *avPacket = av_packet_alloc();
+    avPacket->data = const_cast<uint8_t *>(body + 5);
+    avPacket->size = static_cast<int>(bodySize - 5);
 
     std::lock_guard<std::mutex> lk(codecContext->mutex);
 
@@ -901,7 +901,7 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
     do {
       int ret;
       if (bsfCtx) {
-        if ((ret = av_bsf_send_packet(bsfCtx, packet)) < 0) {
+        if ((ret = av_bsf_send_packet(bsfCtx, avPacket)) < 0) {
           fprintf(stderr,
                   "RTMPServer: %s: failed to send packet to bitstream filter "
                   "for stream %d (\"%s\"): %d\n",
@@ -910,7 +910,7 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
           break;
         }
 
-        if ((ret = av_bsf_receive_packet(bsfCtx, packet)) < 0) {
+        if ((ret = av_bsf_receive_packet(bsfCtx, avPacket)) < 0) {
           fprintf(stderr,
                   "RTMPServer: %s: failed to receive packet from bitstream "
                   "filter for stream %d (\"%s\"): %d\n",
@@ -920,7 +920,7 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
         }
       }
 
-      if ((ret = avcodec_send_packet(ctx, packet)) < 0) {
+      if ((ret = avcodec_send_packet(ctx, avPacket)) < 0) {
         if (ret !=
             AVERROR(EAGAIN)) { // EAGAIN just means it needs more packets.
           fprintf(stderr,
@@ -936,7 +936,7 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
 
     } while (false);
 
-    av_packet_free(&packet);
+    av_packet_free(&avPacket);
 
     return success;
   }

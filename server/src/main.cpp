@@ -217,7 +217,7 @@ int main(int argc, char *argv[]) {
 
   std::shared_ptr<LEDTCPServer> server =
       create_server(INADDR_ANY, ledvwPort, server_config.clients,
-                    server_config.brightness_percent);
+                    server_config.brightness_percent, server_config.image_encoding);
   if (!server) {
     CefShutdown();
     exit(1);

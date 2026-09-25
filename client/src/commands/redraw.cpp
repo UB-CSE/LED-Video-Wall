@@ -31,7 +31,7 @@ IRAM_ATTR static void redraw_task(void *) {
   }
 }
 
-int redraw(RedrawMessage *msg) {
+int redraw(const RedrawMessage *msg) {
   ESP_LOGI(TAG, "Handling redraw");
 
   if (msg == NULL) {
