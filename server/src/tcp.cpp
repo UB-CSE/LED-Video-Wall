@@ -132,8 +132,7 @@ std::shared_ptr<LEDTCPServer> create_server(uint32_t addr, uint16_t port,
   }
 
   int enable = 1;
-  setsockopt(server_socket, tcp_protocol_num, SO_REUSEPORT, &enable,
-             sizeof(enable));
+  setsockopt(server_socket, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(enable));
 
   struct sockaddr_in s_addr;
   s_addr.sin_family = AF_INET;
