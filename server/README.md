@@ -8,8 +8,6 @@
 
 ## Local Installation
 
-
-
 * The server can only be build for Linux. If you're using Windows, install WSL. If you're using macOS, set up a Linux VM with VMWare Fusion or install Asahi on your machine (if supported).
 * Install dependencies:
   - For Ubuntu/Debian: 
@@ -26,7 +24,7 @@
     ```bash
     cmake --build build/
     ```
-* Start the server with `./build/LEDWallServer <input file>`, e.g., `./build/LEDWallServer input-text.yaml`
+* Start the server with `./build/led-wall-server <input file>`, e.g., `./build/led-wall-server input-text.yaml`
     * The following command-line arguments are also supported:
         * `--ledvw-port=<port>` : The port which the microcontrollers will connect to for communication (default: 7070)
             * This port number is also used as a kind of "id" for the server. The command pipe will be named `/tmp/led-cmd-<ledvw-port>`, and CEF caches will be stored in `./cef-caches/cef-cache-<ledvw-port>`.
@@ -40,3 +38,21 @@
     ```bash
     find . -name 'chrome-sandbox' -exec sudo ./scripts/configure-cef-sandbox.bash {} \;
     ```
+
+## Unit Testing
+
+[GoogleTest](https://google.github.io/googletest/primer.html) is used for unit testing. Unit tests are located in the `tests/`.
+
+To run tests:
+- Compile the server (see local installation section).
+    - Make sure that the `BUILD_TESTS` configuration option set to `ON` (default).
+- Run the tests:
+    ```bash
+    cd build/
+    ctest
+    ```
+
+
+
+
+
