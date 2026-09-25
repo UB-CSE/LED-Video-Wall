@@ -4,6 +4,6 @@
 #include "protocol.hpp"
 
 int send_logs(int sockfd);
-int get_logs(GetLogsMessage *msg, int sockfd);
+int get_logs(const GetLogsMessage *msg, int sockfd);
 
 #endif

@@ -3,7 +3,7 @@
 
 #include "protocol.hpp"
 
-int set_leds(SetLedsMessage *msg);
-int set_leds_batched(SetLedsBatchedMessage *msg);
+int set_leds(const SetLEDsMessage *msg);
+int set_leds_batched(const SetLEDsBatchedMessage *msg);
 
 #endif

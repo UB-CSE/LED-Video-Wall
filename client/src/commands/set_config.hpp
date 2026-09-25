@@ -10,6 +10,6 @@
 extern std::map<int8_t, led_strip_handle_t> pin_to_handle;
 extern SemaphoreHandle_t pin_to_handle_mutex;
 
-int set_config(SetConfigMessage *msg);
+int set_config(const SetConfigMessage *msg);
 
 #endif

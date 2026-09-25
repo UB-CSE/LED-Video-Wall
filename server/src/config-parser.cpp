@@ -18,9 +18,10 @@
 ServerConfig::ServerConfig() : clients(), canvas_size(), ns_per_frame() {}
 
 ServerConfig::ServerConfig(std::vector<Client *> clients, cv::Size canvas_size,
-                           int64_t ns_per_frame, float brightness_percent)
+                           int64_t ns_per_frame, float brightness_percent,
+                           ImageEncoding encoding)
     : clients(clients), canvas_size(canvas_size), ns_per_frame(ns_per_frame),
-      brightness_percent(brightness_percent) {}
+      brightness_percent(brightness_percent), image_encoding(encoding) {}
 
 std::string parse_error(std::string error) { return "Parse Error: " + error; }
 
@@ -292,6 +293,13 @@ ServerConfig parse_config_throws(std::string file) {
   if (ynode_brightness) {
     brightness_percent = ynode_brightness.as<float>();
   }
+
+  auto encoding_string = config["encoding"].as<std::string>();
+  ImageEncoding encoding = encoding_from_string(encoding_string);
+  if (encoding == ImageEncoding::UNKNOWN) {
+    throw std::logic_error("Invalid image encoding '" + encoding_string + "'");
+  }
+
   // Parse Matrices
   std::pair<std::map<std::string, LEDMatrix *>, cv::Size> matrices =
       parse_matrices(ynode_matrices, matrix_specs);
@@ -306,5 +314,5 @@ ServerConfig parse_config_throws(std::string file) {
   std::vector<Client *> clients = parse_clients(ynode_clients, matrices.first);
 
   return ServerConfig(clients, matrices.second, ns_per_frame,
-                      brightness_percent);
+                      brightness_percent, encoding);
 }

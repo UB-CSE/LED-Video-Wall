@@ -17,35 +17,31 @@ int send_logs(int sockfd) {
     return -1;
   }
 
-  uint32_t message_len = 0;
-  uint8_t *message = encode_send_logs((const char *)logs, &message_len);
+  std::vector<uint8_t> message = encode_send_logs((const char *)logs);
   free(logs);
 
-  if (!message) {
+  if (message.empty()) {
     ESP_LOGE(TAG, "Failed to encode message");
     return -1;
   }
 
   size_t sent = 0;
-  while (sent < message_len) {
+  while (sent < message.size()) {
     // TODO: this stuff should probably be offloaded to a separate task
-    ssize_t bytes_read = send(sockfd, message + sent, message_len - sent, 0);
+    ssize_t bytes_read = send(sockfd, message.data() + sent, message.size() - sent, 0);
     // TODO: does this have the same issue as socket read in network.cpp?
     if (bytes_read <= 0) {
       ESP_LOGW(TAG, "Failed to send socket: %d", errno);
-      free_message_buffer(message);
       return -1;
     }
 
     sent += (size_t)bytes_read;
   }
 
-  free_message_buffer(message);
-
   return 0;
 }
 
-int get_logs(GetLogsMessage *msg, int sockfd) {
+int get_logs(const GetLogsMessage *msg, int sockfd) {
   ESP_LOGI(TAG, "Handling get_logs");
 
   if (msg == NULL) {

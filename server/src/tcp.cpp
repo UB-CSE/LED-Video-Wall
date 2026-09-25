@@ -61,7 +61,7 @@ void LEDTCPServer::handle_conns() {
     CheckInMessage msg;
     MessageHeader *header = &msg.header;
     *header = tcp_recv_header(client_socket);
-    if (msg.header.op_code != OP_CHECK_IN ||
+    if (msg.header.op_code != OperationCode::CHECK_IN ||
         msg.header.size != sizeof(CheckInMessage)) {
       std::cerr << "Expected check-in message, got invalid op-code or message "
                    "size.\n";
@@ -100,16 +100,13 @@ void LEDTCPServer::handle_conns() {
         for (LEDMatrix *mat : conn.matrices) {
           max_leds += mat->spec->width * mat->spec->height;
         }
-        uint8_t led_type = (conn.pin < 0) ? LED_TYPE_P3 : LED_TYPE_WS2811;
-        pin_info.push_back(
-            (PinInfo){conn.pin, COLOR_ORDER_GRB, max_leds, led_type});
+        LEDType led_type = (conn.pin < 0) ? LEDType::HUB75 : LEDType::WS2811;
+        pin_info.push_back((PinInfo){conn.pin, led_type, max_leds});
       }
-      const PinInfo *inf = pin_info.data();
-      uint32_t out_size;
-      uint8_t *msg = encode_set_config(3, num_pins, inf, &out_size);
+      std::vector<uint8_t> msg = encode_set_config(pin_info, image_encoding);
       struct pollfd pfd = {client_socket, POLLOUT, -1};
       poll(&pfd, 1, -1);
-      send(client_socket, msg, out_size, 0);
+      send(client_socket, msg.data(), msg.size(), 0);
       std::cout << "Sent set_config to " << mac_addr << "\n";
       conn_info->setConnected(c, client_socket);
     } else {
@@ -121,7 +118,8 @@ void LEDTCPServer::handle_conns() {
 
 std::shared_ptr<LEDTCPServer> create_server(uint32_t addr, uint16_t port,
                                             std::vector<Client *> clients,
-                                            float brightness_percent) {
+                                            float brightness_percent,
+                                            ImageEncoding image_encoding) {
   struct protoent *protocol_entry = getprotobyname("tcp");
   const int tcp_protocol_num = protocol_entry->p_proto;
 
@@ -162,15 +160,16 @@ std::shared_ptr<LEDTCPServer> create_server(uint32_t addr, uint16_t port,
   }
 
   return std::make_shared<LEDTCPServer>(addr, port, server_socket, clients,
-                                        brightness_percent);
+                                        brightness_percent, image_encoding);
 }
 
 LEDTCPServer::LEDTCPServer(uint32_t addr, uint16_t port, int socket,
                            std::vector<Client *> clients,
-                           float brightness_percent)
+                           float brightness_percent,
+                           ImageEncoding image_encoding)
     : addr(addr), port(port), socket(socket),
       conn_info(new ClientConnInfo(clients)),
-      brightness_percent(brightness_percent) {
+      brightness_percent(brightness_percent), image_encoding(image_encoding) {
   if (this->brightness_percent < 1.0) {
     this->brightness_percent = 1.0;
   } else if (this->brightness_percent > 100.0) {
@@ -327,11 +326,11 @@ void LEDTCPServer::tcp_recv(int socket, void *data, int size) {
 
 void LEDTCPServer::set_leds(const Client *c, int client_socket,
                             VirtualCanvas canvas) {
-  std::vector<LedsBatch> leds_batches;
+  std::vector<LEDsBatchEntryData> leds_batches;
   for (MatricesConnection conn : c->mat_connections) {
     uint64_t total_size = 0;
     for (LEDMatrix *mat : conn.matrices) {
-      total_size += mat->packed_pixel_array_size;
+      total_size += mat->rgb24_pixel_array_size;
     }
     // temp_buf is a buffer that will contain all the re-oriented/processed
     // submatrices of each led strip for the client
@@ -371,7 +370,7 @@ void LEDTCPServer::set_leds(const Client *c, int client_socket,
       const uint8_t *data = sub_cvmat.data;
       // todo: brightness_reduction should be configurable!
       // Added brightness percent and removed brightness_reduction;
-      uint32_t num_leds = ledmat->packed_pixel_array_size / 3;
+      uint32_t num_leds = ledmat->rgb24_pixel_array_size / 3;
       for (uint32_t i = 0; (i < num_leds); ++i) {
         uint32_t a = i * 3;
         if (pin < 0 || (i / width) % 2 != 0) {
@@ -386,24 +385,22 @@ void LEDTCPServer::set_leds(const Client *c, int client_socket,
           pixel_buf[a] = data[b + 2];
         }
       }
-      pixel_buf += ledmat->packed_pixel_array_size;
+      pixel_buf += ledmat->rgb24_pixel_array_size;
     }
     uint32_t num_leds_total = total_size / 3;
-    leds_batches.push_back((LedsBatch){pin, num_leds_total, temp_buf});
+    LEDsBatchEntryData batch{
+        .gpio_pin = pin, .num_leds = num_leds_total, .pixel_data = temp_buf};
+    leds_batches.push_back(batch);
   }
-  uint32_t msg_size;
-  uint8_t *msg_buf = encode_set_leds_batched(c->mat_connections.size(),
-                                             leds_batches.data(), &msg_size);
-  this->tcp_send(c, client_socket, msg_buf, msg_size);
-  for (LedsBatch batch : leds_batches) {
+  std::vector<uint8_t> msg_buf =
+      encode_set_leds_batched(leds_batches, image_encoding);
+  this->tcp_send(c, client_socket, msg_buf.data(), msg_buf.size());
+  for (LEDsBatchEntryData &batch : leds_batches) {
     free((void *)batch.pixel_data);
   }
-  free_message_buffer(msg_buf);
 }
 
 void LEDTCPServer::redraw(const Client *c, int client_socket) {
-  uint32_t msg_size;
-  uint8_t *msg_buf = encode_redraw(&msg_size);
-  this->tcp_send(c, client_socket, msg_buf, msg_size);
-  free_message_buffer(msg_buf);
+  std::vector<uint8_t> msg_buf = encode_redraw();
+  this->tcp_send(c, client_socket, msg_buf.data(), msg_buf.size());
 }

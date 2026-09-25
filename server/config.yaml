@@ -9,6 +9,7 @@ ns-per-frame: 40000000 # 25 fps
 #ns-per-frame: 16666667 # 60fps
 
 brightness_percent: 100
+encoding: rgb18
 
 matrix-specs:
   "ws2812b:32x8":
@@ -103,6 +104,10 @@ matrices:
     spec: "p3:64x64"
     pos: [0, 256]
     rot: down
+  mat_p3_6:
+    spec: "p3:64x64"
+    pos: [0, 320]
+    rot: down
   
 
 
@@ -170,5 +175,7 @@ clients:
         matrices: [mat_p3_4]
       - pin: -5
         matrices: [mat_p3_5]
+      - pin: -6
+        matrices: [mat_p3_6]
 
   

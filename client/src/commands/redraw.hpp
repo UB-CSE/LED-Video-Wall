@@ -7,6 +7,6 @@
 extern TaskHandle_t notify_handle;
 
 void init_redraw();
-int redraw(RedrawMessage *msg);
+int redraw(const RedrawMessage *msg);
 
 #endif
