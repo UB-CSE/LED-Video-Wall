@@ -1,60 +1,44 @@
 #Beyond just the id, the id is also a weight to determine which images have layering priority
 
-
 #Gamma - Less than 1 -> lighter, More than 1 -> Darker
 
 settings:
-  gamma: 1.25
+  gamma: 1
 elements:
   "elem1":
     id: 1
-    type: "video"
-    filepath: "images/conway_pulsar.mp4"
-    framerate: 1
+    type: "image"
+    filepath: "images/horse.jpg"
     location: [0, 0]
+    scale: 0.25
   "elem2":
     id: 2
-    type: "video"
-    filepath: "images/conway_pulsar.mp4"
-    framerate: 1
-    location: [0, 32]
+    type: "image"
+    filepath: "images/butterfly.jpg"
+    location: [0, 64]
+    scale: 0.25
   "elem3":
     id: 3
-    type: "video"
-    filepath: "images/conway_pulsar.mp4"
-    framerate: 1
-    location: [32, 0]
+    type: "image"
+    filepath: "images/parrot.jpg"
+    location: [0, 128]
+    scale: 0.32
   "elem4":
     id: 4
-    type: "video"
-    filepath: "images/conway_pulsar.mp4"
-    framerate: 1
-    location: [32, 32]
+    type: "image"
+    filepath: "images/clownfish.jpg"
+    location: [0, 192]
+    scale: 0.25
   "elem5":
     id: 5
-    type: "video"
-    filepath: "images/conway_pulsar.mp4"
-    framerate: 1
-    location: [0, 64]
-
+    type: "image"
+    filepath: "images/treefrog.jpg"
+    location: [0, 256]
+    scale: 0.16
   "elem6":
     id: 6
-    type: "video"
-    filepath: "images/conway_pulsar.mp4"
-    framerate: 1
-    location: [16, 144]
+    type: "image"
+    filepath: "images/rainbow.png"
+    location: [0, 320]
+    scale: 0.125
 
-  "elem7":
-    id: 7
-    type: "video"
-    filepath: "images/conway_pulsar.mp4"
-    framerate: 1
-    location: [0, 192]
-
-  "elem8":
-    id: 8
-    type: "video"
-    filepath: "images/cat64.mp4"
-    framerate: 60
-    location: [16, 272]
-    
