@@ -1,5 +1,4 @@
-#ifndef CONTROLLER_HPP
-#define CONTROLLER_HPP
+#pragma once
 
 #include "canvas.hpp"
 #include "client.hpp"
@@ -42,14 +41,13 @@ public:
 class Controller {
 public:
   VirtualCanvas &canvas;
-  std::vector<Client *> clients;
   std::shared_ptr<LEDTCPServer> tcp_server;
-  ClientConnInfo *client_conn_info;
+  std::shared_ptr<const ClientConnInfo> client_conn_info;
   EventQueue event_queue;
   int64_t ns_per_frame;
 
-  Controller(VirtualCanvas &canvas, std::vector<Client *> clients,
-             std::shared_ptr<LEDTCPServer> tcp_server, int64_t ns_per_frame);
+  Controller(VirtualCanvas &canvas, std::shared_ptr<LEDTCPServer> tcp_server,
+             int64_t ns_per_frame);
 
   void frame_exec(bool debug);
   void set_leds_all();
@@ -58,5 +56,3 @@ public:
 private:
   void frame_wait();
 };
-
-#endif

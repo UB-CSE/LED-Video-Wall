@@ -39,19 +39,21 @@ std::optional<Event> EventQueue::tryPopEvent(ns_ts cutoff_time) {
   }
 }
 
-Controller::Controller(VirtualCanvas &canvas, std::vector<Client *> clients,
+Controller::Controller(VirtualCanvas &canvas,
                        std::shared_ptr<LEDTCPServer> tcp_server,
                        int64_t ns_per_frame)
-    : canvas(canvas), clients(clients), tcp_server(tcp_server),
+    : canvas(canvas), tcp_server(tcp_server),
       client_conn_info(tcp_server->getConnInfo()), event_queue(),
       ns_per_frame(ns_per_frame) {
   // Add events for all elements
   auto cur_time = std::chrono::system_clock::now();
-  for (auto elem : canvas.elementPtrList) {
+  for (auto elem : canvas.getElements()) {
     int frame_rate = elem->getFrameRate();
     if (frame_rate > 0) {
       ns_dur period = std::chrono::nanoseconds(1'000'000'000 / frame_rate);
-      auto nextFrame = [elem](Controller *cont) { return elem->nextFrame(); };
+      auto nextFrame = [elem](Controller *cont) {
+        return elem->acquireNextFrame();
+      };
       this->event_queue.addEvent(Event(cur_time + period, period, nextFrame));
     }
   }
@@ -77,10 +79,10 @@ void Controller::frame_exec(bool debug) {
   std::optional<Event> event_opt = this->event_queue.tryPopEvent(cur_time);
   while (event_opt.has_value()) {
     Event event = event_opt.value();
-    event.action(this);
+    (void)event.action(this);
     event_opt = this->event_queue.tryPopEvent(cur_time);
   }
-  this->canvas.pushToCanvas();
+  this->canvas.pushElementsToPixelMatrix();
 
   if (debug) { // If this is true, then display the virtual canvas client side.
                // Used for debugging and virtual visualization.
@@ -93,17 +95,17 @@ void Controller::frame_exec(bool debug) {
 }
 
 void Controller::set_leds_all() {
-  std::vector<std::pair<const Client *, int>> conns;
-  this->client_conn_info->getAllConnected(conns);
-  for (auto it : conns) {
-    this->tcp_server->set_leds(it.first, it.second, this->canvas);
+  std::vector<std::pair<uint64_t, int>> conns;
+  client_conn_info->getAllConnected(conns);
+  for (auto [addr, sock] : conns) {
+    this->tcp_server->set_leds(addr, sock, this->canvas);
   }
 }
 
 void Controller::redraw_all() {
-  std::vector<std::pair<const Client *, int>> conns;
+  std::vector<std::pair<uint64_t, int>> conns;
   this->client_conn_info->getAllConnected(conns);
-  for (auto it : conns) {
-    this->tcp_server->redraw(it.first, it.second);
+  for (auto [addr, sock] : conns) {
+    this->tcp_server->redraw(addr, sock);
   }
 }

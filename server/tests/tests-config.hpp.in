@@ -1,0 +1,8 @@
+#pragma once
+
+#include <filesystem>
+
+// This file gets configured by CMake. See the generated test-config.hpp file in the build folder.
+
+static const std::filesystem::path TestImagesDir("@IMAGES_DIR@");
+static const std::filesystem::path TestResourcesDir("@TEST_RESOURCES_DIR@");

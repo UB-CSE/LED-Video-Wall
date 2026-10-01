@@ -1,5 +1,4 @@
-#ifndef TCP_H
-#define TCP_H
+#pragma once
 
 #include "canvas.hpp"
 #include "client.hpp"
@@ -18,59 +17,66 @@
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h> // for close
+#include <unordered_map>
 #include <vector>
 
 class ClientConnInfo {
+  mutable std::mutex m_mut;
+  std::map<uint64_t, int> m_connected;
+  std::set<uint64_t> m_disconnected;
+
+  friend class LEDTCPServer;
+
 public:
-  std::mutex mut;
-  std::map<const Client *, int> connected;
-  std::set<const Client *> disconnected;
+  explicit ClientConnInfo(const std::vector<std::shared_ptr<Client>> &clients);
 
-  explicit ClientConnInfo(std::vector<Client *> clients);
-
-  void setConnected(const Client *c, int socket);
-  std::optional<int> getSocket(const Client *c);
-  void getAllConnected(std::vector<std::pair<const Client *, int>> &v);
-  void getAllDisconnected(std::vector<const Client *> &v);
-  void setDisconnected(const Client *c);
-  bool isConnected(const Client *c);
+  void setConnected(uint64_t addr, int socket);
+  std::optional<int> getSocket(uint64_t addr) const;
+  void getAllConnected(std::vector<std::pair<uint64_t, int>> &v) const;
+  void getAllDisconnected(std::vector<uint64_t> &v) const;
+  void setDisconnected(uint64_t addr);
+  bool isConnected(uint64_t addr) const;
 };
 
 class LEDTCPServer {
-  uint32_t addr;
-  uint16_t port;
-  int socket;
-  ClientConnInfo *conn_info;
-  std::thread conn_handling;
-  bool is_running = false;
+  uint32_t m_addr;
+  uint16_t m_port;
+  int m_socket;
+  std::shared_ptr<ClientConnInfo> m_connInfo;
+  std::thread m_connHandling;
+  bool m_isRunning = false;
+
+  std::unordered_map<uint64_t, std::shared_ptr<const Client>> m_clients;
 
   void handle_conns();
 
-  float brightness_percent;
-  ImageEncoding image_encoding;
+  float m_brightnessPercent;
+  ImageEncoding m_imageEncoding;
 
 public:
   LEDTCPServer(uint32_t addr, uint16_t port, int socket,
-               std::vector<Client *> clients, float brightness_percent, ImageEncoding image_encoding);
+               const std::vector<std::shared_ptr<Client>> &clients,
+               float brightness_percent, ImageEncoding image_encoding);
   ~LEDTCPServer();
 
   LEDTCPServer(const LEDTCPServer &) = delete;
   LEDTCPServer &operator=(const LEDTCPServer &) = delete;
 
-  ClientConnInfo *getConnInfo() const { return conn_info; }
+  std::shared_ptr<const ClientConnInfo> getConnInfo() const {
+    return m_connInfo;
+  }
 
   void start();
 
-  void tcp_send(const Client *c, int socket, void *data, int size);
+  void tcp_send(uint64_t addr, int socket, void *data, int size);
   MessageHeader tcp_recv_header(int socket);
   void tcp_recv(int socket, void *data, int size);
 
-  void set_leds(const Client *c, int client_socket, VirtualCanvas canvas);
-  void redraw(const Client *c, int client_socket);
+  void set_leds(uint64_t addr, int client_socket, const VirtualCanvas &canvas);
+  void redraw(uint64_t addr, int client_socket);
 };
 
-std::shared_ptr<LEDTCPServer> create_server(uint32_t addr, uint16_t port,
-                                            std::vector<Client *> clients,
-                                            float brightness_percent, ImageEncoding image_encoding);
-
-#endif
+std::shared_ptr<LEDTCPServer>
+create_server(uint32_t addr, uint16_t port,
+              const std::vector<std::shared_ptr<Client>> &clients,
+              float brightness_percent, ImageEncoding image_encoding);

@@ -60,11 +60,13 @@ target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBRARIES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${OpenCV_DEFINITIONS})
 
 # yaml-cpp
-pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
-target_include_directories(${PROJECT_NAME} PUBLIC ${YAML_CPP_INCLUDE_DIRS})
-target_link_directories(${PROJECT_NAME} PUBLIC ${YAML_CPP_LIBRARY_DIRS})
-target_link_libraries(${PROJECT_NAME} ${YAML_CPP_LIBRARIES})
-target_compile_definitions(${PROJECT_NAME} PUBLIC ${YAML_CPP_DEFINITIONS})
+FetchContent_Declare(
+        yaml-cpp
+        GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+        GIT_TAG yaml-cpp-0.9.0
+)
+FetchContent_MakeAvailable(yaml-cpp)
+target_link_libraries(${PROJECT_NAME} yaml-cpp::yaml-cpp)
 
 # freetype2
 pkg_check_modules(FREETYPE2 REQUIRED freetype2)
@@ -96,7 +98,6 @@ FetchContent_Declare(
 set(SPDLOG_USE_STD_FORMAT ON)
 set(SPDLOG_ENABLE_PCH ON)
 FetchContent_MakeAvailable(spdlog)
-
 target_link_libraries(${PROJECT_NAME} spdlog::spdlog)
 
 # CEF
@@ -186,7 +187,12 @@ if (BUILD_TESTS)
     add_executable(${TESTS_NAME} ${TEST_SOURCES})
     target_link_libraries(${TESTS_NAME} ${PROJECT_NAME})
 
-    target_compile_definitions(${TESTS_NAME} PUBLIC "IMAGES_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/images\"")
+    set(IMAGES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/images")
+    set(TEST_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/resources")
+
+    configure_file("tests/tests-config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/tests/tests-config.hpp")
+
+    target_include_directories(${TESTS_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/tests")
 
     target_link_libraries(${TESTS_NAME} GTest::gtest_main GTest::gmock_main)
     gtest_discover_tests(${TESTS_NAME})

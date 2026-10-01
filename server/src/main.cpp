@@ -1,9 +1,8 @@
 #include "canvas.hpp"
 #include "client.hpp"
 #include "command.hpp"
-#include "config-parser.hpp"
 #include "controller.hpp"
-#include "input-parser.hpp"
+#include "matrix-config.hpp"
 #include "rtmp.hpp"
 #include "tcp.hpp"
 #include <cef_app.h>
@@ -185,19 +184,13 @@ int main(int argc, char *argv[]) {
   setenv("RDMAV_FORK_SAFE", "1", 1);
   setenv("OPENCV_FFMPEG_CAPTURE_OPTIONS", "rtsp_transport;udp", 1);
 
-  ServerConfig server_config;
-  std::optional<ServerConfig> server_config_opt;
-  try {
-    server_config_opt = parse_config_throws("config.yaml");
-  } catch (std::exception &ex) {
-    std::cerr << "Error Parsing config file: " << ex.what() << "\n";
+  MatrixConfig matrixConfig;
+  if (!matrixConfig.load("config.yaml")) {
     CefShutdown();
     exit(1);
   }
-  server_config = server_config_opt.value();
 
-  VirtualCanvas vCanvas(server_config.canvas_size);
-  vCanvas.pixelMatrix = cv::Mat::zeros(vCanvas.dim, CV_8UC3);
+  VirtualCanvas vCanvas(matrixConfig.canvas_size);
 
   if (!handle_command_line()) {
     CefShutdown();
@@ -206,26 +199,21 @@ int main(int argc, char *argv[]) {
 
   RTMPServer rtmpServer(rtmpPort, "0.0.0.0", rtmpCertPath, rtmpKeyPath);
 
-  try {
-    parseInput(vCanvas, inputFilePath, rtmpServer);
-  } catch (std::exception &ex) {
-    std::cerr << "Error Parsing image input file (" << inputFilePath
-              << "):" << ex.what() << "\n";
+  if (!vCanvas.loadElementConfig(inputFilePath, rtmpServer)) {
     CefShutdown();
     exit(1);
   }
 
-  std::shared_ptr<LEDTCPServer> server =
-      create_server(INADDR_ANY, ledvwPort, server_config.clients,
-                    server_config.brightness_percent, server_config.image_encoding);
+  std::shared_ptr<LEDTCPServer> server = create_server(
+      INADDR_ANY, ledvwPort, matrixConfig.clients,
+      matrixConfig.brightness_percent, matrixConfig.image_encoding);
   if (!server) {
     CefShutdown();
     exit(1);
   }
   server->start();
 
-  Controller cont(vCanvas, server_config.clients, server,
-                  server_config.ns_per_frame);
+  Controller cont(vCanvas, server, matrixConfig.ns_per_frame);
 
   // Each instance gets its own command pipe based on its ledvw port.
   const std::string cmd_pipe =

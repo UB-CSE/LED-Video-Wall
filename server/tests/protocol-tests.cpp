@@ -1,6 +1,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <tests-config.hpp>
+
 #include <filesystem>
 #include <opencv2/opencv.hpp>
 #include <protocol.hpp>
@@ -8,14 +10,13 @@
 using namespace testing;
 using enum ImageEncoding;
 
-static const std::filesystem::path ImagesDir(IMAGES_DIR);
 static const std::filesystem::path ParrotTestImagePath =
-    ImagesDir / "parrot.jpg";
+    TestImagesDir / "parrot.jpg";
 static constexpr int ParrotTestImageWidth = 150;
 static constexpr int ParrotTestImageHeight = 200;
 
 static const std::filesystem::path ButterflyTestImagePath =
-    ImagesDir / "butterfly.jpg";
+    TestImagesDir / "butterfly.jpg";
 static constexpr int ButterflyTestImageWidth = 256;
 static constexpr int ButterflyTestImageHeight = 256;
 
@@ -386,6 +387,3 @@ TEST(ImageEncoding, YUV_422) {
 
   ASSERT_THAT(final, ElementsAre(255, 173, 85, 215, 134, 45));
 }
-
-
-

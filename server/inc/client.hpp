@@ -1,71 +1,53 @@
-#ifndef CLIENT_HPP
-#define CLIENT_HPP
+#pragma once
 
 #include <cstdint>
 #include <memory>
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
-enum rotation { UP, DOWN, LEFT, RIGHT };
+enum class Rotation { UNKNOWN = -1, UP, DOWN, LEFT, RIGHT };
 
-class CanvasPos {
-public:
+const char *RotationToString(Rotation rot);
+Rotation RotationFromString(std::string_view str);
+
+struct CanvasPos {
   uint32_t x;
   uint32_t y;
+
   // width and height for CanvasPos should not be confused with those in
-  // LEDMAtrixSpec, these may be flipped depending on rotation.
+  // LEDMatrixSpec, these may be flipped depending on rotation.
   uint32_t width;
   uint32_t height;
-  rotation rot;
 
-  CanvasPos(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
-            rotation rot);
+  Rotation rot;
 };
 
-class LEDMatrixSpec {
-public:
+struct LEDMatrixSpec {
   std::string id;
-  float power_limit_amps;
+  float powerLimitAmps;
   uint32_t width;
   uint32_t height;
-  uint64_t total_leds;
 
-  LEDMatrixSpec(std::string id, float power_limit_amps, uint32_t width,
-                uint32_t height);
-
-  std::string to_string();
+  uint32_t getTotalLEDs() const { return width * height; }
 };
 
-class LEDMatrix {
-public:
+struct LEDMatrix {
   std::string id;
-  LEDMatrixSpec *spec;
+  std::shared_ptr<LEDMatrixSpec> spec;
   CanvasPos pos;
-  uint32_t rgb24_pixel_array_size;
 
-  LEDMatrix(std::string id, LEDMatrixSpec *spec, CanvasPos pos);
-
-  std::string to_string();
+  uint32_t getRGB24PixelArraySize() const { return spec->getTotalLEDs() * 3; }
 };
 
-class MatricesConnection {
-public:
+struct MatricesConnection {
   int8_t pin;
-  std::vector<LEDMatrix *> matrices;
-
-  std::string to_string();
+  std::vector<std::shared_ptr<LEDMatrix>> matrices;
 };
 
-class Client {
-public:
-  uint64_t mac_addr;
-  std::vector<MatricesConnection> mat_connections;
-
-  Client(uint64_t mac_addr, std::vector<MatricesConnection> mat_connections);
-
-  std::string to_string();
+struct Client {
+  uint64_t macAddr;
+  std::vector<MatricesConnection> matConnections;
 };
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef RTMP_H
-#define RTMP_H
+#pragma once
 
 #include <arpa/inet.h>
 #include <librtmp/rtmp.h>
@@ -37,10 +36,15 @@ public:
 
   /**
    * Receives the next video frame for the given stream name, if available.
-   * Returns an empty optional if the stream doesn't exist or if there are no
-   * new frames.
+   *
+   * Sets the output parameter to the received frame and returns true on
+   * success, or returns false if no frame is available.
+   *
+   * @param name Name of the stream.
+   * @param output Output frame.
+   * @return Success
    */
-  std::optional<cv::Mat> receiveStreamFrame(const std::string &name);
+  bool receiveStreamFrame(const std::string &name, cv::Mat &output);
 
   /**
    * Returns the names of all currently active streams (i.e. active RTMP
@@ -104,7 +108,7 @@ private:
 
   // utilities
 
-  static cv::Mat avFrameToCvMat(const AVFrame *frame);
+  static void avFrameToCvMat(const AVFrame *frame, cv::Mat &output);
 
 private:
   bool wasInitSuccessful = false;
@@ -146,5 +150,3 @@ private:
   };
   std::unordered_map<std::string, std::shared_ptr<CodecContext>> activeStreams;
 };
-
-#endif

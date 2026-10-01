@@ -26,6 +26,7 @@ bool inputAvailable() {
 
 int processCommand(VirtualCanvas &vCanvas, const std::string &line,
                    bool &isPaused) {
+#if 0
   std::istringstream iss(line);
   std::string cmd;
   iss >> cmd;
@@ -277,5 +278,6 @@ int processCommand(VirtualCanvas &vCanvas, const std::string &line,
   std::cout << "Unknown command: " << cmd
             << "\n"
                "Available: pause, resume, quit, move <id> <x> <y>\n";
+#endif
   return 0;
 }

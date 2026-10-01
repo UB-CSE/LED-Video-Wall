@@ -113,9 +113,9 @@ RTMPServer::~RTMPServer() {
   printf("RTMPServer on port %d stopped.\n", port);
 }
 
-std::optional<cv::Mat> RTMPServer::receiveStreamFrame(const std::string &name) {
+bool RTMPServer::receiveStreamFrame(const std::string &name, cv::Mat &output) {
   if (!wasInitSuccessful || !isActive) {
-    return std::nullopt;
+    return false;
   }
 
   std::shared_ptr<CodecContext> codecContext;
@@ -123,7 +123,7 @@ std::optional<cv::Mat> RTMPServer::receiveStreamFrame(const std::string &name) {
     std::lock_guard<std::mutex> lk(streamMutex);
     auto it = activeStreams.find(name);
     if (it == activeStreams.end()) {
-      return std::nullopt;
+      return false;
     }
     codecContext = it->second;
   }
@@ -137,13 +137,13 @@ std::optional<cv::Mat> RTMPServer::receiveStreamFrame(const std::string &name) {
 
   if (ret != 0) {
     av_frame_free(&frame);
-    return std::nullopt;
+    return false;
   }
 
-  cv::Mat mat = avFrameToCvMat(frame);
+  avFrameToCvMat(frame, output);
 
   av_frame_free(&frame);
-  return mat.clone();
+  return true;
 }
 
 std::unordered_set<std::string> RTMPServer::getActiveStreamNames() const {
@@ -1064,20 +1064,19 @@ bool RTMPServer::sendPublish(RTMP *r, int streamID) {
   return RTMP_SendPacket(r, &packet, false);
 }
 
-cv::Mat RTMPServer::avFrameToCvMat(const AVFrame *avFrame) {
+void RTMPServer::avFrameToCvMat(const AVFrame *avFrame, cv::Mat &output) {
   SwsContext *conversion =
       sws_getContext(avFrame->width, avFrame->height,
                      static_cast<AVPixelFormat>(avFrame->format),
                      avFrame->width, avFrame->height, AV_PIX_FMT_BGR24,
                      SWS_FAST_BILINEAR, nullptr, nullptr, nullptr);
 
-  cv::Mat mat(avFrame->height, avFrame->width, CV_8UC3);
-  uint8_t *dest[4] = {mat.data, nullptr, nullptr, nullptr};
-  int destStride[4] = {static_cast<int>(mat.step[0]), 0, 0, 0};
+  output = cv::Mat(avFrame->height, avFrame->width, CV_8UC3);
+  uint8_t *dest[4] = {output.data, nullptr, nullptr, nullptr};
+  int destStride[4] = {static_cast<int>(output.step[0]), 0, 0, 0};
 
   sws_scale(conversion, avFrame->data, avFrame->linesize, 0, avFrame->height,
             dest, destStride);
 
   sws_freeContext(conversion);
-  return mat;
 }
