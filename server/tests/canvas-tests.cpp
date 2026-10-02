@@ -109,7 +109,7 @@ TEST(Canvas, ImageElements) {
   inspect(canvasMat, "Canvas");
 }
 
-TEST(Canvas, Load) {
+TEST(Canvas, LoadAndSave) {
   std::filesystem::current_path(TestImagesDir);
 
   const cv::Size canvasSize(128, 128);
@@ -123,20 +123,17 @@ TEST(Canvas, Load) {
   auto elements = canvas.getElements();
   auto elementIt = elements.begin();
   {
-    auto elem2 =
-        std::dynamic_pointer_cast<TextElement>(*elementIt);
+    auto elem2 = std::dynamic_pointer_cast<TextElement>(*elementIt);
     ASSERT_THAT(elem2, NotNull());
   }
   ++elementIt;
   {
-    auto elem1 =
-        std::dynamic_pointer_cast<VideoElement>(*elementIt);
+    auto elem1 = std::dynamic_pointer_cast<VideoElement>(*elementIt);
     ASSERT_THAT(elem1, NotNull());
   }
   ++elementIt;
   {
-    auto elem0 =
-        std::dynamic_pointer_cast<ImageElement>(*elementIt);
+    auto elem0 = std::dynamic_pointer_cast<ImageElement>(*elementIt);
     ASSERT_THAT(elem0, NotNull());
     ASSERT_THAT(elem0->isLoaded(), IsTrue());
   }
@@ -144,4 +141,12 @@ TEST(Canvas, Load) {
   cv::Mat canvasMat = canvas.getPixelMatrix();
   VERIFY_CV_SIZE(canvasMat.size(), 128, 128);
   inspect(canvasMat, "Canvas");
+
+  // Save
+
+  const std::filesystem::path savePath =
+      std::filesystem::temp_directory_path() / "input.yaml";
+  canvas.saveElementConfig(savePath);
+
+  ASSERT_THAT(std::filesystem::exists(savePath), IsTrue());
 }

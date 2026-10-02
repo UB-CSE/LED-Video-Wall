@@ -23,6 +23,7 @@ class Element {
   double m_angleDegrees = 0.0;
   cv::Size m_size{0, 0};
   bool m_preserveAspectRatio;
+  bool m_wasPreserveAspectRatioChanged = false;
 
   cv::Mat m_originalPixelMatrix; // Before rotation
   cv::Mat m_finalPixelMatrix;    // After rotation
@@ -65,6 +66,14 @@ public:
   cv::Point getLocation() const {
     return m_location + m_locationOffsetRotation;
   };
+
+  /**
+   * Get the raw position of the element's top left corner on the canvas, before
+   * rotation offset is applied.
+   *
+   * @return Location
+   */
+  cv::Point getRawLocation() const { return m_location; }
 
   /**
    * Set the position of the element's top left corner on the canvas.
@@ -134,6 +143,16 @@ public:
   void setPreserveAspectRatio(bool preserveAspectRatio);
 
   /**
+   * Get whether scaling will preserve aspect ratio or not.
+   * @return True or false.
+   */
+  bool getPreserveAspectRatio() const { return m_preserveAspectRatio; }
+
+  bool wasPreserveAspectRatioChanged() const {
+    return m_wasPreserveAspectRatioChanged;
+  }
+
+  /**
    * Acquire and process the next frame.
    * @return Whether the frame has changed.
    */
@@ -199,6 +218,8 @@ public:
  * Cycles through multiple images loaded from disk.
  */
 class CarouselElement final : public Element {
+  std::vector<std::string> m_filepaths;
+
   std::vector<cv::Mat> m_pixelMatrices;
   size_t m_currentIndex = 0;
 
@@ -210,6 +231,9 @@ public:
   ~CarouselElement() override = default;
 
   void loadImages(std::span<const std::string> filepaths);
+  const std::vector<std::string> &getImageFilePaths() const {
+    return m_filepaths;
+  }
 
   bool isLoaded() const { return m_isLoaded; }
 
@@ -220,6 +244,8 @@ private:
 };
 
 class VideoElement final : public Element {
+  std::filesystem::path m_filepath;
+
   cv::VideoCapture m_cap;
 
   bool m_isLoaded = false;
@@ -229,11 +255,12 @@ class VideoElement final : public Element {
   const cv::Mat kNoFrameMat = cv::Mat(100, 100, CV_8UC3, cv::Scalar(0, 0, 255));
 
 public:
-  VideoElement(std::string_view uid, const std::string &filepath,
+  VideoElement(std::string_view uid, const std::filesystem::path &filepath,
                int frameRate);
   ~VideoElement() override = default;
 
   void loadVideo(const std::filesystem::path &filepath);
+  const std::filesystem::path &getVideoFilePath() const { return m_filepath; }
 
   void reset() override;
 
@@ -254,6 +281,7 @@ public:
   ~RTMPStreamElement() override = default;
 
   void setStreamName(std::string_view streamName);
+  std::string_view getStreamName() const { return m_streamName; }
 
   void reset() override;
 
@@ -262,11 +290,14 @@ private:
 };
 
 class WebBrowserElement final : public Element {
+  std::string m_url;
   cv::Size m_viewSize;
   WebBrowser m_webBrowser;
 
   const cv::Mat kNoFrameMat =
       cv::Mat(100, 100, CV_8UC3, cv::Scalar(255, 0, 0)); // red
+
+  std::vector<CefCookie> m_cookies;
 
 public:
   /**
@@ -283,7 +314,10 @@ public:
   ~WebBrowserElement() override = default;
 
   void setURL(std::string_view url);
+  std::string_view getURL() const { return m_url; }
+
   void setViewSize(cv::Size viewSize);
+  cv::Size getViewSize() const { return m_viewSize; }
 
   void reset() override;
 
@@ -292,6 +326,8 @@ public:
             std::string_view domain, std::string_view path, bool secure = false,
             bool httpOnly = false,
             cef_cookie_same_site_t sameSite = CEF_COOKIE_SAME_SITE_UNSPECIFIED);
+
+  std::span<const CefCookie> getCookies() const { return m_cookies; }
 
 private:
   bool nextFrame(cv::Mat &output) override;
@@ -310,9 +346,16 @@ public:
   ~TextElement() override = default;
 
   void setText(std::string_view text);
+  std::string_view getText() const { return m_text; }
+
   void setFont(const std::filesystem::path &fontPath);
+  const std::filesystem::path &getFontPath() const { return m_fontPath; }
+
   void setFontSize(int fontSize);
+  int getFontSize() const { return m_fontSize; }
+
   void setColor(const cv::Scalar &color);
+  const cv::Scalar &getColor() const { return m_color; }
 
 private:
   void render();
@@ -320,6 +363,7 @@ private:
 
 class VirtualCanvas final {
   cv::Mat m_pixelMatrix;
+  double m_gamma = 1.0;
   cv::Mat m_canvasLUT = cv::Mat(1, 256, CV_8UC1);
   cv::Size m_dim;
 

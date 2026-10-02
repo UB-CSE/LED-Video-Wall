@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <fstream>
 #include <iostream>
 #include <random>
 #include <ranges>
@@ -160,6 +161,7 @@ void Element::setSize(cv::Size size) {
 }
 
 void Element::setPreserveAspectRatio(bool preserveAspectRatio) {
+  m_wasPreserveAspectRatioChanged = true;
   if (m_preserveAspectRatio != preserveAspectRatio) {
     m_preserveAspectRatio = preserveAspectRatio;
     refreshFrame();
@@ -214,6 +216,11 @@ static std::shared_ptr<Element> ImageElementFromYAML(const std::string &uid,
   return std::make_shared<ImageElement>(uid, filepath);
 }
 
+static void ImageElementToYAML(std::shared_ptr<ImageElement> element,
+                               YAML::Node &node) {
+  node["filepath"] = element->getImageFilePath().string();
+}
+
 #pragma endregion
 
 #pragma region CarouselElement
@@ -226,6 +233,8 @@ CarouselElement::CarouselElement(std::string_view uid,
 }
 
 void CarouselElement::loadImages(std::span<const std::string> filepaths) {
+  m_filepaths = std::vector(filepaths.begin(), filepaths.end());
+
   m_isLoaded = true;
 
   for (const auto &path : filepaths) {
@@ -265,17 +274,26 @@ static std::shared_ptr<Element> CarouselElementFromYAML(const std::string &uid,
   return std::make_shared<CarouselElement>(uid, filepaths, framerate);
 }
 
+static void
+CarouselElementToYAML(std::shared_ptr<CarouselElement> carouselElement,
+                      YAML::Node &node) {
+  node["filepaths"] = carouselElement->getImageFilePaths();
+  node["framerate"] = carouselElement->getFrameRate();
+}
+
 #pragma endregion
 
 #pragma region VideoElement
 
-VideoElement::VideoElement(std::string_view uid, const std::string &filepath,
-                           int frameRate)
+VideoElement::VideoElement(std::string_view uid,
+                           const std::filesystem::path &filepath, int frameRate)
     : Element(uid, frameRate) {
   loadVideo(filepath);
 }
 
 void VideoElement::loadVideo(const std::filesystem::path &filepath) {
+  m_filepath = filepath;
+
   if (filepath.string().starts_with("rtsp://")) {
     m_cap.open(filepath, cv::CAP_FFMPEG);
   } else {
@@ -323,6 +341,12 @@ static std::shared_ptr<Element> VideoElementFromYAML(const std::string &uid,
   return std::make_shared<VideoElement>(uid, filepath, framerate);
 }
 
+static void VideoElementToYAML(std::shared_ptr<VideoElement> videoElement,
+                               YAML::Node &node) {
+  node["filepath"] = videoElement->getVideoFilePath().string();
+  node["framerate"] = videoElement->getFrameRate();
+}
+
 #pragma endregion
 
 #pragma region RTMPStreamElement
@@ -354,15 +378,31 @@ static std::shared_ptr<Element> RTMPElementFromYAML(const std::string &uid,
                                              framerate);
 }
 
+static void RTMPElementToYAML(std::shared_ptr<RTMPStreamElement> rtmpElement,
+                              YAML::Node &node) {
+  node["stream-name"] = rtmpElement->getStreamName();
+  node["framerate"] = rtmpElement->getFrameRate();
+}
+
 #pragma endregion
 
 #pragma region WebBrowserElement
 
 WebBrowserElement::WebBrowserElement(std::string_view uid, std::string_view url,
                                      int frameRate, cv::Size viewSize)
-    : Element(uid, frameRate), m_viewSize(viewSize),
+    : Element(uid, frameRate), m_url(url), m_viewSize(viewSize),
       m_webBrowser(url, m_viewSize.width, m_viewSize.height) {
   reset();
+}
+
+void WebBrowserElement::setURL(std::string_view url) {
+  m_url = url;
+  m_webBrowser.loadURL(url);
+}
+
+void WebBrowserElement::setViewSize(cv::Size viewSize) {
+  m_viewSize = viewSize;
+  m_webBrowser.setViewSize(viewSize.width, viewSize.height);
 }
 
 bool WebBrowserElement::nextFrame(cv::Mat &output) {
@@ -375,7 +415,19 @@ void WebBrowserElement::setCookie(
     std::string_view name, std::string_view value, std::string_view domain,
     std::string_view path, bool secure /*= false*/, bool httpOnly /*= false*/,
     cef_cookie_same_site_t sameSite /*= CEF_COOKIE_SAME_SITE_UNSPECIFIED*/) {
-  m_webBrowser.setCookie(name, value, domain, path, secure, httpOnly, sameSite);
+
+  CefCookie cookie;
+  CefString(&cookie.name).FromString(name);
+  CefString(&cookie.value).FromString(value);
+  CefString(&cookie.domain).FromString(domain);
+  CefString(&cookie.path).FromString(path);
+  cookie.secure = secure;
+  cookie.httponly = httpOnly;
+  cookie.same_site = sameSite;
+  cookie.has_expires = false; // Add expiration configuration in the future?
+
+  m_webBrowser.setCookie(cookie);
+  m_cookies.push_back(cookie);
 }
 
 static std::shared_ptr<Element>
@@ -423,6 +475,46 @@ WebBrowserElementFromYAML(const std::string &uid, YAML::Node node) {
   }
 
   return elem;
+}
+
+static void
+WebBrowserElementToYAML(std::shared_ptr<WebBrowserElement> webBrowserElement,
+                        YAML::Node &node) {
+
+  node["url"] = webBrowserElement->getURL();
+  node["framerate"] = webBrowserElement->getFrameRate();
+  node["view-size"] = webBrowserElement->getViewSize();
+
+  YAML::Node cookiesNode;
+  for (const CefCookie &cookie : webBrowserElement->getCookies()) {
+    YAML::Node cookieNode;
+    cookieNode["name"] = CefString(&cookie.name).ToString();
+    cookieNode["value"] = CefString(&cookie.value).ToString();
+    cookieNode["domain"] = CefString(&cookie.domain).ToString();
+    cookieNode["path"] = CefString(&cookie.path).ToString();
+    cookieNode["secure"] = static_cast<bool>(cookie.secure);
+    cookieNode["httpOnly"] = static_cast<bool>(cookie.httponly);
+
+    switch (cookie.same_site) {
+    case CEF_COOKIE_SAME_SITE_NO_RESTRICTION:
+      cookieNode["sameSite"] = "None";
+      break;
+    case CEF_COOKIE_SAME_SITE_LAX_MODE:
+      cookieNode["sameSite"] = "Lax";
+      break;
+    case CEF_COOKIE_SAME_SITE_STRICT_MODE:
+      cookieNode["sameSite"] = "Strict";
+      break;
+    default:
+      break;
+    }
+
+    cookiesNode.push_back(cookieNode);
+  }
+
+  if (!webBrowserElement->getCookies().empty()) {
+    node["cookies"] = cookiesNode;
+  }
 }
 
 #pragma endregion
@@ -484,13 +576,29 @@ static cv::Scalar hexColorToScalar(const std::string &hexColor) {
 }
 
 static std::shared_ptr<Element> TextElementFromYAML(const std::string &uid,
-                                                    YAML::Node node) {
+                                                    YAML::Node &node) {
   const auto text = node["text"].as<std::string>();
   const auto fontPath = node["font-path"].as<std::string>();
   const auto fontSize = node["font-size"].as<int>();
   const auto hexColor = node["color"].as<std::string>();
   const cv::Scalar color = hexColorToScalar(hexColor);
   return std::make_shared<TextElement>(uid, text, fontPath, fontSize, color);
+}
+
+static void TextElementToYAML(std::shared_ptr<TextElement> textElement,
+                              YAML::Node node) {
+  node["text"] = textElement->getText();
+  node["font-path"] = textElement->getFontPath().string();
+  node["font-size"] = textElement->getFontSize();
+
+  cv::Scalar color = textElement->getColor();
+  int b = color.val[0];
+  int g = color.val[1];
+  int r = color.val[2];
+  char colorBuffer[8];
+  snprintf(colorBuffer, sizeof(colorBuffer), "#%02x%02x%02x", r, g, b);
+
+  node["color"] = std::string(colorBuffer);
 }
 
 #pragma endregion
@@ -506,6 +614,8 @@ void VirtualCanvas::setGamma(double gamma) {
   if (gamma < 0.0) {
     return;
   }
+
+  m_gamma = gamma;
 
   uchar *lutPtr = m_canvasLUT.ptr();
   for (int i = 0; i < 256; ++i) {
@@ -538,12 +648,35 @@ static void CommonElementPropsFromYAML(YAML::Node node, Element &element) {
   }
 }
 
+static void CommonElementPropsToYAML(std::shared_ptr<Element> element,
+                                     YAML::Node &node) {
+  if (!element->getName().empty()) {
+    node["name"] = element->getName();
+  }
+
+  node["location"] = element->getRawLocation();
+
+  const double rotation = element->getRotation();
+  if (rotation != 0.0) {
+    node["rotation"] = rotation;
+  }
+
+  cv::Size size = element->getSize();
+  if (!size.empty()) {
+    node["size"] = size;
+  }
+
+  if (element->wasPreserveAspectRatioChanged()) {
+    node["preserve-aspect-ratio"] = element->getPreserveAspectRatio();
+  }
+}
+
 bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path,
                                       RTMPServer &rtmpServer) {
   try {
     YAML::Node configNode = YAML::LoadFile(path);
 
-    // Gamma
+    // Settings
     {
 
       YAML::Node settingsNode = configNode["settings"];
@@ -612,7 +745,70 @@ bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path,
 }
 
 void VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
+  YAML::Node configNode;
 
+  // Settings
+  {
+    YAML::Node settingsNode;
+
+    settingsNode["gamma"] = m_gamma;
+
+    configNode["settings"] = settingsNode;
+  }
+
+  // Elements
+  {
+    YAML::Node elementsNode;
+
+    int order = 0;
+    for (const auto &element : std::views::reverse(m_elements)) {
+      YAML::Node elementNode;
+
+      elementNode["order"] = order++;
+
+      if (auto imageElement =
+              std::dynamic_pointer_cast<ImageElement>(element)) {
+        elementNode["type"] = "image";
+        ImageElementToYAML(imageElement, elementNode);
+      } else if (auto carouselElement =
+                     std::dynamic_pointer_cast<CarouselElement>(element)) {
+        elementNode["type"] = "carousel";
+        CarouselElementToYAML(carouselElement, elementNode);
+      } else if (auto videoElement =
+                     std::dynamic_pointer_cast<VideoElement>(element)) {
+        elementNode["type"] = "video";
+        VideoElementToYAML(videoElement, elementNode);
+      } else if (auto rtmpElement =
+                     std::dynamic_pointer_cast<RTMPStreamElement>(element)) {
+        elementNode["type"] = "rtmp";
+        RTMPElementToYAML(rtmpElement, elementNode);
+      } else if (auto webBrowserElement =
+                     std::dynamic_pointer_cast<WebBrowserElement>(element)) {
+        elementNode["type"] = "web-browser";
+        WebBrowserElementToYAML(webBrowserElement, elementNode);
+      } else if (auto textElement =
+                     std::dynamic_pointer_cast<TextElement>(element)) {
+        elementNode["type"] = "text";
+        TextElementToYAML(textElement, elementNode);
+      } else {
+        std::cerr << "could not save element of unknown type\n";
+        return;
+      }
+
+      CommonElementPropsToYAML(element, elementNode);
+
+      elementsNode[element->getUID()] = elementNode;
+    }
+
+    configNode["elements"] = elementsNode;
+  }
+
+  std::ofstream ofs(path);
+  if (ofs) {
+    ofs << configNode;
+  } else {
+    std::cerr << "failed to write config to file";
+  }
 }
 
 void VirtualCanvas::clearElements() {

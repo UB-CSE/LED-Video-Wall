@@ -1,26 +1,26 @@
 #pragma once
 
-#include <yaml-cpp/yaml.h>
 #include <opencv2/opencv.hpp>
+#include <yaml-cpp/yaml.h>
 
 namespace YAML {
 
 // encode/decode cv::Point types
 template <typename T> struct convert<cv::Point_<T>> {
   static Node encode(const cv::Point_<T> &point) {
-    Node node = { point.x, point.y };
+    Node node(NodeType::Sequence);
+    node.push_back(point.x);
+    node.push_back(point.y);
     return node;
   }
 
   static bool decode(const Node &node, cv::Point_<T> &point) {
-    auto components = node.as<std::vector<T>>();
-    if (components.size() != 2) {
+    if (!node.IsSequence() || node.size() != 2) {
       return false;
     }
 
-    point.x = components[0];
-    point.y = components[1];
-
+    point.x = node[0].as<T>();
+    point.y = node[1].as<T>();
     return true;
   }
 };

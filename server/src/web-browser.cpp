@@ -98,20 +98,11 @@ void WebBrowser::loadURL(std::string_view url) {
   m_browser->GetMainFrame()->LoadURL(CefString(std::string(url)));
 }
 
-void WebBrowser::setCookie(
-    std::string_view name, std::string_view value, std::string_view domain,
-    std::string_view path, bool secure /*= false*/, bool httpOnly /*= false*/,
-    cef_cookie_same_site_t sameSite /*= CEF_COOKIE_SAME_SITE_UNSPECIFIED*/) {
-  CefCookie cookie;
-  CefString(&cookie.name).FromString(name);
-  CefString(&cookie.value).FromString(value);
-  CefString(&cookie.domain).FromString(domain);
-  CefString(&cookie.path).FromString(path);
-  cookie.secure = secure;
-  cookie.httponly = httpOnly;
-  cookie.same_site = sameSite;
-  cookie.has_expires = false; // Add expiration configuration in the future?
+void WebBrowser::setViewSize(unsigned int width, unsigned int height) {
+  m_viewRect = CefRect(0, 0, static_cast<int>(width), static_cast<int>(height));
+}
 
+void WebBrowser::setCookie(const CefCookie &cookie) {
   CefRefPtr<CefCookieManager> cookieManager =
       CefCookieManager::GetGlobalManager(nullptr);
 

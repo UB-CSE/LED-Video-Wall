@@ -12,11 +12,9 @@ public:
   ~WebBrowser();
 
   void loadURL(std::string_view url);
-  void
-  setCookie(std::string_view name, std::string_view value,
-            std::string_view domain, std::string_view path, bool secure = false,
-            bool httpOnly = false,
-            cef_cookie_same_site_t sameSite = CEF_COOKIE_SAME_SITE_UNSPECIFIED);
+  void setViewSize(unsigned int width, unsigned int height);
+
+  void setCookie(const CefCookie& cookie);
 
   bool getLatestFrame(cv::Mat &frame);
 
