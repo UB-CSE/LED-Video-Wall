@@ -272,7 +272,7 @@ static void encode_nv12(const Pixel &pixel, uint32_t pixel_index,
   uint32_t column = pixel_index % image_width;
   // Image gets split into 2x2 pixel "chunks"
   // Index of the chunk in the image.
-  uint32_t chunk_index = (row / 2) + (column / 2);
+  uint32_t chunk_index = (row / 2) * (image_width / 2) + (column / 2);
   // Semi-planar: U & V for each chunk are after all pixel Y values
   uint8_t *uv_start = start + (image_width * image_height * sizeof(uint8_t));
   uint8_t *uv = uv_start + (chunk_index * 2 * sizeof(uint8_t));
@@ -290,7 +290,7 @@ static Pixel decode_nv12(const uint8_t *&head, uint32_t pixel_index,
   uint32_t row = pixel_index / image_width;
   uint32_t column = pixel_index % image_width;
   // split into 2x2 pixel "chunks"
-  uint32_t chunk_index = (row / 2) + (column / 2);
+  uint32_t chunk_index = (row / 2) * (image_width / 2) + (column / 2);
   // Semi-planar: U & V for each chunk are after all pixel Y values
   const uint8_t *uv_start =
       start + (image_width * image_height * sizeof(uint8_t));
