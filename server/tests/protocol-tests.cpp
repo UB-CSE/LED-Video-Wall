@@ -34,38 +34,6 @@ static void loadTestImage(cv::Mat &image,
   ASSERT_THAT(image.elemSize(), Eq(3));  // 3 channels
 }
 
-TEST(Protocol, SetLEDs) {
-  cv::Mat image;
-  loadTestImage(image, ParrotTestImagePath, ParrotTestImageWidth,
-                ParrotTestImageHeight);
-
-  // Encode
-
-  const size_t numLEDs = image.total();
-
-  std::vector<uint8_t> buffer =
-      encode_set_leds(-1, numLEDs, image.data, RGB_24);
-
-  const size_t imageSize = image.total() * image.elemSize();
-  const size_t expectedMsgSize = sizeof(SetLEDsMessageHeader) + imageSize;
-
-  ASSERT_THAT(buffer, SizeIs(expectedMsgSize));
-
-  // Decode
-
-  auto *msg = decode<SetLEDsMessage>(buffer.data());
-  ASSERT_THAT(msg, NotNull());
-
-  ASSERT_THAT(msg->header.header.size, Eq(expectedMsgSize));
-  ASSERT_THAT(msg->header.header.op_code, Eq(OperationCode::SET_LEDS));
-  ASSERT_THAT(msg->header.gpio_pin, Eq(-1));
-  ASSERT_THAT(msg->header.num_leds, Eq(numLEDs));
-
-  // No conversion
-  ASSERT_THAT(0 == std::memcmp(msg->pixel_data, image.data, imageSize),
-              IsTrue());
-}
-
 TEST(Protocol, SetLEDsBatched) {
   cv::Mat parrotImage, butterflyImage;
   loadTestImage(parrotImage, ParrotTestImagePath, ParrotTestImageWidth,
@@ -73,28 +41,43 @@ TEST(Protocol, SetLEDsBatched) {
   loadTestImage(butterflyImage, ButterflyTestImagePath, ButterflyTestImageWidth,
                 ButterflyTestImageHeight);
 
-  constexpr size_t numImages = 2;
-
-  // Encode
-
-  std::vector<LEDsBatchEntryData> entries(numImages);
-  entries[0].gpio_pin = -1;
-  entries[0].num_leds = parrotImage.total();
-  entries[0].pixel_data = parrotImage.data;
-
-  entries[1].gpio_pin = -2;
-  entries[1].num_leds = butterflyImage.total();
-  entries[1].pixel_data = butterflyImage.data;
-
-  std::vector<uint8_t> buffer = encode_set_leds_batched(entries, RGB_24);
-
   const size_t parrotImageSize = parrotImage.total() * parrotImage.elemSize();
   const size_t butterflyImageSize =
       butterflyImage.total() * butterflyImage.elemSize();
 
-  const size_t expectedMsgSize = sizeof(SetLEDsBatchedMessageHeader) +
-                                 2 * sizeof(LEDsBatchEntryHeader) +
-                                 parrotImageSize + butterflyImageSize;
+  constexpr size_t numImages = 2;
+
+  // Encode
+
+  std::shared_ptr<LEDsPixelData> parrotImagePixelData(
+      reinterpret_cast<LEDsPixelData *>(
+          new uint8_t[sizeof(LEDsPixelData) + parrotImageSize]));
+  parrotImagePixelData->width = ParrotTestImageWidth;
+  parrotImagePixelData->height = ParrotTestImageHeight;
+  memcpy(parrotImagePixelData->pixel_data, parrotImage.data, parrotImageSize);
+
+  std::vector<LEDsBatchEntryData> entries(numImages);
+  entries[0].gpio_pin = -1;
+  entries[0].num_leds = parrotImage.total();
+  entries[0].matrices = {parrotImagePixelData};
+
+  std::shared_ptr<LEDsPixelData> butterflyImagePixelData(
+      reinterpret_cast<LEDsPixelData *>(
+          new uint8_t[sizeof(LEDsPixelData) + butterflyImageSize]));
+  butterflyImagePixelData->width = ButterflyTestImageWidth;
+  butterflyImagePixelData->height = ButterflyTestImageHeight;
+  memcpy(butterflyImagePixelData->pixel_data, butterflyImage.data,
+         butterflyImageSize);
+
+  entries[1].gpio_pin = -2;
+  entries[1].num_leds = butterflyImage.total();
+  entries[1].matrices = {butterflyImagePixelData};
+
+  std::vector<uint8_t> buffer = encode_set_leds_batched(entries, RGB_24);
+
+  const size_t expectedMsgSize =
+      sizeof(SetLEDsBatchedMessageHeader) + 2 * sizeof(LEDsBatchEntryHeader) +
+      2 * sizeof(LEDsPixelData) + parrotImageSize + butterflyImageSize;
 
   ASSERT_THAT(buffer, SizeIs(expectedMsgSize));
 
@@ -112,19 +95,27 @@ TEST(Protocol, SetLEDsBatched) {
   const auto *parrotEntry = reinterpret_cast<const LEDsBatchEntry *>(p);
   ASSERT_THAT(parrotEntry->header.gpio_pin, Eq(-1));
   ASSERT_THAT(parrotEntry->header.num_leds, Eq(parrotImage.total()));
+  ASSERT_THAT(parrotEntry->header.num_matrices, Eq(1));
+  const LEDsPixelData *parrotEntryPixelData = parrotEntry->matrices;
+  ASSERT_THAT(parrotEntryPixelData->width, Eq(ParrotTestImageWidth));
+  ASSERT_THAT(parrotEntryPixelData->height, Eq(ParrotTestImageHeight));
   // No conversion
-  ASSERT_THAT(0 == std::memcmp(parrotEntry->pixel_data, parrotImage.data,
-                               parrotImageSize),
+  ASSERT_THAT(0 == std::memcmp(parrotEntryPixelData->pixel_data,
+                               parrotImage.data, parrotImageSize),
               IsTrue());
 
-  p += sizeof(LEDsBatchEntryHeader) + parrotImageSize;
+  p += sizeof(LEDsBatchEntryHeader) + sizeof(LEDsPixelData) + parrotImageSize;
 
   const auto *butterflyEntry = reinterpret_cast<const LEDsBatchEntry *>(p);
   ASSERT_THAT(butterflyEntry->header.gpio_pin, Eq(-2));
   ASSERT_THAT(butterflyEntry->header.num_leds, Eq(butterflyImage.total()));
+  ASSERT_THAT(butterflyEntry->header.num_matrices, Eq(1));
+  const LEDsPixelData *butterflyEntryPixelData = butterflyEntry->matrices;
+  ASSERT_THAT(butterflyEntryPixelData->width, Eq(ButterflyTestImageWidth));
+  ASSERT_THAT(butterflyEntryPixelData->height, Eq(ButterflyTestImageHeight));
   // No conversion
-  ASSERT_THAT(0 == std::memcmp(butterflyEntry->pixel_data, butterflyImage.data,
-                               butterflyImageSize),
+  ASSERT_THAT(0 == std::memcmp(butterflyEntryPixelData->pixel_data,
+                               butterflyImage.data, butterflyImageSize),
               IsTrue());
 }
 
@@ -251,7 +242,7 @@ TEST(ImageEncoding, IdentityConversionRGB24) {
   std::vector<uint8_t> dest(src.size(), 0x00);
 
   const size_t bytes_written =
-      convert_image_encoding(2, src.data(), RGB_24, dest.data(), RGB_24);
+      convert_image_encoding(2, 1, src.data(), RGB_24, dest.data(), RGB_24);
 
   ASSERT_THAT(bytes_written, Eq(src.size()));
   ASSERT_THAT(dest, ElementsAreArray(src));
@@ -262,7 +253,7 @@ TEST(ImageEncoding, ZeroLedsReturnsZeroBytes) {
   std::vector<uint8_t> dest(3, 0xAA);
 
   const size_t bytes_written =
-      convert_image_encoding(0, src.data(), RGB_24, dest.data(), RGB_12);
+      convert_image_encoding(0, 0, src.data(), RGB_24, dest.data(), RGB_12);
 
   ASSERT_THAT(bytes_written, Eq(0u));
 }
@@ -284,7 +275,7 @@ TEST(ImageEncoding, RGB24ToRGB12Packing) {
   std::vector<uint8_t> dest(expected_size, 0x00);
 
   const size_t bytes_written =
-      convert_image_encoding(2, src.data(), RGB_24, dest.data(), RGB_12);
+      convert_image_encoding(2, 1, src.data(), RGB_24, dest.data(), RGB_12);
 
   ASSERT_THAT(bytes_written, Eq(expected_size));
   ASSERT_THAT(dest, ElementsAre(0xAF, 0xC5, 0x38));
@@ -297,7 +288,7 @@ TEST(ImageEncoding, RGB12ToRGB24Unpacking) {
   std::vector<uint8_t> dest(expected_size, 0x00);
 
   const size_t bytes_written =
-      convert_image_encoding(2, src.data(), RGB_12, dest.data(), RGB_24);
+      convert_image_encoding(2, 1, src.data(), RGB_12, dest.data(), RGB_24);
 
   ASSERT_THAT(bytes_written, Eq(expected_size));
   ASSERT_THAT(dest, ElementsAre(0xF0, 0xA0, 0x50, 0xC0, 0x80, 0x30));
@@ -316,14 +307,14 @@ TEST(ImageEncoding, RGBConversionGamut) {
     const size_t expected_size = get_encoded_image_size(num_leds, encoding);
     std::vector<uint8_t> conv(expected_size, 0x00);
 
-    size_t bytes_written = convert_image_encoding(num_leds, src.data(), RGB_24,
-                                                  conv.data(), encoding);
+    size_t bytes_written = convert_image_encoding(
+        num_leds, 1, src.data(), RGB_24, conv.data(), encoding);
 
     ASSERT_THAT(bytes_written, Eq(expected_size));
 
     std::vector<uint8_t> final(6, 0x00);
 
-    bytes_written = convert_image_encoding(num_leds, conv.data(), encoding,
+    bytes_written = convert_image_encoding(num_leds, 1, conv.data(), encoding,
                                            final.data(), RGB_24);
     ASSERT_THAT(bytes_written, Eq(6));
 
@@ -349,7 +340,7 @@ TEST(ImageEncoding, YUV_444) {
 
   std::vector<uint8_t> conv(expected_size, 0x00);
 
-  size_t bytes_written = convert_image_encoding(num_leds, src.data(), RGB_24,
+  size_t bytes_written = convert_image_encoding(num_leds, 1, src.data(), RGB_24,
                                                 conv.data(), YUV_444);
 
   ASSERT_THAT(bytes_written, Eq(expected_size));
@@ -357,7 +348,7 @@ TEST(ImageEncoding, YUV_444) {
 
   std::vector<uint8_t> final(6, 0x00);
 
-  bytes_written = convert_image_encoding(num_leds, conv.data(), YUV_444,
+  bytes_written = convert_image_encoding(num_leds, 1, conv.data(), YUV_444,
                                          final.data(), RGB_24);
   ASSERT_THAT(bytes_written, Eq(6));
 
@@ -373,7 +364,7 @@ TEST(ImageEncoding, YUV_422) {
 
   std::vector<uint8_t> conv(expected_size, 0x00);
 
-  size_t bytes_written = convert_image_encoding(num_leds, src.data(), RGB_24,
+  size_t bytes_written = convert_image_encoding(num_leds, 1, src.data(), RGB_24,
                                                 conv.data(), YUV_422);
 
   ASSERT_THAT(bytes_written, Eq(expected_size));
@@ -381,9 +372,164 @@ TEST(ImageEncoding, YUV_422) {
 
   std::vector<uint8_t> final(6, 0x00);
 
-  bytes_written = convert_image_encoding(num_leds, conv.data(), YUV_422,
+  bytes_written = convert_image_encoding(num_leds, 1, conv.data(), YUV_422,
                                          final.data(), RGB_24);
   ASSERT_THAT(bytes_written, Eq(6));
 
   ASSERT_THAT(final, ElementsAre(255, 173, 85, 215, 134, 45));
+}
+
+TEST(ImageEncoding, YUV_420) {
+  const std::vector<uint8_t> src = {
+      241, 162, 83,  // 1
+      196, 133, 54,  // 2
+      214, 102, 51,  // 3
+      247, 186, 111, // 4
+  };
+  constexpr uint32_t num_leds = 4;
+
+  const size_t expected_size = get_encoded_image_size(num_leds, YUV_420);
+  ASSERT_THAT(expected_size, Eq(6));
+
+  std::vector<uint8_t> conv(expected_size, 0x00);
+
+  size_t bytes_written =
+      convert_image_encoding(2, 2, src.data(), RGB_24, conv.data(), YUV_420);
+  ASSERT_THAT(bytes_written, Eq(expected_size));
+  // 4 luma, 2 chroma
+  ASSERT_THAT(conv, ElementsAre(0xB1, 0x8F, 0x82, 0xC4, 0x4F, 0xAD));
+
+  std::vector<uint8_t> final(12, 0x00);
+
+  bytes_written =
+      convert_image_encoding(2, 2, conv.data(), YUV_420, final.data(), RGB_24);
+  ASSERT_THAT(bytes_written, Eq(12));
+
+  ASSERT_THAT(final, ElementsAre(255, 170, 89, // 1
+                                 220, 130, 49, // 2
+                                 205, 115, 34, // 3
+                                 255, 192, 111 // 4
+                                 ));
+}
+
+TEST(ImageEncoding, YUV_422_Parrot) {
+  cv::Mat parrotImage;
+  loadTestImage(parrotImage, ParrotTestImagePath, ParrotTestImageWidth,
+                ParrotTestImageHeight);
+
+  const size_t parrotImageSize = parrotImage.total() * parrotImage.elemSize();
+  const size_t parrotEncodedImageSize = get_encoded_image_size(parrotImage.total(), ImageEncoding::YUV_422);
+
+  // Encode
+
+  std::shared_ptr<LEDsPixelData> parrotImagePixelData(
+      reinterpret_cast<LEDsPixelData *>(
+          new uint8_t[sizeof(LEDsPixelData) + parrotImageSize]));
+  parrotImagePixelData->width = ParrotTestImageWidth;
+  parrotImagePixelData->height = ParrotTestImageHeight;
+  memcpy(parrotImagePixelData->pixel_data, parrotImage.data, parrotImageSize);
+
+  std::vector<LEDsBatchEntryData> entries(1);
+  entries[0].gpio_pin = -1;
+  entries[0].num_leds = parrotImage.total();
+  entries[0].matrices = {parrotImagePixelData};
+
+  std::vector<uint8_t> buffer = encode_set_leds_batched(entries, YUV_422);
+
+  const size_t expectedMsgSize =
+      sizeof(SetLEDsBatchedMessageHeader) + sizeof(LEDsBatchEntryHeader) + sizeof(LEDsPixelData) + parrotEncodedImageSize;
+
+  ASSERT_THAT(buffer, SizeIs(expectedMsgSize));
+
+  // Decode
+
+  auto *msg = decode<SetLEDsBatchedMessage>(buffer.data());
+  ASSERT_THAT(msg, NotNull());
+
+  ASSERT_THAT(msg->header.header.size, Eq(expectedMsgSize));
+  ASSERT_THAT(msg->header.header.op_code, Eq(OperationCode::SET_LEDS_BATCHED));
+  ASSERT_THAT(msg->header.batch_count, Eq(1));
+
+  const auto *p = reinterpret_cast<const uint8_t *>(msg->entries);
+
+  const auto *parrotEntry = reinterpret_cast<const LEDsBatchEntry *>(p);
+  ASSERT_THAT(parrotEntry->header.gpio_pin, Eq(-1));
+  ASSERT_THAT(parrotEntry->header.num_leds, Eq(parrotImage.total()));
+  ASSERT_THAT(parrotEntry->header.num_matrices, Eq(1));
+  const LEDsPixelData *parrotEntryPixelData = parrotEntry->matrices;
+  ASSERT_THAT(parrotEntryPixelData->width, Eq(ParrotTestImageWidth));
+  ASSERT_THAT(parrotEntryPixelData->height, Eq(ParrotTestImageHeight));
+
+  std::vector<uint8_t> final(parrotImageSize, 0x00);
+
+  size_t bytes_written =
+      convert_image_encoding(ParrotTestImageWidth, ParrotTestImageHeight, parrotEntryPixelData->pixel_data, YUV_422, final.data(), RGB_24);
+  ASSERT_THAT(bytes_written, Eq(parrotImageSize));
+
+  cv::Mat img(ParrotTestImageHeight, ParrotTestImageWidth, CV_8UC3, final.data());
+  cv::cvtColor(img, img, cv::COLOR_RGB2BGR);
+
+  cv::imshow("converted parrot", img);
+  cv::waitKey(0);
+}
+
+TEST(ImageEncoding, YUV_420_Parrot) {
+  cv::Mat parrotImage;
+  loadTestImage(parrotImage, ParrotTestImagePath, ParrotTestImageWidth,
+                ParrotTestImageHeight);
+
+  const size_t parrotImageSize = parrotImage.total() * parrotImage.elemSize();
+  const size_t parrotEncodedImageSize = get_encoded_image_size(parrotImage.total(), ImageEncoding::YUV_420);
+
+  // Encode
+
+  std::shared_ptr<LEDsPixelData> parrotImagePixelData(
+      reinterpret_cast<LEDsPixelData *>(
+          new uint8_t[sizeof(LEDsPixelData) + parrotImageSize]));
+  parrotImagePixelData->width = ParrotTestImageWidth;
+  parrotImagePixelData->height = ParrotTestImageHeight;
+  memcpy(parrotImagePixelData->pixel_data, parrotImage.data, parrotImageSize);
+
+  std::vector<LEDsBatchEntryData> entries(1);
+  entries[0].gpio_pin = -1;
+  entries[0].num_leds = parrotImage.total();
+  entries[0].matrices = {parrotImagePixelData};
+
+  std::vector<uint8_t> buffer = encode_set_leds_batched(entries, YUV_420);
+
+  const size_t expectedMsgSize =
+      sizeof(SetLEDsBatchedMessageHeader) + sizeof(LEDsBatchEntryHeader) + sizeof(LEDsPixelData) + parrotEncodedImageSize;
+
+  ASSERT_THAT(buffer, SizeIs(expectedMsgSize));
+
+  // Decode
+
+  auto *msg = decode<SetLEDsBatchedMessage>(buffer.data());
+  ASSERT_THAT(msg, NotNull());
+
+  ASSERT_THAT(msg->header.header.size, Eq(expectedMsgSize));
+  ASSERT_THAT(msg->header.header.op_code, Eq(OperationCode::SET_LEDS_BATCHED));
+  ASSERT_THAT(msg->header.batch_count, Eq(1));
+
+  const auto *p = reinterpret_cast<const uint8_t *>(msg->entries);
+
+  const auto *parrotEntry = reinterpret_cast<const LEDsBatchEntry *>(p);
+  ASSERT_THAT(parrotEntry->header.gpio_pin, Eq(-1));
+  ASSERT_THAT(parrotEntry->header.num_leds, Eq(parrotImage.total()));
+  ASSERT_THAT(parrotEntry->header.num_matrices, Eq(1));
+  const LEDsPixelData *parrotEntryPixelData = parrotEntry->matrices;
+  ASSERT_THAT(parrotEntryPixelData->width, Eq(ParrotTestImageWidth));
+  ASSERT_THAT(parrotEntryPixelData->height, Eq(ParrotTestImageHeight));
+
+  std::vector<uint8_t> final(parrotImageSize, 0x00);
+
+  size_t bytes_written =
+      convert_image_encoding(ParrotTestImageWidth, ParrotTestImageHeight, parrotEntryPixelData->pixel_data, YUV_420, final.data(), RGB_24);
+  ASSERT_THAT(bytes_written, Eq(parrotImageSize));
+
+  cv::Mat img(ParrotTestImageHeight, ParrotTestImageWidth, CV_8UC3, final.data());
+  cv::cvtColor(img, img, cv::COLOR_RGB2BGR);
+
+  cv::imshow("converted parrot", img);
+  cv::waitKey(0);
 }

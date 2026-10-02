@@ -209,7 +209,8 @@ std::optional<int> ClientConnInfo::getSocket(uint64_t addr) const {
   return std::nullopt;
 }
 
-void ClientConnInfo::getAllConnected(std::vector<std::pair<uint64_t, int>> &v) const {
+void ClientConnInfo::getAllConnected(
+    std::vector<std::pair<uint64_t, int>> &v) const {
   std::lock_guard lock(m_mut);
   for (const auto &[addr, sock] : m_connected) {
     v.emplace_back(addr, sock);
@@ -312,20 +313,22 @@ void LEDTCPServer::set_leds(uint64_t addr, int client_socket,
   std::vector<LEDsBatchEntryData> leds_batches;
   for (const MatricesConnection &conn : m_clients[addr]->matConnections) {
     uint64_t total_size = 0;
-    for (const std::shared_ptr<LEDMatrix> &mat : conn.matrices) {
-      total_size += mat->getRGB24PixelArraySize();
-    }
-    // temp_buf is a buffer that will contain all the re-oriented/processed
-    // submatrices of each led strip for the client
-    auto temp_buf = static_cast<uint8_t *>(malloc(total_size));
     int8_t pin = conn.pin;
+
+    std::vector<std::shared_ptr<LEDsPixelData>> matrices;
 
     // This loop processes each submatrix (corresponding to a ledstrip) one at a
     // time. pixel_buf points to the next part of the temp_buf for the current
     // submatrix. Note that pixel_buf is also updated at the end of each
     // iteration of this loop.
-    uint8_t *pixel_buf = temp_buf;
     for (const std::shared_ptr<LEDMatrix> &ledmat : conn.matrices) {
+      const size_t pixel_array_size = ledmat->getRGB24PixelArraySize();
+      total_size += pixel_array_size;
+
+      std::shared_ptr<LEDsPixelData> outMatrix(
+          reinterpret_cast<LEDsPixelData *>(
+              new uint8_t[2 * sizeof(uint16_t) + pixel_array_size]));
+
       uint32_t width = ledmat->spec->width;
       uint32_t height = ledmat->spec->height;
       // swap width and height if rotated +/-90 degrees
@@ -335,6 +338,11 @@ void LEDTCPServer::set_leds(uint64_t addr, int client_socket,
       }
       uint32_t x = ledmat->pos.x;
       uint32_t y = ledmat->pos.y;
+
+      outMatrix->width = width;
+      outMatrix->height = height;
+
+      uint8_t *pixel_buf = outMatrix->pixel_data;
 
       cv::Mat sub_cvmat =
           canvas.getPixelMatrix()(cv::Rect(x, y, width, height)).clone();
@@ -351,35 +359,36 @@ void LEDTCPServer::set_leds(uint64_t addr, int client_socket,
       const uint8_t *data = sub_cvmat.data;
       // todo: brightness_reduction should be configurable!
       // Added brightness percent and removed brightness_reduction;
-      uint32_t num_leds = ledmat->getRGB24PixelArraySize() / 3;
+      const uint32_t num_leds = pixel_array_size / 3;
       for (uint32_t i = 0; (i < num_leds); ++i) {
         uint32_t a = i * 3;
         if (pin < 0 || (i / width) % 2 != 0) {
-          pixel_buf[a + 2] = data[a];
-          pixel_buf[a + 1] = data[a + 1];
-          pixel_buf[a] = data[a + 2];
+          pixel_buf[a + 2] = data[a];     // b
+          pixel_buf[a + 1] = data[a + 1]; // g
+          pixel_buf[a] = data[a + 2];     // r
         } else {
           uint32_t irem = i % width;
           uint32_t b = (((width - 1) - irem) + (i - irem)) * 3;
-          pixel_buf[a + 2] = data[b];
-          pixel_buf[a + 1] = data[b + 1];
-          pixel_buf[a] = data[b + 2];
+          pixel_buf[a + 2] = data[b];     // b
+          pixel_buf[a + 1] = data[b + 1]; // g
+          pixel_buf[a] = data[b + 2];     // r
         }
       }
-      pixel_buf += ledmat->getRGB24PixelArraySize();
+
+      matrices.push_back(outMatrix);
     }
     uint32_t num_leds_total = total_size / 3;
     LEDsBatchEntryData batch{
-        .gpio_pin = pin, .num_leds = num_leds_total, .pixel_data = temp_buf};
+        .gpio_pin = pin,
+        .num_leds = num_leds_total,
+        .matrices = matrices,
+    };
     leds_batches.push_back(batch);
   }
   std::vector<uint8_t> msg_buf =
       encode_set_leds_batched(leds_batches, m_imageEncoding);
   this->tcp_send(addr, client_socket, msg_buf.data(),
                  static_cast<int>(msg_buf.size()));
-  for (const LEDsBatchEntryData &batch : leds_batches) {
-    free((void *)batch.pixel_data);
-  }
 }
 
 void LEDTCPServer::redraw(uint64_t addr, int client_socket) {

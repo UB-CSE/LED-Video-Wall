@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <numeric>
 
 const char *encoding_to_string(ImageEncoding encoding) {
   switch (encoding) {
@@ -27,6 +28,8 @@ const char *encoding_to_string(ImageEncoding encoding) {
     return "yuv444";
   case YUV_422:
     return "yuv422";
+  case YUV_420:
+    return "yuv420";
   default:
     return "unknown";
   }
@@ -63,6 +66,9 @@ ImageEncoding encoding_from_string(std::string_view encoding_string) {
   if (encoding_string == "yuv422") {
     return ImageEncoding::YUV_422;
   }
+  if (encoding_string == "yuv420") {
+    return ImageEncoding::YUV_420;
+  }
   return ImageEncoding::UNKNOWN;
 }
 
@@ -88,6 +94,8 @@ uint8_t get_bits_per_pixel(ImageEncoding encoding) {
     return 3;
   case YUV_422:
     return 16; // (4*8)/2
+  case YUV_420:
+    return 12; // (6*8)/4
   case UNKNOWN:
     return 0;
   }
@@ -254,7 +262,6 @@ static Pixel decode_yuyv(const uint8_t *&head, uint32_t pixel_index) {
   return pixel;
 }
 
-#if false
 static void encode_nv12(const Pixel &pixel, uint32_t pixel_index,
                         uint32_t image_width, uint32_t image_height,
                         uint8_t *&head, uint8_t *start) {
@@ -263,7 +270,8 @@ static void encode_nv12(const Pixel &pixel, uint32_t pixel_index,
 
   uint32_t row = pixel_index / image_width;
   uint32_t column = pixel_index % image_width;
-  // split into 2x2 pixel "chunks"
+  // Image gets split into 2x2 pixel "chunks"
+  // Index of the chunk in the image.
   uint32_t chunk_index = (row / 2) + (column / 2);
   // Semi-planar: U & V for each chunk are after all pixel Y values
   uint8_t *uv_start = start + (image_width * image_height * sizeof(uint8_t));
@@ -292,10 +300,10 @@ static Pixel decode_nv12(const uint8_t *&head, uint32_t pixel_index,
   Pixel pixel = Pixel::YUV(y, u, v);
   return pixel;
 }
-#endif
 
 Pixel decode_pixel(const uint8_t *&head, uint8_t &bit, uint32_t pixel_index,
-                   ImageEncoding encoding) {
+                   const uint8_t *start, uint32_t image_width,
+                   uint32_t image_height, ImageEncoding encoding) {
   using enum ImageEncoding;
 
   Pixel pixel{};
@@ -320,6 +328,9 @@ Pixel decode_pixel(const uint8_t *&head, uint8_t &bit, uint32_t pixel_index,
   case YUV_422:
     pixel = decode_yuyv(head, pixel_index);
     break;
+  case YUV_420:
+    pixel = decode_nv12(head, pixel_index, start, image_width, image_height);
+    break;
   case UNKNOWN:
     break;
   }
@@ -328,7 +339,8 @@ Pixel decode_pixel(const uint8_t *&head, uint8_t &bit, uint32_t pixel_index,
 }
 
 void encode_pixel(Pixel pixel, ImageEncoding encoding, uint32_t pixel_index,
-                  uint8_t *&head, uint8_t &bit) {
+                  uint32_t image_width, uint32_t image_height, uint8_t *&head,
+                  uint8_t &bit, uint8_t *start) {
   using enum ImageEncoding;
 
   if (encoding >= YUV_444) {
@@ -355,14 +367,18 @@ void encode_pixel(Pixel pixel, ImageEncoding encoding, uint32_t pixel_index,
   case YUV_422:
     encode_yuyv(pixel, head, pixel_index);
     break;
+  case YUV_420:
+    encode_nv12(pixel, pixel_index, image_width, image_height, head, start);
+    break;
   case UNKNOWN:
     break;
   }
 }
 
-size_t convert_image_encoding(uint32_t num_leds, const uint8_t *src,
-                              ImageEncoding src_encoding, uint8_t *dest,
-                              ImageEncoding dest_encoding) {
+size_t convert_image_encoding(uint32_t width, uint32_t height,
+                              const uint8_t *src, ImageEncoding src_encoding,
+                              uint8_t *dest, ImageEncoding dest_encoding) {
+  const uint32_t num_leds = width * height;
 
   const size_t src_size = get_encoded_image_size(num_leds, src_encoding);
   const size_t dest_size = get_encoded_image_size(num_leds, dest_encoding);
@@ -377,35 +393,13 @@ size_t convert_image_encoding(uint32_t num_leds, const uint8_t *src,
   uint8_t *dest_head = dest;
   uint8_t dest_bit = 0;
   for (uint32_t pixel_index = 0; pixel_index < num_leds; pixel_index++) {
-    const Pixel pixel =
-        decode_pixel(src_head, src_bit, pixel_index, src_encoding);
-    encode_pixel(pixel, dest_encoding, pixel_index, dest_head, dest_bit);
+    const Pixel pixel = decode_pixel(src_head, src_bit, pixel_index, src, width,
+                                     height, src_encoding);
+    encode_pixel(pixel, dest_encoding, pixel_index, width, height, dest_head,
+                 dest_bit, dest);
   }
 
   return dest_size;
-}
-
-std::vector<uint8_t> encode_set_leds(int8_t gpio_pin, uint32_t num_leds,
-                                     const uint8_t *pixel_data,
-                                     ImageEncoding encoding) {
-  const size_t message_size =
-      sizeof(SetLEDsMessage) + get_encoded_image_size(num_leds, encoding);
-  std::vector<uint8_t> buffer(message_size);
-
-  auto *msg = reinterpret_cast<SetLEDsMessageHeader *>(buffer.data());
-  msg->header.size = message_size;
-  msg->header.op_code = OperationCode::SET_LEDS;
-  msg->gpio_pin = gpio_pin;
-  msg->num_leds = num_leds;
-
-  uint8_t *p = buffer.data() + sizeof(SetLEDsMessageHeader);
-
-  if (pixel_data && num_leds > 0) {
-    (void)convert_image_encoding(num_leds, pixel_data, ImageEncoding::RGB_24, p,
-                                 encoding);
-  }
-
-  return buffer;
 }
 
 std::vector<uint8_t>
@@ -416,7 +410,7 @@ encode_set_leds_batched(std::span<const LEDsBatchEntryData> entries,
   size_t payload_size = 0;
 
   for (uint8_t i = 0; i < num_entries; ++i) {
-    size_t entry_size = sizeof(LEDsBatchEntryHeader) +
+    size_t entry_size = sizeof(LEDsBatchEntryHeader) + sizeof(LEDsPixelData) +
                         get_encoded_image_size(entries[i].num_leds, encoding);
     payload_size += entry_size;
   }
@@ -439,12 +433,20 @@ encode_set_leds_batched(std::span<const LEDsBatchEntryData> entries,
     const LEDsBatchEntryData *e = &entries[i];
     auto *eh = reinterpret_cast<LEDsBatchEntryHeader *>(p);
     eh->gpio_pin = e->gpio_pin;
+    eh->num_matrices = e->matrices.size();
     eh->num_leds = e->num_leds;
     p += sizeof(LEDsBatchEntryHeader);
 
-    const size_t image_size = convert_image_encoding(
-        eh->num_leds, e->pixel_data, ImageEncoding::RGB_24, p, encoding);
-    p += image_size;
+    for (std::shared_ptr mat : e->matrices) {
+      auto *outMat = reinterpret_cast<LEDsPixelData *>(p);
+      outMat->width = mat->width;
+      outMat->height = mat->height;
+
+      const size_t image_size = convert_image_encoding(
+          mat->width, mat->height, mat->pixel_data, ImageEncoding::RGB_24,
+          outMat->pixel_data, encoding);
+      p += sizeof(LEDsPixelData) + image_size;
+    }
   }
 
   return buf;
