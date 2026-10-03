@@ -1,21 +1,8 @@
+#include "tests-util.hpp"
+
 #include "canvas.hpp"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
-#include <tests-config.hpp>
-
 // TODO: Add more tests for all the elements....
-
-// When defined, tests will display the canvas to inspect.
-// #define MANUAL_INSPECTION
-
-static void inspect(const cv::Mat &image, const char *title = "") {
-#ifdef MANUAL_INSPECTION
-  cv::imshow(title, image);
-  cv::waitKey(0);
-#endif
-}
 
 using namespace testing;
 
