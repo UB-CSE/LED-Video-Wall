@@ -118,13 +118,16 @@ static Pixel read_packed_rgb_from_bits(uint64_t pixel_bits,
   const uint8_t channel_bits = bits_per_pixel / 3;
   const uint64_t mask = UINT64_MAX >> (64 - channel_bits);
 
-  const uint8_t offset = 8 - channel_bits; // Final channel values must be 0-255
+  uint16_t channel_max_value = (1U << channel_bits) - 1;
+  auto to8Bits = [&](uint8_t value) {
+    return (static_cast<uint16_t>(value) * 255U + channel_max_value / 2U) / channel_max_value;
+  };
 
-  const uint8_t r = (pixel_bits & mask) << offset;
+  const uint8_t r = to8Bits(pixel_bits & mask);
   pixel_bits >>= channel_bits;
-  const uint8_t g = (pixel_bits & mask) << offset;
+  const uint8_t g = to8Bits(pixel_bits & mask);
   pixel_bits >>= channel_bits;
-  const uint8_t b = (pixel_bits & mask) << offset;
+  const uint8_t b = to8Bits(pixel_bits & mask);
 
   Pixel pixel = Pixel::RGB(r, g, b);
   return pixel;
