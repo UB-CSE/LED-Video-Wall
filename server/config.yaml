@@ -9,6 +9,9 @@ settings:
   # ns-per-frame: 25000000 # 40 fps
   #ns-per-frame: 16666667 # 60fps
 
+  ledvw-port: 7071
+  rtmp-port: 1935
+
   brightness-percent: 100
   image-encoding: rgb18
 

@@ -220,6 +220,12 @@ void boundsCheckMatrices(const MatricesMap &matrices) {
   }
 }
 
+void validatePort(uint16_t port) {
+  if (port < 1024) {
+    throw std::runtime_error("system ports (0-1023) are reserved");
+  }
+}
+
 } // namespace
 
 bool MatrixConfig::load(const std::filesystem::path &filepath) {
@@ -247,6 +253,11 @@ bool MatrixConfig::load(const std::filesystem::path &filepath) {
     }
 
     image_encoding = settingsNode["image-encoding"].as<ImageEncoding>();
+
+    ledvwPort = settingsNode["ledvw-port"].as<uint16_t>();
+    validatePort(ledvwPort);
+    rtmpPort = settingsNode["rtmp-port"].as<uint16_t>();
+    validatePort(rtmpPort);
 
     // Matrices
 

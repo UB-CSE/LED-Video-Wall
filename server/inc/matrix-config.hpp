@@ -9,6 +9,8 @@
 #include <vector>
 
 struct MatrixConfig {
+  int ledvwPort;
+  int rtmpPort;
   std::vector<std::shared_ptr<Client>> clients;
   cv::Size canvas_size;
   int64_t ns_per_frame;
