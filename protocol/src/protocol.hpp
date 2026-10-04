@@ -189,13 +189,26 @@ template <typename T> const T *decode(const uint8_t *buffer) {
 /**
  * Get the size in bytes of an image in a given encoding format.
  *
- * @param num_leds Number of pixels in the image.
+ * @param width Pixel width of image.
+ * @param height Pixel height of image.
  * @param encoding Image encoding format.
  *
  * @return Size in bytes.
  */
-size_t get_encoded_image_size(uint32_t num_leds, ImageEncoding encoding);
-uint8_t get_bits_per_pixel(ImageEncoding encoding);
+size_t get_encoded_image_size(uint32_t width, uint32_t height,
+                              ImageEncoding encoding);
+
+/**
+ * Get the average bits per pixel of an encoding format.
+ *
+ * @note Multiplying this number by the total number of pixels is NOT a valid
+ * way of finding the full encoded image size. Use get_encoded_image_size()
+ * instead.
+ *
+ * @param encoding Image encoding format.
+ * @return Number of bits.
+ */
+uint8_t get_average_bits_per_pixel(ImageEncoding encoding);
 
 /**
  * Convert an image to a different encoding.

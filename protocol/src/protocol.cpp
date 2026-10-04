@@ -72,7 +72,7 @@ ImageEncoding encoding_from_string(std::string_view encoding_string) {
   return ImageEncoding::UNKNOWN;
 }
 
-uint8_t get_bits_per_pixel(ImageEncoding encoding) {
+uint8_t get_average_bits_per_pixel(ImageEncoding encoding) {
   switch (encoding) {
     using enum ImageEncoding;
   case RGB_24:
@@ -93,22 +93,50 @@ uint8_t get_bits_per_pixel(ImageEncoding encoding) {
   case RGB_3:
     return 3;
   case YUV_422:
-    return 16; // (4*8)/2
+    // 2 adjacent pixels share chroma (4 bytes/2 pixels = 2 bytes/pixel)
+    return 16;
   case YUV_420:
-    return 12; // (6*8)/4
+    // 2x2 chunk of pixels share chroma (6 bytes/4 pixels = 1.5 bytes/pixel)
+    return 12;
   case UNKNOWN:
     return 0;
   }
   return 0;
 }
 
-size_t get_encoded_image_size(uint32_t num_leds, ImageEncoding encoding) {
-  const uint8_t bits_per_pixel = get_bits_per_pixel(encoding);
-  const size_t total_bits = num_leds * bits_per_pixel;
+size_t get_encoded_image_size(uint32_t width, uint32_t height,
+                              ImageEncoding encoding) {
+  size_t bytes;
+  switch (encoding) {
+    using enum ImageEncoding;
+  case YUV_422: {
+    const size_t num_pixels = width * height;
+    const bool odd = num_pixels % 2 == 1;
+    bytes = num_pixels * 2 + odd; // If odd, the last pixel gets its own U & V
+    break;
+  }
+  case YUV_420: {
+    const size_t y_plane_size = width * height;
+    // Round up number of chunks so things don't break when we have an odd width
+    // or height.
+    const size_t num_horizontal_chunks = (width + 1) / 2;
+    const size_t num_vertical_chunks = (height + 1) / 2;
+    const size_t uv_plane_size =
+        2 * num_horizontal_chunks * num_vertical_chunks;
+    bytes = y_plane_size + uv_plane_size;
+    break;
+  }
+  default: {
+    const uint8_t bits_per_pixel = get_average_bits_per_pixel(encoding);
+    const size_t total_bits = width * height * bits_per_pixel;
 
-  size_t bytes = total_bits / 8;
-  if (total_bits % 8 != 0)
-    bytes += 1;
+    bytes = total_bits / 8;
+    if (total_bits % 8 != 0) {
+      bytes += 1;
+    }
+    break;
+  }
+  }
 
   return bytes;
 }
@@ -120,7 +148,8 @@ static Pixel read_packed_rgb_from_bits(uint64_t pixel_bits,
 
   uint16_t channel_max_value = (1U << channel_bits) - 1;
   auto to8Bits = [&](uint8_t value) {
-    return (static_cast<uint16_t>(value) * 255U + channel_max_value / 2U) / channel_max_value;
+    return (static_cast<uint16_t>(value) * 255U + channel_max_value / 2U) /
+           channel_max_value;
   };
 
   const uint8_t r = to8Bits(pixel_bits & mask);
@@ -211,28 +240,41 @@ static void write_bits(uint64_t value, uint8_t num_bits, uint8_t *&p,
 
 static void encode_rgb(const Pixel &pixel, ImageEncoding encoding,
                        uint8_t *&head, uint8_t &bit) {
-  const uint8_t bits_per_pixel = get_bits_per_pixel(encoding);
+  const uint8_t bits_per_pixel = get_average_bits_per_pixel(encoding);
   const uint64_t bits = make_packed_rgb_bits(pixel, bits_per_pixel);
   write_bits(bits, bits_per_pixel, head, bit);
 }
 
 static Pixel decode_rgb(const uint8_t *&head, uint8_t &bit,
                         ImageEncoding encoding) {
-  const uint8_t bits_per_pixel = get_bits_per_pixel(encoding);
+  const uint8_t bits_per_pixel = get_average_bits_per_pixel(encoding);
   const uint64_t bits = read_bits(head, bit, bits_per_pixel);
-  Pixel pixel = read_packed_rgb_from_bits(bits, get_bits_per_pixel(encoding));
+  Pixel pixel =
+      read_packed_rgb_from_bits(bits, get_average_bits_per_pixel(encoding));
   return pixel;
 }
 
-static void encode_yuyv(const Pixel &pixel, uint8_t *&head,
-                        uint32_t pixel_index) {
+static void encode_yuyv(const Pixel &pixel, uint32_t pixel_index,
+                        uint32_t image_width, uint32_t image_height,
+                        uint8_t *&head) {
   const bool even = pixel_index % 2 == 0;
+  const bool last = pixel_index == (image_width * image_height - 1);
   head[even ? 0 : 2] = pixel.Y();
 
   if (even) {
-    // Save these for next iteration.
-    head[1] = pixel.U();
-    head[3] = pixel.V();
+    if (last) {
+      // Don't break if there is an odd number of pixels, encode U & V for this
+      // pixel only.
+      head[1] = pixel.U();
+      head[2] = pixel.V();
+
+      head += 3 * sizeof(uint8_t);
+
+    } else {
+      // Save these for next iteration.
+      head[1] = pixel.U();
+      head[3] = pixel.V();
+    }
   }
   if (!even) {
     // Average chroma between two pixels.
@@ -253,13 +295,21 @@ static void encode_yuyv(const Pixel &pixel, uint8_t *&head,
   }
 }
 
-static Pixel decode_yuyv(const uint8_t *&head, uint32_t pixel_index) {
-  const uint8_t u = head[1];
-  const uint8_t v = head[3];
+static Pixel decode_yuyv(const uint8_t *&head, uint32_t pixel_index,
+                         uint32_t image_width, uint32_t image_height) {
   const bool even = pixel_index % 2 == 0;
-  const uint8_t y = head[even ? 0 : 2];
-  if (!even) {
-    head += 4 * sizeof(uint8_t);
+  const bool last = pixel_index == (image_width * image_height - 1);
+  uint8_t y = head[even ? 0 : 2];
+  uint8_t u = head[1];
+  uint8_t v;
+  if (even && last) { // Odd number of pixels.
+    v = head[2];
+    head += 3 * sizeof(uint8_t);
+  } else {
+    v = head[3];
+    if (!even) {
+      head += 4 * sizeof(uint8_t);
+    }
   }
   Pixel pixel = Pixel::YUV(y, u, v);
   return pixel;
@@ -275,7 +325,7 @@ static void encode_nv12(const Pixel &pixel, uint32_t pixel_index,
   uint32_t column = pixel_index % image_width;
   // Image gets split into 2x2 pixel "chunks"
   // Index of the chunk in the image.
-  uint32_t chunk_index = (row / 2) * (image_width / 2) + (column / 2);
+  uint32_t chunk_index = (row / 2) * ((image_width + 1) / 2) + (column / 2);
   // Semi-planar: U & V for each chunk are after all pixel Y values
   uint8_t *uv_start = start + (image_width * image_height * sizeof(uint8_t));
   uint8_t *uv = uv_start + (chunk_index * 2 * sizeof(uint8_t));
@@ -293,7 +343,7 @@ static Pixel decode_nv12(const uint8_t *&head, uint32_t pixel_index,
   uint32_t row = pixel_index / image_width;
   uint32_t column = pixel_index % image_width;
   // split into 2x2 pixel "chunks"
-  uint32_t chunk_index = (row / 2) * (image_width / 2) + (column / 2);
+  uint32_t chunk_index = (row / 2) * ((image_width + 1) / 2) + (column / 2);
   // Semi-planar: U & V for each chunk are after all pixel Y values
   const uint8_t *uv_start =
       start + (image_width * image_height * sizeof(uint8_t));
@@ -329,7 +379,7 @@ Pixel decode_pixel(const uint8_t *&head, uint8_t &bit, uint32_t pixel_index,
     head += 3 * sizeof(uint8_t);
     break;
   case YUV_422:
-    pixel = decode_yuyv(head, pixel_index);
+    pixel = decode_yuyv(head, pixel_index, image_width, image_height);
     break;
   case YUV_420:
     pixel = decode_nv12(head, pixel_index, start, image_width, image_height);
@@ -368,7 +418,7 @@ void encode_pixel(Pixel pixel, ImageEncoding encoding, uint32_t pixel_index,
     encode_rgb(pixel, encoding, head, bit);
     break;
   case YUV_422:
-    encode_yuyv(pixel, head, pixel_index);
+    encode_yuyv(pixel, pixel_index, image_width, image_height, head);
     break;
   case YUV_420:
     encode_nv12(pixel, pixel_index, image_width, image_height, head, start);
@@ -383,8 +433,8 @@ size_t convert_image_encoding(uint32_t width, uint32_t height,
                               uint8_t *dest, ImageEncoding dest_encoding) {
   const uint32_t num_leds = width * height;
 
-  const size_t src_size = get_encoded_image_size(num_leds, src_encoding);
-  const size_t dest_size = get_encoded_image_size(num_leds, dest_encoding);
+  const size_t src_size = get_encoded_image_size(width, height, src_encoding);
+  const size_t dest_size = get_encoded_image_size(width, height, dest_encoding);
 
   if (src_encoding == dest_encoding) {
     std::memcpy(dest, src, src_size);
@@ -408,13 +458,21 @@ size_t convert_image_encoding(uint32_t width, uint32_t height,
 std::vector<uint8_t>
 encode_set_leds_batched(std::span<const LEDsBatchEntryData> entries,
                         ImageEncoding encoding) {
-  const uint8_t num_entries = std::min(entries.size(), size_t(UINT8_MAX));
+  const uint8_t num_entries =
+      std::min(entries.size(), static_cast<size_t>(UINT8_MAX));
 
   size_t payload_size = 0;
 
-  for (uint8_t i = 0; i < num_entries; ++i) {
-    size_t entry_size = sizeof(LEDsBatchEntryHeader) + sizeof(LEDsPixelData) +
-                        get_encoded_image_size(entries[i].num_leds, encoding);
+  for (uint8_t entryIndex = 0; entryIndex < num_entries; ++entryIndex) {
+    size_t entry_size = sizeof(LEDsBatchEntryHeader);
+
+    for (std::shared_ptr mat : entries[entryIndex].matrices) {
+      const size_t mat_size =
+          sizeof(LEDsPixelData) +
+          get_encoded_image_size(mat->width, mat->height, encoding);
+      entry_size += mat_size;
+    }
+
     payload_size += entry_size;
   }
 

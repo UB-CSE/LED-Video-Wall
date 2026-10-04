@@ -34,19 +34,9 @@ int set_leds_batched(const SetLEDsBatchedMessage *msg) {
 
     const LEDsBatchEntryHeader *eh = &entry->header;
     int8_t gpio_pin = eh->gpio_pin;
-    uint32_t num_leds = eh->num_leds;
     uint8_t num_matrices = eh->num_matrices;
-    uint32_t pixel_bytes = get_encoded_image_size(num_leds, image_encoding);
     p += sizeof(LEDsBatchEntryHeader);
 
-
-    if (p + pixel_bytes > end) {
-      ESP_LOGE(
-          TAG,
-          "Batch %d has num leds %u and extends beyond the size of the message",
-          *p, (unsigned int)num_leds);
-      return -1;
-    }
     if (gpio_pin < 0) {
       if (dma_display) {
         uint32_t seen_leds = 0;
@@ -71,7 +61,7 @@ int set_leds_batched(const SetLEDsBatchedMessage *msg) {
             dma_display->set_pixel(x, y, rgb_pixel.R(), rgb_pixel.G(), rgb_pixel.B());
           }
 
-          p += sizeof(LEDsPixelData) + get_encoded_image_size(width * height, image_encoding);
+          p += sizeof(LEDsPixelData) + get_encoded_image_size(width, height, image_encoding);
         }
       }
     } else {
@@ -106,7 +96,7 @@ int set_leds_batched(const SetLEDsBatchedMessage *msg) {
           ESP_ERROR_CHECK(led_strip_set_pixel(strip, idx, rgb_pixel.R(), rgb_pixel.G(), rgb_pixel.B()));
         }
 
-        p += sizeof(LEDsPixelData) + get_encoded_image_size(width * height, image_encoding);
+        p += sizeof(LEDsPixelData) + get_encoded_image_size(width, height, image_encoding);
       }
     }
   }
