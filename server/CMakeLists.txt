@@ -59,6 +59,15 @@ target_link_directories(${PROJECT_NAME} PUBLIC ${OpenCV_LIBRARY_DIRS})
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBRARIES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${OpenCV_DEFINITIONS})
 
+# nlohmann-json
+FetchContent_Declare(
+        json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.12.0
+)
+FetchContent_MakeAvailable(json)
+target_link_libraries(${PROJECT_NAME} nlohmann_json::nlohmann_json)
+
 # yaml-cpp
 FetchContent_Declare(
         yaml-cpp
