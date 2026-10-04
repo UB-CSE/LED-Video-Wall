@@ -1,19 +1,19 @@
 #include "rtmp.hpp"
 
+#include <chrono>
+#include <cstdlib>
 #include <fcntl.h>
 #include <librtmp/log.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <spdlog/spdlog.h>
+#include <string_view>
 #include <sys/socket.h>
 #include <sys/times.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-
-#include <chrono>
-#include <cstdlib>
-#include <string_view>
 
 #define NUM_WORKER_THREADS 5
 
@@ -80,16 +80,12 @@ RTMPServer::RTMPServer(int port /*= 1935*/, const char *address /*= "0.0.0.0"*/,
                        const std::string &cert /*= ""*/,
                        const std::string &key /*= ""*/)
     : port(port), address(address) {
-  initRTMPLogLevel();
-  initFFmpegLogLevel();
-
   if (!cert.empty() && !key.empty()) {
     sslContext = RTMP_TLS_AllocServerContext(cert.c_str(), key.c_str());
     if (!sslContext) {
-      fprintf(stderr,
-              "RTMPServer: failed to initialize TLS context with cert %s and "
-              "key %s\n",
-              cert.c_str(), key.c_str());
+      spdlog::error("[RTMPServer] failed to initialize TLS context with cert "
+                    "`{}' and key `{}'",
+                    cert, key);
       return;
     }
   }
@@ -97,7 +93,7 @@ RTMPServer::RTMPServer(int port /*= 1935*/, const char *address /*= "0.0.0.0"*/,
   wasInitSuccessful = startServer();
 
   if (!wasInitSuccessful) {
-    fprintf(stderr, "RTMPServer: failed to start server\n");
+    spdlog::error("[RTMPServer] failed to start server");
   }
 }
 
@@ -110,7 +106,7 @@ RTMPServer::~RTMPServer() {
     RTMP_TLS_FreeServerContext(sslContext);
   }
 
-  printf("RTMPServer on port %d stopped.\n", port);
+  spdlog::info("[RTMPServer] stopped (port {})", port);
 }
 
 bool RTMPServer::receiveStreamFrame(const std::string &name, cv::Mat &output) {
@@ -172,62 +168,10 @@ bool RTMPServer::isStreamActive(const std::string &name) const {
   return activeStreams.find(name) != activeStreams.end();
 }
 
-void RTMPServer::initRTMPLogLevel() {
-  const char *logLevelEnv = getenv("RTMP_DEBUG_LEVEL");
-  if (logLevelEnv) {
-    const std::string_view log_level(logLevelEnv);
-    using namespace std::string_view_literals;
-    if (log_level == "CRIT"sv) {
-      RTMP_debuglevel = RTMP_LOGCRIT;
-    } else if (log_level == "ERROR"sv) {
-      RTMP_debuglevel = RTMP_LOGERROR;
-    } else if (log_level == "WARNING"sv) {
-      RTMP_debuglevel = RTMP_LOGWARNING;
-    } else if (log_level == "INFO"sv) {
-      RTMP_debuglevel = RTMP_LOGINFO;
-    } else if (log_level == "DEBUG"sv) {
-      RTMP_debuglevel = RTMP_LOGDEBUG;
-    } else if (log_level == "DEBUG2"sv) {
-      RTMP_debuglevel = RTMP_LOGDEBUG2;
-    } else if (log_level == "ALL"sv) {
-      RTMP_debuglevel = RTMP_LOGALL;
-    }
-  }
-}
-
-void RTMPServer::initFFmpegLogLevel() {
-  const char *logLevelEnv = getenv("FFMPEG_DEBUG_LEVEL");
-  if (logLevelEnv) {
-    const std::string_view log_level(logLevelEnv);
-    using namespace std::string_view_literals;
-    if (log_level == "QUIET"sv) {
-      av_log_set_level(AV_LOG_QUIET);
-    } else if (log_level == "PANIC"sv) {
-      av_log_set_level(AV_LOG_PANIC);
-    } else if (log_level == "FATAL"sv) {
-      av_log_set_level(AV_LOG_FATAL);
-    } else if (log_level == "ERROR"sv) {
-      av_log_set_level(AV_LOG_ERROR);
-    } else if (log_level == "WARNING"sv) {
-      av_log_set_level(AV_LOG_WARNING);
-    } else if (log_level == "INFO"sv) {
-      av_log_set_level(AV_LOG_INFO);
-    } else if (log_level == "VERBOSE"sv) {
-      av_log_set_level(AV_LOG_VERBOSE);
-    } else if (log_level == "DEBUG"sv) {
-      av_log_set_level(AV_LOG_DEBUG);
-    } else if (log_level == "TRACE"sv) {
-      av_log_set_level(AV_LOG_TRACE);
-    }
-  } else {
-    av_log_set_level(AV_LOG_ERROR);
-  }
-}
-
 bool RTMPServer::startServer() {
   socketFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
   if (socketFd < 0) {
-    perror("RTMPServer: failed to create socket");
+    spdlog::error("[RTMPServer] failed to create socket: {}", strerror(errno));
     return false;
   }
 
@@ -238,11 +182,13 @@ bool RTMPServer::startServer() {
 
     int flags = fcntl(socketFd, F_GETFL, 0);
     if (flags < 0) {
-      perror("RTMPServer: failed to get socket flags");
+      spdlog::error("[RTMPServer] failed to get socket flags: {}",
+                    strerror(errno));
       break;
     }
     if (fcntl(socketFd, F_SETFL, flags | O_NONBLOCK) < 0) {
-      perror("RTMPServer: failed to set socket to non-blocking");
+      spdlog::error("[RTMPServer] failed to set socket to non-blocking: {}",
+                    strerror(errno));
       break;
     }
 
@@ -254,12 +200,13 @@ bool RTMPServer::startServer() {
 
     if (bind(socketFd, reinterpret_cast<struct sockaddr *>(&addr),
              sizeof(struct sockaddr_in)) < 0) {
-      perror("RTMPServer: failed to bind socket");
+      spdlog::error("[RTMPServer] failed to bind socket: {}", strerror(errno));
       break;
     }
 
     if (listen(socketFd, 10) < 0) {
-      perror("RTMPServer: failed to listen on socket");
+      spdlog::error("[RTMPServer] failed to listen on socket: {}",
+                    strerror(errno));
       break;
     }
 
@@ -270,6 +217,7 @@ bool RTMPServer::startServer() {
           std::bind(&RTMPServer::workerThreadFunc, this));
     }
 
+    spdlog::info("[RTMPServer] successfully started on port {}", port);
     return true;
 
   } while (false);
@@ -293,7 +241,7 @@ void RTMPServer::stopServer() {
   serverThread.join();
 
   if (close(socketFd) < 0) {
-    perror("RTMPServer: failed to close socket");
+    spdlog::error("[RTMPServer] failed to close socket: {}", strerror(errno));
   }
 }
 
@@ -312,7 +260,8 @@ void RTMPServer::acceptConnections() {
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         // No incoming connection.
       } else {
-        perror("RTMPServer: failed to accept connection");
+        spdlog::error("[RTMPServer] failed to accept connection: {}",
+                      strerror(errno));
       }
       continue;
     }
@@ -331,12 +280,13 @@ void RTMPServer::acceptConnections() {
 
     if (!inet_ntop(AF_INET, &addr.sin_addr, clientInfo.address,
                    sizeof(clientInfo.address))) {
-      perror("RTMPServer: failed to get client address");
+      spdlog::error("[RTMPServer] failed to get client address: {}",
+                    strerror(errno));
       close(clientSocketFd);
       continue;
     }
 
-    printf("RTMPServer: %s: connected\n", clientInfo.address);
+    spdlog::info("[RTMPServer] {}: connected", clientInfo.address);
 
     handleNewConnection(clientInfo);
   }
@@ -386,9 +336,8 @@ void RTMPServer::handleClient(ClientInfo clientInfo) {
 
   do {
     if (select(clientSocketFd + 1, &fds, nullptr, nullptr, &tv) <= 0) {
-      fprintf(stderr,
-              "RTMPServer: %s: timeout waiting for client request: %s\n",
-              clientAddress, strerror(errno));
+      spdlog::error("[RTMPServer] {}: timeout waiting for client request: {}",
+                    clientAddress, strerror(errno));
       break;
     }
 
@@ -397,12 +346,11 @@ void RTMPServer::handleClient(ClientInfo clientInfo) {
       RTMP_Init(rtmp);
       rtmp->m_sb.sb_socket = clientSocketFd;
       if (sslContext && !RTMP_TLS_Accept(rtmp, sslContext)) {
-        fprintf(stderr, "RTMPServer: %s: TLS handshake failed\n",
-                clientAddress);
+        spdlog::error("[RTMPServer] {}: TLS handshake failed", clientAddress);
         break;
       }
       if (!RTMP_Serve(rtmp)) {
-        fprintf(stderr, "RTMPServer: %s: handshake failed\n", clientAddress);
+        spdlog::error("[RTMPServer] {}: handshake failed", clientAddress);
         break;
       }
 
@@ -440,7 +388,7 @@ void RTMPServer::handleClient(ClientInfo clientInfo) {
   } while (false);
 
   close(clientSocketFd);
-  printf("RTMPServer: %s: disconnected\n", clientAddress);
+  spdlog::info("[RTMPServer] {}: disconnected", clientAddress);
 
   if (streamInfo.streamID != -1) {
     std::lock_guard<std::mutex> lk(streamMutex);
@@ -510,17 +458,16 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
   size_t bodySize = packet->m_nBodySize - offset;
 
   if (body[0] != 0x02) {
-    fprintf(
-        stderr,
-        "RTMPServer: %s: sanity failed. no string method in invoke packet\n",
+    spdlog::error(
+        "[RTMPServer] {}: sanity failed. no string method in invoke packet",
         clientInfo.address);
     return false;
   }
 
   AMFObject obj;
   if (AMF_Decode(&obj, body, bodySize, false) < 0) {
-    fprintf(stderr, "RTMPServer: %s: error decoding invoke packet\n",
-            clientInfo.address);
+    spdlog::error("[RTMPServer] {}: error decoding invoke packet",
+                  clientInfo.address);
     return false;
   }
 
@@ -586,31 +533,28 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
 
         std::lock_guard<std::mutex> lk(streamMutex);
         if (activeStreams.find(streamInfo.name) != activeStreams.end()) {
-          fprintf(stderr,
-                  "RTMPServer: %s: stream with name %s already exists, "
-                  "ignoring\n",
-                  clientInfo.address, streamInfo.name.c_str());
+          spdlog::warn(
+              "[RTMPServer] {}: stream with name {} already exists, ignoring",
+              clientInfo.address, streamInfo.name);
           break;
         }
         streamInfo.streamID = ++lastStreamID;
       } else {
-        fprintf(stderr,
-                "RTMPServer: %s: received createStream while stream already "
-                "exists, ignoring\n",
-                clientInfo.address);
+        spdlog::warn("[RTMPServer] {}: received createStream while stream "
+                     "already exists, ignoring",
+                     clientInfo.address);
       }
-      printf("RTMPServer: %s: created stream %d (\"%s\")\n", clientInfo.address,
-             streamInfo.streamID, streamInfo.name.c_str());
+      spdlog::info("[RTMPServer] {}: created stream {} (\"{}\")",
+                   clientInfo.address, streamInfo.streamID, streamInfo.name);
       sendResultNumber(r, txn, streamInfo.streamID);
     } else if (AVMATCH(&method, &av_deleteStream)) {
       if (streamInfo.streamID < 0) {
-        fprintf(stderr,
-                "RTMPServer: %s: received deleteStream before "
-                "createStream, ignoring\n",
-                clientInfo.address);
+        spdlog::warn("[RTMPServer] {}: received deleteStream before "
+                     "createStream, ignoring",
+                     clientInfo.address);
       }
-      printf("RTMPServer: %s: deleted stream %d (\"%s\")\n", clientInfo.address,
-             streamInfo.streamID, streamInfo.name.c_str());
+      spdlog::info("[RTMPServer] {}: deleted stream {} (\"{}\")",
+                   clientInfo.address, streamInfo.streamID, streamInfo.name);
       {
         std::lock_guard<std::mutex> lk(streamMutex);
         activeStreams.erase(streamInfo.name);
@@ -620,9 +564,8 @@ bool RTMPServer::handleInvoke(RTMP *r, RTMPPacket *packet, size_t offset,
       sendResultNumber(r, txn, 10.0);
     } else if (AVMATCH(&method, &av_publish)) {
       if (streamInfo.streamID < 0) {
-        fprintf(
-            stderr,
-            "RTMPServer: %s: received publish before createStream, ignoring\n",
+        spdlog::warn(
+            "[RTMPServer] {}: received publish before createStream, ignoring",
             clientInfo.address);
         break;
       }
@@ -640,12 +583,12 @@ bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
                                 StreamInfo &streamInfo,
                                 const ClientInfo &clientInfo) {
   const char *body = packet->m_body;
-  size_t bodySize = packet->m_nBodySize;
+  uint32_t bodySize = packet->m_nBodySize;
 
   AMFObject obj;
   if (AMF_Decode(&obj, body, bodySize, false) < 0) {
-    fprintf(stderr, "RTMPServer: %s: error decoding metadata packet\n",
-            clientInfo.address);
+    spdlog::error("[RTMPServer] {}: error decoding metadata packet",
+                  clientInfo.address);
     return false;
   }
 
@@ -659,10 +602,9 @@ bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
 
     if (AVMATCH(&metastring, &av_setDataFrame)) {
       if (streamInfo.streamID < 0) {
-        fprintf(stderr,
-                "RTMPServer: %s: received @setDataFrame before createStream, "
-                "ignoring\n",
-                clientInfo.address);
+        spdlog::warn("[RTMPServer] {}: received @setDataFrame before "
+                     "createStream, ignoring",
+                     clientInfo.address);
         break;
       }
 
@@ -709,26 +651,25 @@ bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
             // to Annex B
             bsfName = "h264_mp4toannexb";
           } else {
-            fprintf(stderr,
-                    "RTMPServer: %s: unknown/unsupported video codec ID %d\n",
-                    clientInfo.address, codecID);
+            spdlog::error(
+                "[RTMPServer] {}: unknown/unsupported video codec ID {}",
+                clientInfo.address, codecID);
             break;
           }
 
           streamInfo.codec = avcodec_find_decoder(avCodecID);
           if (!streamInfo.codec) {
-            fprintf(stderr,
-                    "RTMPServer: %s: no decoder found for video codec ID %d\n",
-                    clientInfo.address, codecID);
+            spdlog::error(
+                "[RTMPServer] {}: no decoder found for video codec ID {}",
+                clientInfo.address, codecID);
             break;
           }
           if (bsfName) {
             streamInfo.bsf = av_bsf_get_by_name(bsfName);
             if (!streamInfo.bsf) {
-              fprintf(stderr,
-                      "RTMPServer: %s: bitstream filter %s not found for video "
-                      "codec ID %d\n",
-                      clientInfo.address, bsfName, codecID);
+              spdlog::error("[RTMPServer] {}: bitstream filter {} not found "
+                            "for video codec ID {}",
+                            clientInfo.address, bsfName, codecID);
               break;
             }
           }
@@ -736,40 +677,36 @@ bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
           AVCodecContext *codecContext =
               avcodec_alloc_context3(streamInfo.codec);
           if (!codecContext) {
-            fprintf(stderr,
-                    "RTMPServer: %s: failed to allocate codec context for "
-                    "video codec ID %d\n",
-                    clientInfo.address, codecID);
+            spdlog::error("[RTMPServer] {}: failed to allocate codec context "
+                          "for video codec ID {}",
+                          clientInfo.address, codecID);
             break;
           }
 
           AVBSFContext *bsfContext = nullptr;
           if (streamInfo.bsf) {
             if (av_bsf_alloc(streamInfo.bsf, &bsfContext) < 0) {
-              fprintf(stderr,
-                      "RTMPServer: %s: failed to allocate bitstream filter "
-                      "context\n",
-                      clientInfo.address);
+              spdlog::error("[RTMPServer] {}: failed to allocate bitstream "
+                            "filter context",
+                            clientInfo.address);
               avcodec_free_context(&codecContext);
               break;
             }
 
             if (avcodec_parameters_from_context(bsfContext->par_in,
                                                 codecContext) < 0) {
-              fprintf(stderr,
-                      "RTMPServer: %s: failed to copy codec parameters to "
-                      "bitstream filter context\n",
-                      clientInfo.address);
+              spdlog::error("[RTMPServer] {}: failed to copy codec parameters "
+                            "to bitstream filter context",
+                            clientInfo.address);
               avcodec_free_context(&codecContext);
               av_bsf_free(&bsfContext);
               break;
             }
 
             if (av_bsf_init(bsfContext) < 0) {
-              fprintf(stderr,
-                      "RTMPServer: %s: failed to initialize bitstream filter "
-                      "context\n",
-                      clientInfo.address);
+              spdlog::error("[RTMPServer] {}: failed to initialize bitstream "
+                            "filter context",
+                            clientInfo.address);
               avcodec_free_context(&codecContext);
               av_bsf_free(&bsfContext);
               break;
@@ -788,14 +725,15 @@ bool RTMPServer::handleMetadata(RTMP *r, RTMPPacket *packet,
         if (hasWidth && hasHeight && hasVideoDataRate && hasFrameRate &&
             hasVideoCodecID) {
           streamInfo.hasReceivedMetadata = true;
-          printf("RTMPServer: %s: stream %d metadata: %ldx%ld, data rate %.2f "
-                 "kbps, frame rate %.2f fps, codec %s\n",
-                 clientInfo.address, streamInfo.streamID, streamInfo.width,
-                 streamInfo.height, streamInfo.videoDataRate,
-                 streamInfo.frameRate, streamInfo.codec->name);
+          spdlog::info("[RTMPServer] {}: stream {} metadata: {}x{}, data rate "
+                       "{:.2f} kbps, frame rate {:.2f} fps, codec {}",
+                       clientInfo.address, streamInfo.streamID,
+                       streamInfo.width, streamInfo.height,
+                       streamInfo.videoDataRate, streamInfo.frameRate,
+                       streamInfo.codec->name);
         } else {
-          fprintf(stderr, "RTMPServer: %s: incomplete metadata for stream %d\n",
-                  clientInfo.address, streamInfo.streamID);
+          spdlog::error("[RTMPServer] {}: incomplete metadata for stream {}",
+                        clientInfo.address, streamInfo.streamID);
           break;
         }
       }
@@ -813,25 +751,24 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
                                    StreamInfo &streamInfo,
                                    const ClientInfo &clientInfo) {
   if (!streamInfo.hasReceivedMetadata) {
-    fprintf(stderr,
-            "RTMPServer: %s: received video packet before metadata for stream "
-            "%d (\"%s\"), ignoring\n",
-            clientInfo.address, streamInfo.streamID, streamInfo.name.c_str());
+    spdlog::warn("[RTMPServer] {}: received video packet before metadata for "
+                 "stream {} (\"{}\"), ignoring",
+                 clientInfo.address, streamInfo.streamID,
+                 streamInfo.name.c_str());
     return true;
   }
 
-  const uint8_t *body = reinterpret_cast<const uint8_t *>(packet->m_body);
+  const auto *body = reinterpret_cast<const uint8_t *>(packet->m_body);
   size_t bodySize = packet->m_nBodySize;
 
   // uint8_t frameType = (body[0] & 0xF0) >> 4;
   uint8_t codecID = body[0] & 0x0F;
 
   if (codecID != RTMP_VIDEOCODEC_H264) {
-    fprintf(stderr,
-            "RTMPServer: %s: received video packet with unsupported codec ID "
-            "%d for stream %d (\"%s\")\n",
-            clientInfo.address, codecID, streamInfo.streamID,
-            streamInfo.name.c_str());
+    spdlog::error("[RTMPServer] {}: received video packet with unsupported "
+                  "codec ID {} for stream {} (\"{}\")",
+                  clientInfo.address, codecID, streamInfo.streamID,
+                  streamInfo.name.c_str());
     return false;
   }
 
@@ -852,25 +789,23 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
     std::lock_guard<std::mutex> lk(codecContext->mutex);
     AVCodecContext *ctx = codecContext->context;
 
-    uint8_t *extradata = reinterpret_cast<uint8_t *>(
+    auto *extraData = reinterpret_cast<uint8_t *>(
         av_malloc(avcConfigSize + AV_INPUT_BUFFER_PADDING_SIZE));
-    memcpy(extradata, avcConfig, avcConfigSize);
-    memset(extradata + avcConfigSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+    memcpy(extraData, avcConfig, avcConfigSize);
+    memset(extraData + avcConfigSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
-    ctx->extradata = extradata;
+    ctx->extradata = extraData;
     ctx->extradata_size = static_cast<int>(avcConfigSize);
 
     if (avcodec_is_open(ctx)) {
-      fprintf(stderr,
-              "RTMPServer: %s: codec context for stream %d (\"%s\") already "
-              "open, ignoring new sequence header\n",
-              clientInfo.address, streamInfo.streamID, streamInfo.name.c_str());
+      spdlog::warn("[RTMPServer] {}: codec context for stream {} (\"{}\") "
+                   "already open, ignoring new sequence header",
+                   clientInfo.address, streamInfo.streamID, streamInfo.name);
     } else if (avcodec_open2(ctx, streamInfo.codec, nullptr) < 0) {
-      fprintf(stderr,
-              "RTMPServer: %s: failed to open codec context for video codec ID "
-              "%d for stream %d (\"%s\")\n",
-              clientInfo.address, codecID, streamInfo.streamID,
-              streamInfo.name.c_str());
+      spdlog::error("[RTMPServer] {}: failed to open codec context for video "
+                    "codec ID {} for stream {} (\"{}\")",
+                    clientInfo.address, codecID, streamInfo.streamID,
+                    streamInfo.name);
       avcodec_free_context(&codecContext->context);
       return false;
     }
@@ -890,10 +825,9 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
     AVBSFContext *bsfCtx = codecContext->bsfContext;
 
     if (!avcodec_is_open(codecContext->context)) {
-      fprintf(stderr,
-              "RTMPServer: %s: received video data packet before sequence "
-              "header for stream %d (\"%s\")\n",
-              clientInfo.address, streamInfo.streamID, streamInfo.name.c_str());
+      spdlog::error("[RTMPServer] {}: received video data packet before "
+                    "sequence header for stream {} (\"{}\")\n",
+                    clientInfo.address, streamInfo.streamID, streamInfo.name);
       return false;
     }
 
@@ -902,20 +836,18 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
       int ret;
       if (bsfCtx) {
         if ((ret = av_bsf_send_packet(bsfCtx, avPacket)) < 0) {
-          fprintf(stderr,
-                  "RTMPServer: %s: failed to send packet to bitstream filter "
-                  "for stream %d (\"%s\"): %d\n",
-                  clientInfo.address, streamInfo.streamID,
-                  streamInfo.name.c_str(), ret);
+          spdlog::error("[RTMPServer] {}: failed to send packet to bitstream "
+                        "filter for stream {} (\"{}\"): {}\n",
+                        clientInfo.address, streamInfo.streamID,
+                        streamInfo.name, ret);
           break;
         }
 
         if ((ret = av_bsf_receive_packet(bsfCtx, avPacket)) < 0) {
-          fprintf(stderr,
-                  "RTMPServer: %s: failed to receive packet from bitstream "
-                  "filter for stream %d (\"%s\"): %d\n",
-                  clientInfo.address, streamInfo.streamID,
-                  streamInfo.name.c_str(), ret);
+          spdlog::error("[RTMPServer] {}: failed to receive packet from "
+                        "bitstream filter for stream {} (\"{}\"): {}\n",
+                        clientInfo.address, streamInfo.streamID,
+                        streamInfo.name, ret);
           break;
         }
       }
@@ -923,11 +855,10 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
       if ((ret = avcodec_send_packet(ctx, avPacket)) < 0) {
         if (ret !=
             AVERROR(EAGAIN)) { // EAGAIN just means it needs more packets.
-          fprintf(stderr,
-                  "RTMPServer: %s: failed to send packet to decoder for stream "
-                  "%d (\"%s\"): %d\n",
-                  clientInfo.address, streamInfo.streamID,
-                  streamInfo.name.c_str(), ret);
+          spdlog::error("[RTMPServer] {}: failed to send packet to decoder for "
+                        "stream {} (\"{}\"): {}",
+                        clientInfo.address, streamInfo.streamID,
+                        streamInfo.name, ret);
           break;
         }
       }
@@ -941,11 +872,10 @@ bool RTMPServer::handleVideoPacket(RTMP *r, RTMPPacket *packet,
     return success;
   }
 
-  fprintf(stderr,
-          "RTMPServer: %s: received video packet with unknown AVC packet type "
-          "%d for stream %d (\"%s\")\n",
-          clientInfo.address, avcPacketType, streamInfo.streamID,
-          streamInfo.name.c_str());
+  spdlog::error("[RTMPServer] {}: received video packet with unknown AVC "
+                "packet type {} for stream {} (\"{}\")",
+                clientInfo.address, avcPacketType, streamInfo.streamID,
+                streamInfo.name);
   return false;
 }
 

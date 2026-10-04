@@ -7,12 +7,13 @@
 #include <opencv2/opencv.hpp>
 #include <ranges>
 #include <regex>
+#include <spdlog/spdlog.h>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <yaml-cpp/yaml.h>
-#include <unordered_map>
 
 struct MACAddress {
   uint64_t mac;
@@ -119,7 +120,8 @@ std::pair<MatricesMap, cv::Size> matricesFromYAML(YAML::Node node,
 
     std::shared_ptr<LEDMatrixSpec> spec = matrixSpecs[specID];
     if (!spec) {
-      throw std::runtime_error("no such matrix spec defined: '" + specID + "'");
+      throw std::runtime_error(
+          std::format("no such matrix spec `{}'", specID));
     }
 
     uint32_t width = spec->width;
@@ -210,7 +212,7 @@ void boundsCheckMatrices(const MatricesMap &matrices) {
         if (isOverlappingRange(i->pos.y, i->pos.height, j->pos.y,
                                j->pos.height)) {
           std::stringstream ss;
-          ss << "Overlapping boundaries on matrices ";
+          ss << "overlapping boundaries on matrices ";
           ss << i->id << " and ";
           ss << j->id << "\n";
           throw std::runtime_error(ss.str());
@@ -239,7 +241,8 @@ bool MatrixConfig::load(const std::filesystem::path &filepath) {
 
     // Settings
 
-    bool ignoreBoundsChecks = settingsNode["ignore-bounds-checks"].as<std::string>() == "true";
+    bool ignoreBoundsChecks =
+        settingsNode["ignore-bounds-checks"].as<std::string>() == "true";
 
     ns_per_frame = settingsNode["ns-per-frame"].as<int64_t>();
     if (ns_per_frame <= 0) {
@@ -274,7 +277,7 @@ bool MatrixConfig::load(const std::filesystem::path &filepath) {
     }
 
   } catch (const std::exception &e) {
-    std::cerr << "failed to load matrix config: " << e.what() << std::endl;
+    spdlog::error("[Matrix] failed load config from yaml: {}", e.what());
     return false;
   }
 

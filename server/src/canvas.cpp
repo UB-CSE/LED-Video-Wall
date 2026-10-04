@@ -4,6 +4,7 @@
 #include "encoding-util.hpp"
 #include "text-render.hpp"
 
+#include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
 
 #include <algorithm>
@@ -205,7 +206,8 @@ void ImageElement::loadImageFile(const std::filesystem::path &path) {
   if (m_isLoaded) {
     setFrame(frame);
   } else {
-    fprintf(stderr, "Failed to load image %s\n", m_filePath.c_str());
+    spdlog::error("[Element] {}: failed to load image at path `{}'", getUID(),
+                  m_filePath.string());
     setFrame(kNoFrameMat);
   }
 }
@@ -240,7 +242,8 @@ void CarouselElement::loadImages(std::span<const std::string> filepaths) {
   for (const auto &path : filepaths) {
     cv::Mat img = cv::imread(path, cv::IMREAD_COLOR);
     if (img.empty()) {
-      fprintf(stderr, "Failed to load image %s\n", path.c_str());
+      spdlog::error("[Element] {}: failed to load carousel image at path `{}'",
+                    getUID(), path);
       m_isLoaded = false;
     } else {
       m_pixelMatrices.push_back(img);
@@ -248,7 +251,7 @@ void CarouselElement::loadImages(std::span<const std::string> filepaths) {
   }
 
   if (m_pixelMatrices.empty()) {
-    fprintf(stderr, "No images loaded\n");
+    spdlog::error("[Element] {}: no images loaded", getUID());
     return;
   }
 
@@ -306,7 +309,8 @@ void VideoElement::loadVideo(const std::filesystem::path &filepath) {
     (void)acquireNextFrame();
 
   } else {
-    fprintf(stderr, "Failed to load video %s\n", filepath.c_str());
+    spdlog::error("[Element] {}: failed to load video at path `{}'", getUID(),
+                  filepath.string());
     setFrame(kNoFrameMat);
   }
 }
@@ -465,8 +469,8 @@ WebBrowserElementFromYAML(const std::string &uid, YAML::Node node) {
         } else if (sameSiteStr == "Strict") {
           sameSite = CEF_COOKIE_SAME_SITE_STRICT_MODE;
         } else if (!sameSiteStr.empty()) {
-          std::cerr << "Invalid sameSite value for cookie: " << sameSiteStr
-                    << std::endl;
+          spdlog::error("[Element] {}: invalid sameSite value for cookie: `{}'",
+                        uid, sameSiteStr);
         }
       }
 
@@ -563,9 +567,7 @@ void TextElement::render() {
 
 static cv::Scalar hexColorToScalar(const std::string &hexColor) {
   if (hexColor.length() != 7 || hexColor[0] != '#') {
-    // invalid, we'll just return black and warn (thanks nick).
-    std::cerr << "Error parsing config: Hex color \"" << hexColor
-              << "\" invalid." << std::endl;
+    throw std::runtime_error(std::format("invalid hex color `{}'", hexColor));
     return {0, 0, 0};
   }
 
@@ -673,6 +675,7 @@ static void CommonElementPropsToYAML(std::shared_ptr<Element> element,
 
 bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path,
                                       RTMPServer &rtmpServer) {
+  spdlog::info("[Canvas] loading config from `{}'", path.string());
   try {
     YAML::Node configNode = YAML::LoadFile(path);
 
@@ -737,9 +740,11 @@ bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path,
     }
 
   } catch (const std::exception &e) {
-    std::cerr << "failed to load element config: " << e.what() << std::endl;
+    spdlog::error("[Canvas] failed load config from yaml: {}", e.what());
     return false;
   }
+
+  spdlog::info("[Canvas] successfully loaded config");
 
   return true;
 }
@@ -791,7 +796,7 @@ void VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
         elementNode["type"] = "text";
         TextElementToYAML(textElement, elementNode);
       } else {
-        std::cerr << "could not save element of unknown type\n";
+        spdlog::error("[Canvas] cannot save element of unknown type to config");
         return;
       }
 
@@ -806,8 +811,9 @@ void VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
   std::ofstream ofs(path);
   if (ofs) {
     ofs << configNode;
+    spdlog::info("[Canvas] saved config to `{}'", path.string());
   } else {
-    std::cerr << "failed to write config to file";
+    spdlog::error("[Canvas] failed to save config to file");
   }
 }
 
@@ -841,11 +847,14 @@ bool VirtualCanvas::addElement(std::shared_ptr<Element> element) {
 
   const std::string &uid = element->getUID();
   if (m_elementPositions.contains(uid)) {
+    spdlog::error("[Canvas] addElement: element `{}' already exists", uid);
     return false;
   }
 
   m_elements.push_front(element);
   m_elementPositions[uid] = m_elements.begin();
+
+  spdlog::info("[Canvas] addElement: added element `{}' to top", uid);
 
   pushElementsToPixelMatrix();
   return true;
@@ -855,11 +864,14 @@ bool VirtualCanvas::removeElement(const std::string &uid) {
   auto posIt = m_elementPositions.find(uid);
 
   if (posIt == m_elementPositions.end()) {
+    spdlog::error("[Canvas] removeElement: element `{}' not found", uid);
     return false;
   }
 
   m_elements.erase(posIt->second);
   m_elementPositions.erase(posIt);
+
+  spdlog::info("[Canvas] removeElement: removed element `{}'", uid);
 
   pushElementsToPixelMatrix();
   return true;
@@ -869,17 +881,20 @@ bool VirtualCanvas::moveElementUp(const std::string &uid) {
   auto posIt = m_elementPositions.find(uid);
 
   if (posIt == m_elementPositions.end()) {
+    spdlog::error("[Canvas] moveElementUp: element `{}' not found", uid);
     return false;
   }
 
   auto current = posIt->second;
 
   if (current == m_elements.begin()) {
+    spdlog::info("[Canvas] moveElementUp: element `{}' already on top", uid);
     // Already top, return success because why not?
     return true;
   }
 
   m_elements.splice(std::prev(current), m_elements, current);
+  spdlog::info("[Canvas] moveElementUp: moved up element `{}'", uid);
 
   pushElementsToPixelMatrix();
   return true;
@@ -889,6 +904,7 @@ bool VirtualCanvas::moveElementDown(const std::string &uid) {
   auto posIt = m_elementPositions.find(uid);
 
   if (posIt == m_elementPositions.end()) {
+    spdlog::error("[Canvas] moveElementDown: element `{}' not found", uid);
     return false;
   }
 
@@ -896,11 +912,14 @@ bool VirtualCanvas::moveElementDown(const std::string &uid) {
   auto next = std::next(current);
 
   if (next == m_elements.end()) {
+    spdlog::info("[Canvas] moveElementDown: element `{}' already on bottom",
+                 uid);
     // Already bottom, return success because why not?
     return true;
   }
 
   m_elements.splice(std::next(next), m_elements, current);
+  spdlog::info("[Canvas] moveElementDown: moved down element `{}'", uid);
 
   pushElementsToPixelMatrix();
   return true;
@@ -920,11 +939,6 @@ void VirtualCanvas::pushElementsToPixelMatrix() {
     if (elemSize.width <= 0 || elemSize.height <= 0) {
       continue;
     }
-
-    /*std::cout << "Element ID: " << elemPtr->getId()
-         << " at (" << loc.x << "," << loc.y << ")"
-           << " size " << elemSize.width << "x" << elemSize.height <<
-       std::endl;*/
 
     /*
     Overwite a region of interest with the image. If the image does not fit on
@@ -949,10 +963,8 @@ void VirtualCanvas::pushElementsToPixelMatrix() {
 
       overlayImage(elemMat, cv::Rect(loc, elemSize));
     } else {
-      // Warning
-      printf("\n Element %s (\"%s\") was placed out of bounds and has not been "
-             "loaded",
-             elemPtr->getUID().c_str(), elemPtr->getName().c_str());
+      spdlog::warn("[Element] {}: out of bounds, not rendered", elemPtr->getUID(),
+                   elemPtr->getName());
     }
   }
 }

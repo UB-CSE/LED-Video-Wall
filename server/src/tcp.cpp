@@ -13,6 +13,7 @@
 #include <optional>
 #include <poll.h>
 #include <ranges>
+#include <spdlog/spdlog.h>
 #include <sys/socket.h>
 #include <thread>
 #include <unistd.h>
@@ -32,7 +33,7 @@ void LEDTCPServer::handle_conns() {
         continue;
       }
 
-      std::cerr << "Accept failed: " << strerror(errno) << "\n";
+      spdlog::error("[LEDTCPServer] accept failed: {}", strerror(errno));
       break;
     }
 
@@ -50,20 +51,23 @@ void LEDTCPServer::handle_conns() {
     *header = tcp_recv_header(client_socket);
     if (msg.header.op_code != OperationCode::CHECK_IN ||
         msg.header.size != sizeof(CheckInMessage)) {
-      std::cerr << "Expected check-in message, got invalid op-code or message "
-                   "size.\n";
+      spdlog::error("[LEDTCPServer] expected check-in message, got invalid "
+                    "op-code or message size");
       close(client_socket);
       continue;
     }
     tcp_recv(client_socket, &(msg.mac_address),
              sizeof(msg) - sizeof(MessageHeader));
     uint64_t mac_addr = 0;
-    std::cout << &(msg.mac_address) << "," << &msg + sizeof(MessageHeader)
-              << "," << &msg << "," << sizeof(MessageHeader) << "\n";
     memcpy(&mac_addr, &(msg.mac_address), 6);
 
-    // if c is the value representing the end of the iterator, it is not present
-    std::cout << "Got message from " << mac_addr << "\n";
+    const std::string macAddrString =
+        std::format("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                    unsigned(msg.mac_address[0]), unsigned(msg.mac_address[1]),
+                    unsigned(msg.mac_address[2]), unsigned(msg.mac_address[3]),
+                    unsigned(msg.mac_address[4]), unsigned(msg.mac_address[5]));
+    spdlog::info("[LEDTCPServer] got message from {}", macAddrString);
+
     auto it = m_clients.find(mac_addr);
     if (!(it == m_clients.end())) {
       const std::shared_ptr<const Client> &c = it->second;
@@ -77,8 +81,8 @@ void LEDTCPServer::handle_conns() {
         close(s);
       }
 
-      std::cout << "Accepted client\n";
-      std::cout << "socket: " << client_socket << "\n";
+      spdlog::info("[LEDTCPServer] accepted client {} (socket {})",
+                   macAddrString, client_socket);
 
       uint8_t num_pins = c->matConnections.size();
       std::vector<PinInfo> pin_info;
@@ -95,10 +99,11 @@ void LEDTCPServer::handle_conns() {
       struct pollfd pfd = {client_socket, POLLOUT, -1};
       poll(&pfd, 1, -1);
       send(client_socket, encoded_msg.data(), encoded_msg.size(), 0);
-      std::cout << "Sent set_config to " << mac_addr << "\n";
+      spdlog::info("[LEDTCPServer] sent set_config to {}", macAddrString);
       m_connInfo->setConnected(c->macAddr, client_socket);
     } else {
-      std::cerr << "Did not recognize MAC address!\n";
+      spdlog::error("[LEDTCPServer] did not recognize MAC address {}",
+                    macAddrString);
       close(client_socket);
     }
   }
@@ -113,7 +118,7 @@ create_server(uint32_t addr, uint16_t port,
 
   int server_socket = socket(AF_INET, SOCK_STREAM, tcp_protocol_num);
   if (server_socket == -1) {
-    std::cerr << "Bad socket!\n";
+    spdlog::error("[LEDTCPServer] socket() failed: ", strerror(errno));
     return nullptr;
   }
 
@@ -127,7 +132,7 @@ create_server(uint32_t addr, uint16_t port,
 
   int res = bind(server_socket, (struct sockaddr *)&s_addr, sizeof(s_addr));
   if (res == -1) {
-    std::cerr << "Failed bind: " << strerror(errno) << "\n";
+    spdlog::error("[LEDTCPServer] bind() failed: ", strerror(errno));
     return nullptr;
   }
 
@@ -135,14 +140,15 @@ create_server(uint32_t addr, uint16_t port,
 
   int flags = fcntl(server_socket, F_GETFL, 0);
   if (flags < 0) {
-    std::cerr << "Failed to get socket flags: " << strerror(errno) << "\n";
+    spdlog::error("[LEDTCPServer] failed to get socket flags: ",
+                  strerror(errno));
     close(server_socket);
     return nullptr;
   }
 
   if (fcntl(server_socket, F_SETFL, flags | O_NONBLOCK) < 0) {
-    std::cerr << "Failed to set socket to non-blocking: " << strerror(errno)
-              << "\n";
+    spdlog::error("[LEDTCPServer] failed to set socket to non-blocking: ",
+                  strerror(errno));
     close(server_socket);
     return nullptr;
   }
@@ -175,7 +181,7 @@ LEDTCPServer::~LEDTCPServer() {
   }
   close(m_socket);
 
-  std::cout << "LEDTCPServer on port " << m_port << " stopped.\n";
+  spdlog::error("[LEDTCPServer] stopped (port {})", m_port);
 }
 
 void LEDTCPServer::start() {
@@ -237,21 +243,6 @@ bool ClientConnInfo::isConnected(uint64_t addr) const {
   return m_connected.contains(addr);
 }
 
-/*
-void LEDTCPServer::tcp_send(const Client* c, int socket, void* data, int size) {
-    int sent = send(socket, data, size, MSG_NOSIGNAL);
-    if (sent != size) {
-        std::cout << "Error sending: " << strerror(errno) << "\n";
-        if (errno == ECONNRESET) {
-            auto socket_opt = this->conn_info->getSocket(c);
-            if (socket_opt.has_value()) {
-                close(socket_opt.value());
-            }
-            this->conn_info->setDisconnected(c);
-        }
-    }
-}
-*/
 void LEDTCPServer::tcp_send(uint64_t addr, int s, void *data, int size) {
   ssize_t total_sent = 0;
   while (total_sent < size) {
@@ -262,7 +253,7 @@ void LEDTCPServer::tcp_send(uint64_t addr, int s, void *data, int size) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
         continue;
       }
-      std::cout << "Error sending: " << strerror(errno) << "\n";
+      spdlog::error("[LEDTCPServer] error sending: {}", strerror(errno));
       if (errno == ECONNRESET || errno == EPIPE) {
         auto socket_opt = m_connInfo->getSocket(addr);
         if (socket_opt.has_value()) {
@@ -285,7 +276,8 @@ MessageHeader LEDTCPServer::tcp_recv_header(int sock) {
     const ssize_t recvSize =
         recv(sock, (char *)&header + total, sizeof(header) - total, 0);
     if (recvSize < 0) {
-      std::cerr << "Error receiving header: " << strerror(errno) << "\n";
+      spdlog::error("[LEDTCPServer] error receiving header: {}",
+                    strerror(errno));
     } else {
       total += recvSize;
     }
@@ -301,7 +293,7 @@ void LEDTCPServer::tcp_recv(int sock, void *data, int size) {
     poll(&pfd, 1, -1);
     const ssize_t recvSize = recv(sock, (char *)data + total, size - total, 0);
     if (recvSize < 0) {
-      std::cerr << "Error receiving: " << strerror(errno) << "\n";
+      spdlog::error("[LEDTCPServer] error receiving: {}", strerror(errno));
     } else {
       total += recvSize;
     }

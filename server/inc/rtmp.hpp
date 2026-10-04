@@ -60,8 +60,6 @@ public:
 private:
   // initialization
 
-  void initRTMPLogLevel();
-  void initFFmpegLogLevel();
   bool startServer();
 
   // serving

@@ -77,6 +77,16 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(yaml-cpp)
 target_link_libraries(${PROJECT_NAME} yaml-cpp::yaml-cpp)
 
+# Command-line option parser
+FetchContent_Declare(
+        CppOptionParser
+        GIT_REPOSITORY https://github.com/petelilley/CppOptionParser.git
+        GIT_TAG        main
+)
+FetchContent_MakeAvailable(CppOptionParser)
+
+target_link_libraries(${PROJECT_NAME} OptionParser)
+
 # freetype2
 pkg_check_modules(FREETYPE2 REQUIRED freetype2)
 target_include_directories(${PROJECT_NAME} PUBLIC ${FREETYPE2_INCLUDE_DIRS})

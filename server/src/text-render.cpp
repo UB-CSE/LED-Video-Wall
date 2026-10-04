@@ -1,19 +1,19 @@
 #include "text-render.hpp"
 #include "canvas.hpp"
-#include "opencv2/core/mat.hpp"
-#include "opencv2/imgcodecs.hpp"
-#include "opencv2/imgproc.hpp"
+#include <algorithm>
+#include <iostream>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <spdlog/spdlog.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
-#include <algorithm>
-#include <iostream>
-
 FontManager::FontManager() {
   if (FT_Error error = FT_Init_FreeType(&m_ft); error != FT_Err_Ok) {
-    std::cerr << "Error: Could not initialize FreeType library: "
-              << FT_Error_String(error) << std::endl;
+    spdlog::error("[Fonts] could not initialized FreeType library: {}",
+                  FT_Error_String(error));
     m_isInitialized = false;
   }
 
@@ -156,8 +156,7 @@ FT_Face FontManager::loadFont(const std::filesystem::path &path) {
 
   std::filesystem::path absPath = std::filesystem::absolute(path);
   if (!std::filesystem::exists(absPath)) {
-    std::cerr << "Error: Font path does not exist: " << path.string()
-              << std::endl;
+    spdlog::error("[Fonts] no such font `{}'", path.string());
     return nullptr;
   }
 
@@ -168,11 +167,12 @@ FT_Face FontManager::loadFont(const std::filesystem::path &path) {
   FT_Face face;
   if (FT_Error error = FT_New_Face(m_ft, absPath.c_str(), 0, &face);
       error != FT_Err_Ok) {
-    std::cerr << "Error: Failed to load font: " << FT_Error_String(error)
-              << std::endl;
+    spdlog::error("[Fonts] failed to load font `{}': {}", path.string(),
+                  FT_Error_String(error));
     return nullptr;
   }
 
   m_faces[absPath] = face;
+  spdlog::error("[Fonts] successfully loaded font `{}'", path.string());
   return face;
 }

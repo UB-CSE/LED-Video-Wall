@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <sys/types.h>
+#include <spdlog/spdlog.h>
 
 #pragma region Command Argument Parsing
 
@@ -71,6 +72,8 @@ bool CommandParser::ToArgs(std::string_view input,
 
 #pragma endregion
 
+#pragma region Command Execution
+
 namespace {
 
 /**
@@ -88,14 +91,18 @@ void to_json(nlohmann::json &j, const CommandResult &result) {
   };
 }
 
+void invalidCommandInvocation(const char* commandName, const char* usage) {
+  spdlog::error("[Command] invalid invocation of `{}', usage: {} {}", commandName, commandName, usage);
+}
+
 void doHelp() {}
 
 nlohmann::json doElementRename(VirtualCanvas &vCanvas,
                                std::span<std::string_view> args) {
-  auto usage = [] { puts("usage: element-rename <id> <name>"); };
+  auto problem = [] { invalidCommandInvocation("element-rename", "<id> <name>"); };
 
   if (args.size() != 2) {
-    usage();
+    problem();
     return {};
   }
   const std::string id(args[0]);
@@ -103,7 +110,7 @@ nlohmann::json doElementRename(VirtualCanvas &vCanvas,
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    printf("error: no element exists with id %s\n", id.c_str());
+    spdlog::error("[Command] element-rename: no such element `{}'", id);
     return {};
   }
   element->setName(name);
@@ -112,10 +119,10 @@ nlohmann::json doElementRename(VirtualCanvas &vCanvas,
 
 nlohmann::json doElementMove(VirtualCanvas &vCanvas,
                              std::span<std::string_view> args) {
-  auto usage = [] { puts("usage: element-move <id> <x> <y>"); };
+  auto problem = [] { invalidCommandInvocation("element-move", "<id> <x> <y>"); };
 
   if (args.size() != 3) {
-    usage();
+    problem();
     return {};
   }
   const std::string id(args[0]);
@@ -124,13 +131,13 @@ nlohmann::json doElementMove(VirtualCanvas &vCanvas,
     x = std::stoi(std::string(args[1]));
     y = std::stoi(std::string(args[2]));
   } catch (...) {
-    usage();
+    problem();
     return {};
   }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    printf("error: no element exists with id %s\n", id.c_str());
+    spdlog::error("[Command] element-move: no such element `{}'", id);
     return {};
   }
   element->setLocation(cv::Point(x, y));
@@ -139,10 +146,10 @@ nlohmann::json doElementMove(VirtualCanvas &vCanvas,
 
 nlohmann::json doElementRotate(VirtualCanvas &vCanvas,
                                std::span<std::string_view> args) {
-  auto usage = [] { puts("usage: element-rotate <id> <degrees>"); };
+  auto problem = [] { invalidCommandInvocation("element-move", "<id> <degrees>"); };
 
   if (args.size() != 2) {
-    usage();
+    problem();
     return {};
   }
   const std::string id(args[0]);
@@ -150,13 +157,13 @@ nlohmann::json doElementRotate(VirtualCanvas &vCanvas,
   try {
     degrees = std::stod(std::string(args[1]));
   } catch (...) {
-    usage();
+    problem();
     return {};
   }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    printf("error: no element exists with id %s\n", id.c_str());
+    spdlog::error("[Command] element-rotate: no such element `{}'", id);
     return {};
   }
   element->setRotation(degrees);
@@ -165,10 +172,10 @@ nlohmann::json doElementRotate(VirtualCanvas &vCanvas,
 
 nlohmann::json doElementResize(VirtualCanvas &vCanvas,
                                std::span<std::string_view> args) {
-  auto usage = [] { puts("usage: element-resize <id> <x> <y>"); };
+  auto problem = [] { invalidCommandInvocation("element-resize", "<id> <x> <y>"); };
 
   if (args.size() != 3) {
-    usage();
+    problem();
     return {};
   }
   const std::string id(args[0]);
@@ -177,13 +184,13 @@ nlohmann::json doElementResize(VirtualCanvas &vCanvas,
     x = std::stoi(std::string(args[1]));
     y = std::stoi(std::string(args[2]));
   } catch (...) {
-    usage();
+   problem();
     return {};
   }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    printf("error: no element exists with id %s\n", id.c_str());
+    spdlog::error("[Command] element-resize: no such element `{}'", id);
     return {};
   }
   element->setSize(cv::Size(x, y));
@@ -192,10 +199,10 @@ nlohmann::json doElementResize(VirtualCanvas &vCanvas,
 
 nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas,
                                std::span<std::string_view> args) {
-  auto usage = [] { puts("usage: element-move-up <id>"); };
+  auto problem = [] { invalidCommandInvocation("element-move-up", "<id>"); };
 
   if (args.size() != 1) {
-    usage();
+   problem();
     return {};
   }
   const std::string id(args[0]);
@@ -206,10 +213,10 @@ nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas,
 
 nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas,
                                  std::span<std::string_view> args) {
-  auto usage = [] { puts("usage: element-move-down <id>"); };
+  auto problem = [] { invalidCommandInvocation("element-move-down", "<id>"); };
 
   if (args.size() != 1) {
-    usage();
+    problem();
     return {};
   }
   const std::string id(args[0]);
@@ -225,7 +232,7 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
   std::string_view commandName;
   std::vector<std::string_view> args;
   if (!CommandParser::ToArgs(line, commandName, args)) {
-    std::cerr << "Invalid command invocation\n";
+    spdlog::error("[Command] failed to parse arguments: `{}'", line);
     return {};
   }
 
@@ -252,9 +259,11 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
   } else if (commandName == "element-move-down") {
     return doElementMoveDown(vCanvas, args);
   } else {
-    std::cerr << "Command not found: '" << commandName << "'\n";
+    spdlog::error("[Command] no such command `{}'", commandName);
     return {};
   }
 
   return CommandResult{.success = true};
 }
+
+#pragma endregion
