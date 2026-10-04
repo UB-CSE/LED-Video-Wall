@@ -140,6 +140,8 @@ TEST(MatrixConfig, Basic) {
   ASSERT_THAT(config.ns_per_frame, Eq(40000000));
   ASSERT_THAT(config.canvas_size.width, Eq(64));
   ASSERT_THAT(config.canvas_size.height, Eq(128));
+  ASSERT_THAT(config.ledvwPort, Eq(7070));
+  ASSERT_THAT(config.rtmpPort, Eq(1935));
 
   ASSERT_THAT(config.clients, SizeIs(2));
   for (size_t i = 0; i < 2; i++) {

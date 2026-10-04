@@ -6,6 +6,9 @@ settings:
   brightness-percent: 97
   image-encoding: rgb18
 
+  ledvw-port: 7070
+  rtmp-port: 1935
+
 matrix-specs:
   "ws2812b:32x8":
     power-limit-amps: 2.5
