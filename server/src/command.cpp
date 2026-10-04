@@ -2,11 +2,12 @@
 #include "canvas.hpp"
 #include "text-render.hpp"
 #include <cctype>
-#include <iostream>
 #include <optional>
+#include <readline/history.h>
+#include <readline/readline.h>
+#include <spdlog/spdlog.h>
 #include <string>
 #include <sys/types.h>
-#include <spdlog/spdlog.h>
 
 #pragma region Command Argument Parsing
 
@@ -91,18 +92,19 @@ void to_json(nlohmann::json &j, const CommandResult &result) {
   };
 }
 
-void invalidCommandInvocation(const char* commandName, const char* usage) {
-  spdlog::error("[Command] invalid invocation of `{}', usage: {} {}", commandName, commandName, usage);
+void invalidCommandInvocation(std::string_view commandName,
+                              std::string_view usage,
+                              std::shared_ptr<spdlog::logger> logger) {
+  logger->error("invalid invocation of `{}', usage: {} {}", commandName,
+                commandName, usage);
 }
 
-void doHelp() {}
-
-nlohmann::json doElementRename(VirtualCanvas &vCanvas,
-                               std::span<std::string_view> args) {
-  auto problem = [] { invalidCommandInvocation("element-rename", "<id> <name>"); };
-
+nlohmann::json doElementRename(VirtualCanvas &vCanvas, std::string_view cmdName,
+                               std::span<std::string_view> args,
+                               std::shared_ptr<spdlog::logger> logger,
+                               std::string_view usage) {
   if (args.size() != 2) {
-    problem();
+    invalidCommandInvocation(cmdName, usage, logger);
     return {};
   }
   const std::string id(args[0]);
@@ -110,19 +112,19 @@ nlohmann::json doElementRename(VirtualCanvas &vCanvas,
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    spdlog::error("[Command] element-rename: no such element `{}'", id);
+    logger->error("element-rename: no such element `{}'", id);
     return {};
   }
   element->setName(name);
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementMove(VirtualCanvas &vCanvas,
-                             std::span<std::string_view> args) {
-  auto problem = [] { invalidCommandInvocation("element-move", "<id> <x> <y>"); };
-
+nlohmann::json doElementMove(VirtualCanvas &vCanvas, std::string_view cmdName,
+                             std::span<std::string_view> args,
+                             std::shared_ptr<spdlog::logger> logger,
+                             std::string_view usage) {
   if (args.size() != 3) {
-    problem();
+    invalidCommandInvocation(cmdName, usage, logger);
     return {};
   }
   const std::string id(args[0]);
@@ -131,25 +133,25 @@ nlohmann::json doElementMove(VirtualCanvas &vCanvas,
     x = std::stoi(std::string(args[1]));
     y = std::stoi(std::string(args[2]));
   } catch (...) {
-    problem();
+    invalidCommandInvocation(cmdName, usage, logger);
     return {};
   }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    spdlog::error("[Command] element-move: no such element `{}'", id);
+    logger->error("element-move: no such element `{}'", id);
     return {};
   }
   element->setLocation(cv::Point(x, y));
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementRotate(VirtualCanvas &vCanvas,
-                               std::span<std::string_view> args) {
-  auto problem = [] { invalidCommandInvocation("element-move", "<id> <degrees>"); };
-
+nlohmann::json doElementRotate(VirtualCanvas &vCanvas, std::string_view cmdName,
+                               std::span<std::string_view> args,
+                               std::shared_ptr<spdlog::logger> logger,
+                               std::string_view usage) {
   if (args.size() != 2) {
-    problem();
+    invalidCommandInvocation(cmdName, usage, logger);
     return {};
   }
   const std::string id(args[0]);
@@ -157,25 +159,25 @@ nlohmann::json doElementRotate(VirtualCanvas &vCanvas,
   try {
     degrees = std::stod(std::string(args[1]));
   } catch (...) {
-    problem();
+    invalidCommandInvocation(cmdName, usage, logger);
     return {};
   }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    spdlog::error("[Command] element-rotate: no such element `{}'", id);
+    logger->error("element-rotate: no such element `{}'", id);
     return {};
   }
   element->setRotation(degrees);
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementResize(VirtualCanvas &vCanvas,
-                               std::span<std::string_view> args) {
-  auto problem = [] { invalidCommandInvocation("element-resize", "<id> <x> <y>"); };
-
+nlohmann::json doElementResize(VirtualCanvas &vCanvas, std::string_view cmdName,
+                               std::span<std::string_view> args,
+                               std::shared_ptr<spdlog::logger> logger,
+                               std::string_view usage) {
   if (args.size() != 3) {
-    problem();
+    invalidCommandInvocation(cmdName, usage, logger);
     return {};
   }
   const std::string id(args[0]);
@@ -184,25 +186,25 @@ nlohmann::json doElementResize(VirtualCanvas &vCanvas,
     x = std::stoi(std::string(args[1]));
     y = std::stoi(std::string(args[2]));
   } catch (...) {
-   problem();
+    invalidCommandInvocation(cmdName, usage, logger);
     return {};
   }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    spdlog::error("[Command] element-resize: no such element `{}'", id);
+    logger->error("element-resize: no such element `{}'", id);
     return {};
   }
   element->setSize(cv::Size(x, y));
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas,
-                               std::span<std::string_view> args) {
-  auto problem = [] { invalidCommandInvocation("element-move-up", "<id>"); };
-
+nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas, std::string_view cmdName,
+                               std::span<std::string_view> args,
+                               std::shared_ptr<spdlog::logger> logger,
+                               std::string_view usage) {
   if (args.size() != 1) {
-   problem();
+    invalidCommandInvocation(cmdName, usage, logger);
     return {};
   }
   const std::string id(args[0]);
@@ -212,11 +214,12 @@ nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas,
 }
 
 nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas,
-                                 std::span<std::string_view> args) {
-  auto problem = [] { invalidCommandInvocation("element-move-down", "<id>"); };
-
+                                 std::string_view cmdName,
+                                 std::span<std::string_view> args,
+                                 std::shared_ptr<spdlog::logger> logger,
+                                 std::string_view usage) {
   if (args.size() != 1) {
-    problem();
+    invalidCommandInvocation(cmdName, usage, logger);
     return {};
   }
   const std::string id(args[0]);
@@ -225,45 +228,181 @@ nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas,
   return CommandResult{.success = success};
 }
 
+using DoCommandFunc = nlohmann::json(VirtualCanvas &vCanvas,
+                                     std::string_view cmdName,
+                                     std::span<std::string_view> args,
+                                     std::shared_ptr<spdlog::logger> logger,
+                                     std::string_view usage);
+
+struct CommandInfo {
+  DoCommandFunc *doCommandFunc;
+  std::string usage;
+};
+
+std::map<std::string, CommandInfo> commands{
+    {
+        "element-rename",
+        CommandInfo{
+            .doCommandFunc = doElementRename,
+            .usage = "<id> <name>",
+        },
+    },
+    {
+        "element-move",
+        CommandInfo{
+            .doCommandFunc = doElementMove,
+            .usage = "<id> <x> <y>",
+        },
+    },
+    {
+        "element-rotate",
+        CommandInfo{
+            .doCommandFunc = doElementRotate,
+            .usage = "<id> <degrees>",
+        },
+    },
+    {
+        "element-resize",
+        CommandInfo{
+            .doCommandFunc = doElementResize,
+            .usage = "<id> <width> <height>",
+        },
+    },
+    {
+        "element-move-up",
+        CommandInfo{
+            .doCommandFunc = doElementMoveUp,
+            .usage = "<id>",
+        },
+    },
+    {
+        "element-move-down",
+        CommandInfo{
+            .doCommandFunc = doElementMoveDown,
+            .usage = "<id>",
+        },
+    },
+};
+
+void doHelp(std::shared_ptr<spdlog::logger> logger) {
+  std::stringstream ss;
+
+  ss << "usage:\nAvailable commands:\n";
+  ss << "\thelp\n\tquit\n\tpause\n\tresume";
+
+  for (const auto &[name, info] : commands) {
+    ss << "\n\t" << name << " " << info.usage;
+  }
+
+  logger->info(ss.str());
+}
+
 } // namespace
 
 nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
-                              bool &isPaused, bool &isRunning) {
+                              bool &isPaused, bool &isRunning,
+                              std::shared_ptr<spdlog::logger> logger) {
+  spdlog::info("[Command] ProcessCommand: `{}'", line);
+
   std::string_view commandName;
   std::vector<std::string_view> args;
   if (!CommandParser::ToArgs(line, commandName, args)) {
-    spdlog::error("[Command] failed to parse arguments: `{}'", line);
+    logger->error("failed to parse arguments: `{}'", line);
     return {};
   }
 
   // TODO: Commands to edit each element and get canvas data.
 
   if (commandName == "help") {
-    doHelp();
-  } else if (commandName == "quit") {
+    doHelp(logger);
+  } else if (commandName == "quit" || commandName == "exit") {
     isRunning = false;
   } else if (commandName == "pause") {
     isPaused = true;
   } else if (commandName == "resume") {
     isPaused = false;
-  } else if (commandName == "element-rename") {
-    return doElementRename(vCanvas, args);
-  } else if (commandName == "element-move") {
-    return doElementMove(vCanvas, args);
-  } else if (commandName == "element-rotate") {
-    return doElementRotate(vCanvas, args);
-  } else if (commandName == "element-resize") {
-    return doElementResize(vCanvas, args);
-  } else if (commandName == "element-move-up") {
-    return doElementMoveUp(vCanvas, args);
-  } else if (commandName == "element-move-down") {
-    return doElementMoveDown(vCanvas, args);
+  } else if (const auto it = commands.find(std::string(commandName));
+             it != commands.end()) {
+    auto &[doCommandFunc, usage] = it->second;
+    return doCommandFunc(vCanvas, commandName, args, logger, usage);
   } else {
-    spdlog::error("[Command] no such command `{}'", commandName);
+    logger->error("no such command `{}'", commandName);
     return {};
   }
 
   return CommandResult{.success = true};
+}
+
+#pragma endregion
+
+#pragma region Command Prompt
+
+InteractiveCommandPrompt::InteractiveCommandPrompt() {
+  rl_catch_signals = false;
+
+  rl_event_hook = []() -> int {
+    if (!get().m_isRunning) {
+      rl_done = true;
+    }
+    return 0;
+  };
+
+  m_thread = std::jthread(&InteractiveCommandPrompt::threadFunc, this);
+}
+
+InteractiveCommandPrompt::~InteractiveCommandPrompt() { m_isRunning = false; }
+
+void InteractiveCommandPrompt::setPromptName(std::string_view name) {
+  std::lock_guard lock(m_mutex);
+  m_promptName = name;
+}
+
+std::string InteractiveCommandPrompt::consumeLatestCommand() {
+  std::lock_guard lock(m_mutex);
+  if (m_cmdQueue.empty()) {
+    return "";
+  }
+  std::string cmd = m_cmdQueue.front();
+  m_cmdQueue.pop();
+  return cmd;
+}
+
+void InteractiveCommandPrompt::threadFunc() {
+  while (m_isRunning) {
+    if (!m_isActive) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      continue;
+    }
+
+    std::string prompt;
+    {
+      std::lock_guard lock(m_mutex);
+      prompt = m_promptName;
+    }
+    prompt += "> ";
+
+    char *line = readline(prompt.c_str());
+    if (!line || !m_isRunning) {
+      break;
+    }
+
+    if (*line != '\0') {
+      add_history(line);
+    }
+
+    std::string lineString(line);
+    free(line);
+
+    {
+      std::lock_guard lock(m_mutex);
+      m_cmdQueue.push(lineString);
+      m_isActive = false;
+    }
+
+    if (lineString == "exit" || lineString == "quit") {
+      //  break;
+    }
+  }
 }
 
 #pragma endregion

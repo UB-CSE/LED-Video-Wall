@@ -173,6 +173,6 @@ FT_Face FontManager::loadFont(const std::filesystem::path &path) {
   }
 
   m_faces[absPath] = face;
-  spdlog::error("[Fonts] successfully loaded font `{}'", path.string());
+  spdlog::info("[Fonts] successfully loaded font `{}'", path.string());
   return face;
 }

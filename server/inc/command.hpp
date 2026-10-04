@@ -1,9 +1,14 @@
 #pragma once
 
 #include "canvas.hpp"
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <optional>
+#include <queue>
+#include <spdlog/spdlog.h>
+#include <string>
 #include <string_view>
+#include <thread>
 
 struct CommandParser {
   /**
@@ -43,7 +48,47 @@ struct CommandParser {
  *                 pause & resume commands.
  * @param isRunning (Output) Will be assigned to `true` if a quit command is
  *                  run.
+ * @param logger The command output logger.
  * @return JSON Result, or an empty JSON if there was an invocation error.
  */
 nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
-                              bool &isPaused, bool &isRunning);
+                              bool &isPaused, bool &isRunning,
+                              std::shared_ptr<spdlog::logger> logger);
+
+/**
+ * A GNU readline command prompt. Processes in a separate thread. Starts up at
+ * the first access.
+ */
+class InteractiveCommandPrompt {
+  std::jthread m_thread;
+
+  std::mutex m_mutex;
+  std::queue<std::string> m_cmdQueue;
+
+  bool m_isRunning = true;
+  bool m_isActive = true;
+
+  std::string m_promptName = "ledvw";
+
+public:
+  static InteractiveCommandPrompt &get() {
+    static InteractiveCommandPrompt instance;
+    return instance;
+  }
+
+  ~InteractiveCommandPrompt();
+
+  InteractiveCommandPrompt(const InteractiveCommandPrompt &) = delete;
+  InteractiveCommandPrompt &
+  operator=(const InteractiveCommandPrompt &) = delete;
+
+  void setPromptName(std::string_view name);
+
+  void activate() { m_isActive = true; }
+  std::string consumeLatestCommand();
+
+private:
+  InteractiveCommandPrompt();
+
+  void threadFunc();
+};

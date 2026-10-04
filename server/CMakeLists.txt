@@ -108,6 +108,13 @@ target_link_directories(${PROJECT_NAME} PUBLIC ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries(${PROJECT_NAME} ${FFMPEG_LIBRARIES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${FFMPEG_DEFINITIONS})
 
+# GNU readline
+pkg_check_modules(READLINE REQUIRED readline)
+target_include_directories(${PROJECT_NAME} PUBLIC ${READLINE_INCLUDE_DIRS})
+target_link_directories(${PROJECT_NAME} PUBLIC ${READLINE_LIBRARY_DIRS})
+target_link_libraries(${PROJECT_NAME} ${READLINE_LIBRARIES})
+target_compile_definitions(${PROJECT_NAME} PUBLIC ${READLINE_DEFINITIONS})
+
 # spdlog
 FetchContent_Declare(
         spdlog

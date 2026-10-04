@@ -231,6 +231,8 @@ void validatePort(uint16_t port) {
 } // namespace
 
 bool MatrixConfig::load(const std::filesystem::path &filepath) {
+  spdlog::info("[Matrix] loading config from `{}'", filepath.string());
+
   try {
     YAML::Node config = YAML::LoadFile(filepath);
 
@@ -280,6 +282,8 @@ bool MatrixConfig::load(const std::filesystem::path &filepath) {
     spdlog::error("[Matrix] failed load config from yaml: {}", e.what());
     return false;
   }
+
+  spdlog::info("[Matrix] successfully loaded config");
 
   return true;
 }

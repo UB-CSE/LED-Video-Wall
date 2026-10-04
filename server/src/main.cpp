@@ -21,6 +21,7 @@
 #include <opencv2/opencv.hpp>
 #include <optional>
 #include <signal.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <string.h>
 #include <string>
@@ -41,12 +42,12 @@ volatile sig_atomic_t stop_signal = 0;
 
 void signalHandler(int signum) {
   if (stop_signal) {
-    spdlog::info("received second signal, exiting immediately...");
+    std::cout << "\nreceived second signal, exiting immediately...\n";
     exit(1);
   }
 
   stop_signal = 1;
-  spdlog::info("received signal, exiting now...");
+  std::cout << "\nreceived signal, exiting now...\n";
 }
 
 enum Options {
@@ -168,7 +169,7 @@ public:
   IMPLEMENT_REFCOUNTING(MyApp);
 };
 
- } // namespace
+} // namespace
 
 int main(int argc, char *argv[]) {
   CefMainArgs args(argc, argv);
@@ -234,10 +235,12 @@ int main(int argc, char *argv[]) {
     (void)InitializeLogging();
   }
 
+  const std::string serverInstanceName = matrixConfigFilePath.stem().string();
+
   // Each instance of the server needs its own cache folder.
   std::filesystem::path cefCacheDirectoryPath =
       std::filesystem::current_path() / "cef-caches" /
-      ("cef-cache-" + matrixConfigFilePath.filename().string());
+      ("cef-cache-" + serverInstanceName);
 
   CefString(&settings.cache_path).FromString(cefCacheDirectoryPath.string());
 
@@ -299,58 +302,65 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  spdlog::info("server {} started successfully", serverInstanceName);
+
+  std::shared_ptr<spdlog::logger> normalCmdLogger =
+      spdlog::default_logger()->clone("LEDVW-Command");
+  std::shared_ptr<spdlog::logger> promptCmdLogger =
+      spdlog::default_logger()->clone("LEDVW-Command-Prompt");
+  promptCmdLogger->sinks().push_back(
+      std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+
+  if (interactiveMode) {
+    std::cout << "\nRun canvas commands here. Run the `help' command to see a "
+                 "list of all commands\n";
+
+    InteractiveCommandPrompt::get().setPromptName(serverInstanceName);
+  }
+
   bool isPaused = false;
   char buf[256];
   while (!stop_signal) {
     CefDoMessageLoopWork();
 
-    /*
-    ======================================================================================
-    Command line shenanigans: Using Pipes now:
+    std::string cmdString;
+    bool promptCommand = false;
 
-    From another process, you now enter commands by writing to the FIFO file in
-    "TMP_CMD" By default, it is "/tmp/led-cmd".
-
-    For example, open another terminal, and if I want to move an element, I
-    would do:
-
-    `echo "move 5 10 10" > /tmp/led-cmd`
-
-    Available Commands :
-    - pause
-    - resume
-    - quit
-    - move <ElementID> <x-coord> <y-coord
-
-    ======================================================================================
-    */
-
-    ssize_t n = read(pipe, buf, sizeof(buf) - 1);
-    if (n > 0) {
-      buf[n] = '\0';
-      // Remove whitespaces
-      std::string line(buf);
-      line.erase(line.find_last_not_of(" \t\r\n") + 1);
-
-      if (!line.empty()) {
-        bool isRunning = true;
-        nlohmann::json commandResult =
-            ProcessCommand(vCanvas, line, isPaused, isRunning);
-        if (!commandResult.empty()) { // Command was invoked.
-          spdlog::info("[Command] result:\n{}", commandResult.dump(2));
-        }
-
-        if (!isRunning) {
-          goto EXIT_PROGRAM;
-        }
+    if (interactiveMode) {
+      cmdString = InteractiveCommandPrompt::get().consumeLatestCommand();
+      promptCommand = true;
+    }
+    if (cmdString.empty()) {
+      ssize_t n = read(pipe, buf, sizeof(buf) - 1);
+      if (n > 0) {
+        buf[n] = '\0';
+        // Remove whitespaces
+        cmdString = buf;
+        cmdString.erase(cmdString.find_last_not_of(" \t\r\n") + 1);
       }
+      promptCommand = false;
     }
 
-    /*
-    =============================================
-                    Continue
-    =============================================
-    */
+    if (!cmdString.empty()) {
+      std::shared_ptr<spdlog::logger> cmdLogger =
+          promptCommand ? promptCmdLogger : normalCmdLogger;
+
+      bool isRunning = true;
+      nlohmann::json commandResult =
+          ProcessCommand(vCanvas, cmdString, isPaused, isRunning, cmdLogger);
+      if (!commandResult.empty()) { // Command was invoked.
+        cmdLogger->info("result:\n{}", commandResult.dump(2));
+      }
+
+      if (!isRunning) {
+        goto EXIT_PROGRAM;
+      }
+
+      if (interactiveMode) {
+        // Re-activate the command prompt
+        InteractiveCommandPrompt::get().activate();
+      }
+    }
 
     if (!isPaused) {
       cont.frame_exec(!prodMode);
