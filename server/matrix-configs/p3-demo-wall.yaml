@@ -1,0 +1,65 @@
+settings:
+  ignore-bounds-checks: true
+
+  #ns-per-frame: 100000000 # 10 fps
+  # ns-per-frame: 66666666 # 15 fps
+  #ns-per-frame: 50000000 # 20 fps
+  ns-per-frame: 40000000 # 25 fps
+  # ns-per-frame: 33333333 # 30 fps
+  # ns-per-frame: 25000000 # 40 fps
+  #ns-per-frame: 16666667 # 60fps
+
+  ledvw-port: 7071
+  rtmp-port: 1936
+
+  brightness-percent: 100
+  image-encoding: rgb18
+
+matrix-specs:
+  "p3:64x64":
+    power-limit-amps: 5.0
+    dimensions:
+      width: 64
+      height: 64
+
+matrices:
+  mat_p3_1:
+    spec: "p3:64x64"
+    pos: [0, 0]
+    rot: down
+  mat_p3_2:
+    spec: "p3:64x64"
+    pos: [0, 64]
+    rot: down
+  mat_p3_3:
+    spec: "p3:64x64"
+    pos: [0, 128]
+    rot: down
+  mat_p3_4:
+    spec: "p3:64x64"
+    pos: [0, 192]
+    rot: down
+  mat_p3_5:
+    spec: "p3:64x64"
+    pos: [0, 256]
+    rot: down
+  mat_p3_6:
+    spec: "p3:64x64"
+    pos: [0, 320]
+    rot: down
+  
+clients:
+  D8-85-AC-89-56-6C:
+    matrix-connections:
+      - pin: -1
+        matrices: [mat_p3_1]
+      - pin: -2
+        matrices: [mat_p3_2]
+      - pin: -3
+        matrices: [mat_p3_3]
+      - pin: -4
+        matrices: [mat_p3_4]
+      - pin: -5
+        matrices: [mat_p3_5]
+      - pin: -6
+        matrices: [mat_p3_6]

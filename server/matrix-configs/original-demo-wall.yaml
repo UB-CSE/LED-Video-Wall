@@ -9,7 +9,7 @@ settings:
   # ns-per-frame: 25000000 # 40 fps
   #ns-per-frame: 16666667 # 60fps
 
-  ledvw-port: 7071
+  ledvw-port: 7070
   rtmp-port: 1935
 
   brightness-percent: 100
@@ -21,11 +21,6 @@ matrix-specs:
     dimensions:
       width: 8
       height: 32
-  "p3:64x64":
-    power-limit-amps: 5.0
-    dimensions:
-      width: 64
-      height: 64
 
 matrices:
   mat1:
@@ -92,32 +87,6 @@ matrices:
     spec: "ws2812b:32x8"
     pos: [56, 32]
     rot: down
-  mat_p3_1:
-    spec: "p3:64x64"
-    pos: [0, 0]
-    rot: down
-  mat_p3_2:
-    spec: "p3:64x64"
-    pos: [0, 64]
-    rot: down
-  mat_p3_3:
-    spec: "p3:64x64"
-    pos: [0, 128]
-    rot: down
-  mat_p3_4:
-    spec: "p3:64x64"
-    pos: [0, 192]
-    rot: down
-  mat_p3_5:
-    spec: "p3:64x64"
-    pos: [0, 256]
-    rot: down
-  mat_p3_6:
-    spec: "p3:64x64"
-    pos: [0, 320]
-    rot: down
-  
-
 
 clients:
   30-C6-F7-26-05-D4:
@@ -160,30 +129,3 @@ clients:
         matrices: [mat15]
       - pin: 19
         matrices: [mat16]
-
-
-
-  24-0A-C4-0D-77-5C:
-    matrix-connections:
-      - pin: -1
-        matrices: [mat_p3]
-      - pin: -2
-        matrices: [mat_p3_2]
-      - pin: -3
-        matrices: [mat_p3_3]
-  D8-85-AC-89-56-6C: #adafruit the first
-    matrix-connections:
-      - pin: -1
-        matrices: [mat_p3_1]
-      - pin: -2
-        matrices: [mat_p3_2]
-      - pin: -3
-        matrices: [mat_p3_3]
-      - pin: -4
-        matrices: [mat_p3_4]
-      - pin: -5
-        matrices: [mat_p3_5]
-      - pin: -6
-        matrices: [mat_p3_6]
-
-  

@@ -24,12 +24,12 @@
     ```bash
     cmake --build build/
     ```
-* Start the server with `./build/led-wall-server <input file>`, e.g., `./build/led-wall-server input-text.yaml`
+* Start the server with `./build/led-wall-server <matrix config file>`, e.g., `./build/led-wall-server matrix-configs/original-demo-wall.yaml`
     * The following command-line arguments are also supported:
-        * `--ledvw-port=<port>` : The port which the microcontrollers will connect to for communication (default: 7070)
-            * This port number is also used as a kind of "id" for the server. The command pipe will be named `/tmp/led-cmd-<ledvw-port>`, and CEF caches will be stored in `./cef-caches/cef-cache-<ledvw-port>`.
-        * `--rtmp-port=<port>` : The port for the RTMP server (default: 1935)
+        * `--canvas-config=<file>`: Specify a canvas config YAML file to load at start-up (see `canvas-configs` folder for examples).
         * `--prod` : When present, the video wall preview window is not shown.
+        * `--interactive` : Show a command prompt for interacting with the canvas.
+        * `--rtmp-tls-cert` and `--rtmp-tls-key`: Enable RTMP TLS with a cert and key file.
 * If you see the following error message on startup:
     ```
     The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /path/to/LED-Video-Wall/server/build/_deps/cef-src/Release/chrome-sandbox is owned by root and has mode 4755.
