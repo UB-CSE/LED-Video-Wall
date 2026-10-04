@@ -273,8 +273,9 @@ int main(int argc, char *argv[]) {
       line.erase(line.find_last_not_of(" \t\r\n") + 1);
 
       if (!line.empty()) {
-        int status = processCommand(vCanvas, line, isPaused);
-        if (status == 1) {
+        bool isRunning = true;
+        ProcessCommand(vCanvas, line, isPaused, isRunning);
+        if (!isRunning) {
           goto EXIT_PROGRAM;
         }
       }

@@ -1,283 +1,82 @@
 #include "command.hpp"
 #include "canvas.hpp"
 #include "text-render.hpp"
+#include <cctype>
 #include <iostream>
+#include <optional>
 #include <string>
-#include <sys/select.h>
-#include <unistd.h>
+#include <sys/types.h>
 
-/*
-inputAvailable is boilerplate code from my past projects. This is intended to
-allow stdin to be read afterwards without blocking from waiting for input.
-
-This checks to see if stdin has an input waiting. If there is, this is true. If
-there is not, this resolves to false
-
-*/
-
-bool inputAvailable() {
-  struct timeval tv = {0, 0}; // zero timeout = check instantly
-  fd_set fds;
-  FD_ZERO(&fds);              // Clear the set
-  FD_SET(STDIN_FILENO, &fds); // Add stdin (fd 0)
-
-  return select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv) > 0;
-}
-
-int processCommand(VirtualCanvas &vCanvas, const std::string &line,
-                   bool &isPaused) {
-#if 0
-  std::istringstream iss(line);
-  std::string cmd;
-  iss >> cmd;
-
-  if (cmd == "quit") {
-    return 1;
-  }
-  if (cmd == "pause") {
-    isPaused = true;
-    std::cout << "Paused.  Send <resume> to continue.\n";
-    return 0;
-  }
-  if (cmd == "resume") {
-    isPaused = false;
-    std::cout << "Resumed.\n";
-    return 0;
-  }
-  if (cmd == "move") {
-    int id, x, y;
-    if (!(iss >> id >> x >> y) || x < 0 || y < 0) {
-      std::cerr << "Invalid move. Usage:\n  move <ElementID> <x> <y>\n";
-    } else {
-      vCanvas.moveElement(id, cv::Point(x, y));
-    }
-    return 0;
-  }
-  if (cmd == "add") {
-    std::string type, filepath;
-    int id, x, y;
-    double scale;
-    if (!(iss >> type >> id >> filepath >> x >> y >> scale) || x < 0 || y < 0) {
-      std::cerr << "Invalid add. Usage:\n add <type> <ElementID> <filepath> "
-                   "<x> <y>\n";
-    } else {
-      Element *newelement =
-          new ImageElement(filepath, id, cv::Point(x, y), -1, scale);
-      vCanvas.addElementToCanvas(newelement);
-    }
-    return 0;
-  }
-  if (cmd == "remove") {
-    int id;
-    if (!(iss >> id)) {
-      std::cerr << "Invalid remove. Usage:\n  remove <ElementID>\n";
-    } else {
-      vCanvas.removeElementFromCanvas(id);
-    }
-    return 0;
-  }
-  if (cmd == "rotate") {
-    int id;
-    double rotationDegrees;
-    if (!(iss >> id >> rotationDegrees)) {
-      std::cerr << "Invalid rotate. Usage:\n  rotate <ElementID> <degrees>\n";
-    } else {
-      vCanvas.rotateElement(id, rotationDegrees);
-    }
-    return 0;
-  }
-  if (cmd == "set_rotation") {
-    int id;
-    double rotationDegrees;
-    if (!(iss >> id >> rotationDegrees)) {
-      std::cerr << "Invalid set_rotation. Usage:\n  set_rotation <ElementID> "
-                   "<degrees>\n";
-    } else {
-      vCanvas.setElementRotation(id, rotationDegrees);
-    }
-    return 0;
+std::optional<std::string_view>
+CommandParser::NextToken(std::string_view &inputStr) {
+  const char *input = inputStr.data();
+  if (!input) {
+    return std::nullopt;
   }
 
-  // TEXT COMMANDS/////
-  if (cmd == "set_text") {
-    int id;
-    std::string newText;
-    if (!(iss >> id) || !std::getline(iss >> std::ws, newText)) {
-      std::cerr << "Invalid set_text. Usage: set_text <ElementID> <text>\n";
-    } else {
-      Element *oldElem = nullptr;
-      for (Element *e : vCanvas.getElementList()) {
-        if (e && e->getId() == id) {
-          oldElem = e;
-          break;
-        }
-      }
+  ssize_t startIndex = -1;
+  char quote = false;
 
-      if (!oldElem) {
-        std::cerr << "No element with id " << id << "\n";
-        return 0;
-      }
-
-      TextElement *textElem = dynamic_cast<TextElement *>(oldElem);
-      if (!textElem) {
-        std::cerr << "Element " << id << " is not a text element.\n";
-        return 0;
-      }
-      std::string fontPath = textElem->fontPath;
-      int fontSize = textElem->fontSize;
-      cv::Scalar color = textElem->color;
-      cv::Point loc = textElem->getLocation();
-
-      TextElement *newElem = dynamic_cast<TextElement *>(
-          renderTextToElement(newText, fontPath, fontSize, color, id, loc));
-
-      vCanvas.removeElementFromCanvas(id);
-      vCanvas.addElementToCanvas(newElem);
-      vCanvas.pushToCanvas();
-    }
-    return 0;
-  }
-  if (cmd == "set_font_size") {
-    int id;
-    int newSize;
-    if (!(iss >> id >> newSize)) {
-      std::cerr << "Invalid set_font_size. Usage:\n set_font_size <ElementID> "
-                   "<size>\n";
-    } else {
-      // Find the element
-      Element *oldElem = nullptr;
-      for (Element *e : vCanvas.getElementList()) {
-        if (e && e->getId() == id) {
-          oldElem = e;
-          break;
-        }
-      }
-
-      if (!oldElem) {
-        std::cerr << "No element with id " << id << "\n";
-        return 0;
-      }
-
-      TextElement *textElem = dynamic_cast<TextElement *>(oldElem);
-      if (!textElem) {
-        std::cerr << "Element " << id << " is not a text element.\n";
-        return 0;
-      }
-      std::string text = textElem->content;
-      std::string fontPath = textElem->fontPath;
-      cv::Scalar color = textElem->color;
-      cv::Point loc = textElem->getLocation();
-
-      TextElement *newElem = dynamic_cast<TextElement *>(
-          renderTextToElement(text, fontPath, newSize, color, id, loc));
-
-      vCanvas.removeElementFromCanvas(id);
-      vCanvas.addElementToCanvas(newElem);
-      vCanvas.pushToCanvas();
-    }
-    return 0;
-  }
-  if (cmd == "set_font") {
-    int id;
-    std::string newFontPath;
-    if (!(iss >> id >> std::ws) || !std::getline(iss, newFontPath)) {
-      std::cerr
-          << "Invalid set_font. Usage:\n set_font <ElementID> <fontPath>\n";
-      return 0;
-    }
-
-    Element *oldElem = nullptr;
-    for (Element *e : vCanvas.getElementList()) {
-      if (e && e->getId() == id) {
-        oldElem = e;
+  ssize_t i = 0;
+  char c;
+  for (c = *input; c > 0 && i < static_cast<ssize_t>(inputStr.length());
+       c = *(++input), i++) {
+    if (startIndex >= 0) {
+      // Closing quote or whitespace ends the token.
+      if (c == quote || (!quote && std::isspace(c))) {
+        quote = 0;
         break;
       }
-    }
-
-    if (!oldElem) {
-      std::cerr << "No element with id " << id << "\n";
-      return 0;
-    }
-
-    TextElement *textElem = dynamic_cast<TextElement *>(oldElem);
-    if (!textElem) {
-      std::cerr << "Element " << id << " is not a text element.\n";
-      return 0;
-    }
-
-    std::string currentText = textElem->content;
-    int fontSize = textElem->fontSize;
-    cv::Scalar color = textElem->color;
-    cv::Point loc = textElem->getLocation();
-
-    TextElement *newElem = dynamic_cast<TextElement *>(renderTextToElement(
-        currentText, newFontPath, fontSize, color, id, loc));
-    if (!newElem) {
-      std::cerr << "Failed to render new text with font: " << newFontPath
-                << "\n";
-      return 0;
-    }
-
-    vCanvas.removeElementFromCanvas(id);
-    vCanvas.addElementToCanvas(newElem);
-    vCanvas.pushToCanvas();
-    return 0;
-  }
-  if (cmd == "set_font_color") {
-    int id;
-    int b, g, r;
-    if (!(iss >> id >> b >> g >> r)) {
-      std::cerr << "Invalid set_font_color. Usage:\n set_font_color "
-                   "<ElementID> <B> <G> <R>\n";
-    } else {
-      Element *oldElem = nullptr;
-      for (Element *e : vCanvas.getElementList()) {
-        if (e && e->getId() == id) {
-          oldElem = e;
-          break;
-        }
-      }
-
-      if (!oldElem) {
-        std::cerr << "No element with id " << id << "\n";
-        return 0;
-      }
-      TextElement *textElem = dynamic_cast<TextElement *>(oldElem);
-      if (!textElem) {
-        std::cerr << "Element " << id << " is not a text element.\n";
-        return 0;
-      }
-      std::string text = textElem->content;
-      std::string fontPath = textElem->fontPath;
-      int fontSize = textElem->fontSize;
-      cv::Point loc = textElem->getLocation();
-      cv::Scalar newColor(b, g, r);
-
-      TextElement *newElem = dynamic_cast<TextElement *>(
-          renderTextToElement(text, fontPath, fontSize, newColor, id, loc));
-
-      vCanvas.removeElementFromCanvas(id);
-      vCanvas.addElementToCanvas(newElem);
-      vCanvas.pushToCanvas();
-
-      return 0;
+    } else if (c == '\'' || c == '"') {
+      // Enter quote - start of token.
+      startIndex = i + 1;
+      quote = c;
+    } else if (!std::isspace(c)) {
+      // Non-whitespace - start of token.
+      startIndex = i;
     }
   }
-  if (cmd == "scale") {
-    int id;
-    double factor;
-    if (!(iss >> id >> factor) || factor <= 0.0) {
-      std::cerr << "Invalid scale. Usage:\n  scale <ElementID> <factor> (e.g., "
-                   "0.5)\n";
-    } else {
-      vCanvas.setElementScale(id, factor);
-    }
 
-    return 0;
+  if (startIndex < 0 || quote) {
+    // All whitespace or no closing quote.
+    return std::nullopt;
   }
-  std::cout << "Unknown command: " << cmd
-            << "\n"
-               "Available: pause, resume, quit, move <id> <x> <y>\n";
-#endif
-  return 0;
+
+  std::string_view token = inputStr.substr(startIndex, i - startIndex);
+  inputStr.remove_prefix(i + (c > 0 ? 1 : 0));
+  return token;
+}
+
+bool CommandParser::ToArgs(std::string_view input,
+                           std::string_view &parsedCommandName,
+                           std::vector<std::string_view> &parsedArgs) {
+  std::optional<std::string_view> tokenOpt = NextToken(input);
+  if (!tokenOpt.has_value()) {
+    return false;
+  }
+
+  parsedCommandName = tokenOpt.value();
+
+  while (true) {
+    tokenOpt = NextToken(input);
+    if (!tokenOpt.has_value()) {
+      break;
+    }
+    parsedArgs.push_back(tokenOpt.value());
+  }
+  return true;
+}
+
+nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
+                              bool &isPaused, bool &isRunning) {
+  std::string_view commandName;
+  std::vector<std::string_view> args;
+  if (!CommandParser::ToArgs(line, commandName, args)) {
+    std::cerr << "Invalid command invocation\n";
+    return {};
+  }
+
+  // TODO: Implement Commands
+
+  return {};
 }
