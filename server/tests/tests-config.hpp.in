@@ -2,7 +2,14 @@
 
 #include <filesystem>
 
+//
 // This file gets configured by CMake. See the generated test-config.hpp file in the build folder.
+//
 
 static const std::filesystem::path TestImagesDir("@IMAGES_DIR@");
+
+// Directory containing test configs and other resource files (tests/resources)
 static const std::filesystem::path TestResourcesDir("@TEST_RESOURCES_DIR@");
+
+// Output directory where tests can write files to for manual review (test-output)
+static const std::filesystem::path TestOutputDir("@TEST_OUTPUT_DIR@");

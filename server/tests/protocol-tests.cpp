@@ -454,10 +454,6 @@ TEST(ImageEncoding, ParrotConversionGamut) {
   constexpr size_t maxSize = ParrotTestImageWidth * ParrotTestImageHeight * 3;
   std::vector<uint8_t> conv(maxSize, 0x00);
 
-  std::filesystem::path outputDirPath =
-      std::filesystem::temp_directory_path() / "parrot";
-  ASSERT_THAT(std::filesystem::create_directory(outputDirPath), IsTrue());
-
   const size_t parrotImageSize = parrotImage.total() * parrotImage.elemSize();
   ASSERT_THAT(parrotImageSize, Eq(maxSize));
 
@@ -484,11 +480,7 @@ TEST(ImageEncoding, ParrotConversionGamut) {
     cv::cvtColor(convertedParrotImage, convertedParrotImage, cv::COLOR_RGB2BGR);
     const std::string imageName = encoding_to_string(encoding);
 
-    const std::string imageTitle = "Parrot: RGB to/from "s + imageName;
-    inspect(convertedParrotImage, imageTitle.c_str());
-
-    std::filesystem::path outputImagePath =
-        outputDirPath / (imageName + ".png");
-    ASSERT_THAT(cv::imwrite(outputImagePath, convertedParrotImage), IsTrue());
+    inspect(convertedParrotImage, "RGB to/from "s + imageName);
+    saveImage(convertedParrotImage, imageName);
   }
 }

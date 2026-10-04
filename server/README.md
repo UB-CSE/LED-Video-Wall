@@ -46,11 +46,8 @@
 To run tests:
 - Compile the server (see local installation section).
     - Make sure that the `BUILD_TESTS` configuration option set to `ON` (default).
-- Run the tests:
-    ```bash
-    cd build/
-    ctest
-    ```
+- Run the tests with `./build/led-wall-server-tests`
+  - Manually inspect test output files in `./build/test-output`
 
 
 

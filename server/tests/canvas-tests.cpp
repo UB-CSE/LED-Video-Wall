@@ -38,7 +38,8 @@ TEST(ImageElement, Gamut) {
   elem->setLocation(cv::Point(32, 32));
   VERIFY_CV_POINT(elem->getLocation(), 32, 32);
 
-  inspect(elemMat, "ImageElement: Parrot Image - Start");
+  inspect(elemMat, "Parrot Image - Start");
+  saveImage(elemMat, "Parrot_Original");
 
   // Resize - Preserving aspect ratio (default behavior).
 
@@ -47,7 +48,8 @@ TEST(ImageElement, Gamut) {
   VERIFY_CV_SIZE(elemMat.size(), 48, 64);
   VERIFY_CV_POINT(elem->getLocation(), 32, 32);
 
-  inspect(elemMat, "ImageElement: Parrot Image - 48x64");
+  inspect(elemMat, "Parrot Image - 48x64");
+  saveImage(elemMat, "Parrot_48x64");
 
   // Resize - Stretch
 
@@ -57,7 +59,8 @@ TEST(ImageElement, Gamut) {
   VERIFY_CV_SIZE(elemMat.size(), 64, 64);
   VERIFY_CV_POINT(elem->getLocation(), 32, 32);
 
-  inspect(elemMat, "ImageElement: Parrot Image - 64x64");
+  inspect(elemMat, "Parrot Image - 64x64");
+  saveImage(elemMat, "Parrot_64x64");
 
   // Rotate 45 (counter-clockwise)
 
@@ -70,6 +73,7 @@ TEST(ImageElement, Gamut) {
   VERIFY_CV_POINT(elem->getLocation(), 16, 24);
 
   inspect(elemMat, "ImageElement: Parrot Image - 45 deg");
+  saveImage(elemMat, "Parrot_45Deg");
 }
 
 TEST(Canvas, ImageElements) {
@@ -94,6 +98,7 @@ TEST(Canvas, ImageElements) {
   cv::Mat canvasMat = canvas.getPixelMatrix();
   VERIFY_CV_SIZE(canvasMat.size(), 64, 64);
   inspect(canvasMat, "Canvas");
+  saveImage(canvasMat, "Canvas");
 }
 
 TEST(Canvas, LoadAndSave) {
@@ -128,11 +133,11 @@ TEST(Canvas, LoadAndSave) {
   cv::Mat canvasMat = canvas.getPixelMatrix();
   VERIFY_CV_SIZE(canvasMat.size(), 128, 128);
   inspect(canvasMat, "Canvas");
+  saveImage(canvasMat, "Canvas");
 
   // Save
 
-  const std::filesystem::path savePath =
-      std::filesystem::temp_directory_path() / "input.yaml";
+  const std::filesystem::path savePath = getTestOutputDirPath() / "input.yaml";
   canvas.saveElementConfig(savePath);
 
   ASSERT_THAT(std::filesystem::exists(savePath), IsTrue());

@@ -189,10 +189,12 @@ if (BUILD_TESTS)
 
     set(IMAGES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/images")
     set(TEST_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/resources")
+    set(TEST_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/test-output")
+    file(MAKE_DIRECTORY ${TEST_OUTPUT_DIR})
 
     configure_file("tests/tests-config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/tests/tests-config.hpp")
 
-    target_include_directories(${TESTS_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/tests")
+    target_include_directories(${TESTS_NAME} PRIVATE tests "${CMAKE_CURRENT_BINARY_DIR}/tests")
 
     target_link_libraries(${TESTS_NAME} GTest::gtest_main GTest::gmock_main)
     gtest_discover_tests(${TESTS_NAME})

@@ -5,3 +5,4 @@ cef-cache*
 .cache/
 compile_commands.json
 [Bb]uild*/
+test-output/
