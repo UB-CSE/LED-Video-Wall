@@ -897,7 +897,7 @@ bool VirtualCanvas::moveElementDown(const std::string &uid) {
 
   if (next == m_elements.end()) {
     // Already bottom, return success because why not?
-    return false;
+    return true;
   }
 
   m_elements.splice(std::next(next), m_elements, current);

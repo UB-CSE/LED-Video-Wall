@@ -274,7 +274,16 @@ int main(int argc, char *argv[]) {
 
       if (!line.empty()) {
         bool isRunning = true;
-        ProcessCommand(vCanvas, line, isPaused, isRunning);
+        nlohmann::json commandResult = ProcessCommand(vCanvas, line, isPaused, isRunning);
+        if (commandResult.empty()) {
+          // Invocation error
+          std::cerr << "Command invocation error\n";
+        }
+        else {
+          std::cout << commandResult << std::endl;
+        }
+
+
         if (!isRunning) {
           goto EXIT_PROGRAM;
         }
