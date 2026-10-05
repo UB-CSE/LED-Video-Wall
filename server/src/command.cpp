@@ -85,11 +85,20 @@ namespace {
 
 struct CommandResult {
   bool success = true;
+
+  // Common problems
+  bool badInvocation = false;
+  bool noSuchElement = false;
 };
+
+CommandResult BadInvocationResult{.success = false, .badInvocation = true};
+CommandResult NoSuchElementResult{.success = false, .noSuchElement = true};
 
 void to_json(nlohmann::json &j, const CommandResult &result) {
   j = nlohmann::json{
       {"success", result.success},
+      {"bad-invocation", result.badInvocation},
+      {"no-such-element", result.noSuchElement},
   };
 }
 
@@ -100,13 +109,10 @@ void invalidCommandInvocation(std::string_view commandName,
                 commandName, usage);
 }
 
-nlohmann::json doLoad(VirtualCanvas &vCanvas, std::string_view cmdName,
-                      std::span<std::string_view> args,
-                      std::shared_ptr<spdlog::logger> logger,
-                      std::string_view usage) {
+nlohmann::json doLoad(VirtualCanvas &vCanvas, std::span<std::string_view> args,
+                      std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
   const std::filesystem::path filePath(args[0]);
 
@@ -114,13 +120,10 @@ nlohmann::json doLoad(VirtualCanvas &vCanvas, std::string_view cmdName,
   return CommandResult{.success = success};
 }
 
-nlohmann::json doSave(VirtualCanvas &vCanvas, std::string_view cmdName,
-                      std::span<std::string_view> args,
-                      std::shared_ptr<spdlog::logger> logger,
-                      std::string_view usage) {
+nlohmann::json doSave(VirtualCanvas &vCanvas, std::span<std::string_view> args,
+                      std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
   const std::filesystem::path filePath(args[0]);
 
@@ -128,13 +131,11 @@ nlohmann::json doSave(VirtualCanvas &vCanvas, std::string_view cmdName,
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementRename(VirtualCanvas &vCanvas, std::string_view cmdName,
+nlohmann::json doElementRename(VirtualCanvas &vCanvas,
                                std::span<std::string_view> args,
-                               std::shared_ptr<spdlog::logger> logger,
-                               std::string_view usage) {
+                               std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 2) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
   const std::string id(args[0]);
   const std::string name(args[1]);
@@ -142,19 +143,17 @@ nlohmann::json doElementRename(VirtualCanvas &vCanvas, std::string_view cmdName,
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
     logger->error("element-rename: no such element `{}'", id);
-    return {};
+    return NoSuchElementResult;
   }
   element->setName(name);
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementMove(VirtualCanvas &vCanvas, std::string_view cmdName,
+nlohmann::json doElementMove(VirtualCanvas &vCanvas,
                              std::span<std::string_view> args,
-                             std::shared_ptr<spdlog::logger> logger,
-                             std::string_view usage) {
+                             std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 3) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
   const std::string id(args[0]);
   int x, y;
@@ -162,52 +161,46 @@ nlohmann::json doElementMove(VirtualCanvas &vCanvas, std::string_view cmdName,
     x = std::stoi(std::string(args[1]));
     y = std::stoi(std::string(args[2]));
   } catch (...) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
     logger->error("element-move: no such element `{}'", id);
-    return {};
+    return NoSuchElementResult;
   }
   element->setLocation(cv::Point(x, y));
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementRotate(VirtualCanvas &vCanvas, std::string_view cmdName,
+nlohmann::json doElementRotate(VirtualCanvas &vCanvas,
                                std::span<std::string_view> args,
-                               std::shared_ptr<spdlog::logger> logger,
-                               std::string_view usage) {
+                               std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 2) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
   const std::string id(args[0]);
   double degrees;
   try {
     degrees = std::stod(std::string(args[1]));
   } catch (...) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
     logger->error("element-rotate: no such element `{}'", id);
-    return {};
+    return NoSuchElementResult;
   }
   element->setRotation(degrees);
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementResize(VirtualCanvas &vCanvas, std::string_view cmdName,
+nlohmann::json doElementResize(VirtualCanvas &vCanvas,
                                std::span<std::string_view> args,
-                               std::shared_ptr<spdlog::logger> logger,
-                               std::string_view usage) {
+                               std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 3) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
   const std::string id(args[0]);
   int x, y;
@@ -215,26 +208,23 @@ nlohmann::json doElementResize(VirtualCanvas &vCanvas, std::string_view cmdName,
     x = std::stoi(std::string(args[1]));
     y = std::stoi(std::string(args[2]));
   } catch (...) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
     logger->error("element-resize: no such element `{}'", id);
-    return {};
+    return NoSuchElementResult;
   }
   element->setSize(cv::Size(x, y));
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas, std::string_view cmdName,
+nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas,
                                std::span<std::string_view> args,
-                               std::shared_ptr<spdlog::logger> logger,
-                               std::string_view usage) {
+                               std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
   const std::string id(args[0]);
 
@@ -243,13 +233,10 @@ nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas, std::string_view cmdName,
 }
 
 nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas,
-                                 std::string_view cmdName,
                                  std::span<std::string_view> args,
-                                 std::shared_ptr<spdlog::logger> logger,
-                                 std::string_view usage) {
+                                 std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
-    invalidCommandInvocation(cmdName, usage, logger);
-    return {};
+    return BadInvocationResult;
   }
   const std::string id(args[0]);
 
@@ -258,10 +245,8 @@ nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas,
 }
 
 using DoCommandFunc = nlohmann::json(VirtualCanvas &vCanvas,
-                                     std::string_view cmdName,
                                      std::span<std::string_view> args,
-                                     std::shared_ptr<spdlog::logger> logger,
-                                     std::string_view usage);
+                                     std::shared_ptr<spdlog::logger> logger);
 
 struct CommandInfo {
   DoCommandFunc *doCommandFunc;
@@ -351,7 +336,7 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
   std::vector<std::string_view> args;
   if (!CommandParser::ToArgs(line, commandName, args)) {
     logger->error("failed to parse arguments: `{}'", line);
-    return {};
+    return BadInvocationResult;
   }
 
   // TODO: Commands to edit each element and get canvas data.
@@ -367,10 +352,14 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
   } else if (const auto it = commands.find(std::string(commandName));
              it != commands.end()) {
     auto &[doCommandFunc, usage] = it->second;
-    return doCommandFunc(vCanvas, commandName, args, logger, usage);
+    nlohmann::json result = doCommandFunc(vCanvas, args, logger);
+    if (result["bad-invocation"].get<bool>()) {
+      invalidCommandInvocation(commandName, usage, logger);
+    }
+    return result;
   } else {
     logger->error("no such command `{}'", commandName);
-    return {};
+    return BadInvocationResult;
   }
 
   return CommandResult{.success = true};

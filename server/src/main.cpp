@@ -326,7 +326,7 @@ int main(int argc, char *argv[]) {
       bool isRunning = true;
       nlohmann::json commandResult =
           ProcessCommand(vCanvas, cmdString, isPaused, isRunning, cmdLogger);
-      if (!commandResult.empty()) { // Command was invoked.
+      if (!commandResult.empty()) {
         cmdLogger->info("result:\n{}", commandResult.dump(2));
         cmdSource->handleResponse(commandResult);
       }

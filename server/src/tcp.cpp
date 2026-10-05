@@ -181,7 +181,7 @@ LEDTCPServer::~LEDTCPServer() {
   }
   close(m_socket);
 
-  spdlog::error("[LEDTCPServer] stopped (port {})", m_port);
+  spdlog::info("[LEDTCPServer] stopped (port {})", m_port);
 }
 
 void LEDTCPServer::start() {
