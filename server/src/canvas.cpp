@@ -607,7 +607,8 @@ static void TextElementToYAML(std::shared_ptr<TextElement> textElement,
 
 #pragma region VirtualCanvas
 
-VirtualCanvas::VirtualCanvas(const cv::Size &size) : m_dim(size) {
+VirtualCanvas::VirtualCanvas(const cv::Size &size, RTMPServer &rtmpServer)
+    : m_rtmpServer(rtmpServer), m_dim(size) {
   clearPixelMatrix();
   setGamma(1.0);
 }
@@ -673,8 +674,9 @@ static void CommonElementPropsToYAML(std::shared_ptr<Element> element,
   }
 }
 
-bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path,
-                                      RTMPServer &rtmpServer) {
+bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path) {
+  clearElements();
+
   spdlog::info("[Canvas] loading config from `{}'", path.string());
   try {
     YAML::Node configNode = YAML::LoadFile(path);
@@ -719,7 +721,7 @@ bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path,
         } else if (elementTypeString == "video") {
           element = VideoElementFromYAML(uid, elementNode);
         } else if (elementTypeString == "rtmp") {
-          element = RTMPElementFromYAML(uid, rtmpServer, elementNode);
+          element = RTMPElementFromYAML(uid, m_rtmpServer, elementNode);
         } else if (elementTypeString == "web-browser") {
           element = WebBrowserElementFromYAML(uid, elementNode);
         } else if (elementTypeString == "text") {
@@ -963,8 +965,8 @@ void VirtualCanvas::pushElementsToPixelMatrix() {
 
       overlayImage(elemMat, cv::Rect(loc, elemSize));
     } else {
-      spdlog::warn("[Element] {}: out of bounds, not rendered", elemPtr->getUID(),
-                   elemPtr->getName());
+      spdlog::warn("[Element] {}: out of bounds, not rendered",
+                   elemPtr->getUID(), elemPtr->getName());
     }
   }
 }

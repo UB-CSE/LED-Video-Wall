@@ -88,8 +88,10 @@ TEST(Canvas, ImageElements) {
   elem2->setRotation(45);
   elem2->setLocation(cv::Point(20, 20));
 
+  RTMPServer rtmpServer;
+
   const cv::Size canvasSize(64, 64);
-  VirtualCanvas canvas(canvasSize);
+  VirtualCanvas canvas(canvasSize, rtmpServer);
 
   canvas.addElement(elem1);
   canvas.addElement(elem2);
@@ -103,12 +105,12 @@ TEST(Canvas, ImageElements) {
 
 TEST(Canvas, LoadAndSave) {
   std::filesystem::current_path(TestImagesDir);
+  RTMPServer rtmpServer;
 
   const cv::Size canvasSize(128, 128);
-  VirtualCanvas canvas(canvasSize);
+  VirtualCanvas canvas(canvasSize, rtmpServer);
 
-  RTMPServer rtmpServer;
-  bool result = canvas.loadElementConfig(CanvasConfigPath, rtmpServer);
+  bool result = canvas.loadElementConfig(CanvasConfigPath);
   ASSERT_THAT(result, IsTrue());
 
   ASSERT_THAT(canvas.getElementCount(), Eq(3));

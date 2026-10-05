@@ -258,13 +258,13 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
-  VirtualCanvas vCanvas(matrixConfig.canvas_size);
-
   RTMPServer rtmpServer(matrixConfig.rtmpPort, "0.0.0.0", rtmpCertPath,
                         rtmpKeyPath);
 
+  VirtualCanvas vCanvas(matrixConfig.canvas_size, rtmpServer);
+
   if (!canvasConfigFilePath.empty()) {
-    if (!vCanvas.loadElementConfig(canvasConfigFilePath, rtmpServer)) {
+    if (!vCanvas.loadElementConfig(canvasConfigFilePath)) {
       CefShutdown();
       exit(1);
     }

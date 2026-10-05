@@ -100,6 +100,34 @@ void invalidCommandInvocation(std::string_view commandName,
                 commandName, usage);
 }
 
+nlohmann::json doLoad(VirtualCanvas &vCanvas, std::string_view cmdName,
+                      std::span<std::string_view> args,
+                      std::shared_ptr<spdlog::logger> logger,
+                      std::string_view usage) {
+  if (args.size() != 1) {
+    invalidCommandInvocation(cmdName, usage, logger);
+    return {};
+  }
+  const std::filesystem::path filePath(args[0]);
+
+  bool success = vCanvas.loadElementConfig(filePath);
+  return CommandResult{.success = success};
+}
+
+nlohmann::json doSave(VirtualCanvas &vCanvas, std::string_view cmdName,
+                      std::span<std::string_view> args,
+                      std::shared_ptr<spdlog::logger> logger,
+                      std::string_view usage) {
+  if (args.size() != 1) {
+    invalidCommandInvocation(cmdName, usage, logger);
+    return {};
+  }
+  const std::filesystem::path filePath(args[0]);
+
+  vCanvas.saveElementConfig(filePath);
+  return CommandResult{.success = true};
+}
+
 nlohmann::json doElementRename(VirtualCanvas &vCanvas, std::string_view cmdName,
                                std::span<std::string_view> args,
                                std::shared_ptr<spdlog::logger> logger,
@@ -242,6 +270,20 @@ struct CommandInfo {
 
 std::map<std::string, CommandInfo> commands{
     {
+        "load",
+        CommandInfo{
+            .doCommandFunc = doLoad,
+            .usage = "<filepath>",
+        },
+    },
+    {
+        "save",
+        CommandInfo{
+            .doCommandFunc = doSave,
+            .usage = "<filepath>",
+        },
+    },
+    {
         "element-rename",
         CommandInfo{
             .doCommandFunc = doElementRename,
@@ -336,7 +378,7 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
 
 #pragma endregion
 
-#pragma region Command Prompt
+#pragma region Prompt Command Source
 
 PromptCommandSource::PromptCommandSource() {
   m_cmdOutputLogger = spdlog::default_logger()->clone("LEDVW-Command-Prompt");
@@ -412,6 +454,8 @@ void PromptCommandSource::threadFunc() {
 
 #pragma endregion
 
+#pragma region Unix Socket Command Source
+
 UnixSocketCommandSource::UnixSocketCommandSource(
     const std::filesystem::path &path)
     : m_channel(path) {
@@ -462,3 +506,5 @@ void UnixSocketCommandSource::handleResponse(nlohmann::json response) {
       responseString.size());
   m_channel.sendMessage(responseBuffer);
 }
+
+#pragma endregion

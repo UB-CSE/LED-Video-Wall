@@ -362,6 +362,8 @@ private:
 };
 
 class VirtualCanvas final {
+  RTMPServer& m_rtmpServer;
+
   cv::Mat m_pixelMatrix;
   double m_gamma = 1.0;
   cv::Mat m_canvasLUT = cv::Mat(1, 256, CV_8UC1);
@@ -376,7 +378,7 @@ class VirtualCanvas final {
       m_elementPositions; // Make access O(1)
 
 public:
-  explicit VirtualCanvas(const cv::Size &size);
+  VirtualCanvas(const cv::Size &size, RTMPServer& rtmpServer);
   ~VirtualCanvas() = default;
 
   VirtualCanvas(const VirtualCanvas &) = delete;
@@ -396,8 +398,7 @@ public:
    * @param rtmpServer RTMP server used for constructing RTMP stream elements.
    * @return True if successful, false otherwise.
    */
-  bool loadElementConfig(const std::filesystem::path &path,
-                         RTMPServer &rtmpServer);
+  bool loadElementConfig(const std::filesystem::path &path);
 
   /**
    * Write the current canvas state to a YAML configuration file.
