@@ -1,6 +1,7 @@
 #pragma once
 
 #include "canvas.hpp"
+#include "unix-socket-msg-channel-tests.hpp"
 #include <mutex>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -55,40 +56,85 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
                               bool &isPaused, bool &isRunning,
                               std::shared_ptr<spdlog::logger> logger);
 
+class CommandSource {
+public:
+  virtual ~CommandSource() = default;
+
+  virtual void process() {}
+
+  virtual std::string consumeLatestCommand() = 0;
+  virtual void handleResponse(nlohmann::json response) {};
+
+  virtual std::shared_ptr<spdlog::logger> getCommandOutputLogger() {
+    return spdlog::default_logger();
+  }
+
+protected:
+  CommandSource() = default;
+};
+
 /**
  * A GNU readline command prompt. Processes in a separate thread. Starts up at
  * the first access.
  */
-class InteractiveCommandPrompt {
+class PromptCommandSource : public CommandSource {
   std::jthread m_thread;
 
   std::mutex m_mutex;
   std::queue<std::string> m_cmdQueue;
 
   bool m_isRunning = true;
-  bool m_isActive = true;
+  bool m_isActive = false;
 
   std::string m_promptName = "ledvw";
 
+  std::shared_ptr<spdlog::logger> m_cmdOutputLogger;
+
 public:
-  static InteractiveCommandPrompt &get() {
-    static InteractiveCommandPrompt instance;
+  static PromptCommandSource &get() {
+    static PromptCommandSource instance;
     return instance;
   }
 
-  ~InteractiveCommandPrompt();
+  ~PromptCommandSource() override;
 
-  InteractiveCommandPrompt(const InteractiveCommandPrompt &) = delete;
-  InteractiveCommandPrompt &
-  operator=(const InteractiveCommandPrompt &) = delete;
+  PromptCommandSource(const PromptCommandSource &) = delete;
+  PromptCommandSource &operator=(const PromptCommandSource &) = delete;
 
   void setPromptName(std::string_view name);
 
   void activate() { m_isActive = true; }
-  std::string consumeLatestCommand();
+  std::string consumeLatestCommand() override;
+
+ std::shared_ptr<spdlog::logger> getCommandOutputLogger() override {
+    return m_cmdOutputLogger;
+  }
 
 private:
-  InteractiveCommandPrompt();
+  PromptCommandSource();
 
   void threadFunc();
+};
+
+class UnixSocketCommandSource : public CommandSource {
+  UnixSocketMessageChannel<MessageChannel::Server> m_channel;
+
+  std::queue<std::string> m_cmdQueue;
+
+  std::chrono::steady_clock::time_point m_lastHeartbeatTime;
+
+  std::shared_ptr<spdlog::logger> m_cmdOutputLogger;
+
+public:
+  UnixSocketCommandSource(const std::filesystem::path &path);
+  ~UnixSocketCommandSource() override = default;
+
+  void process() override;
+
+  std::string consumeLatestCommand() override;
+  void handleResponse(nlohmann::json response) override;
+
+  std::shared_ptr<spdlog::logger> getCommandOutputLogger() override {
+    return m_cmdOutputLogger;
+  }
 };

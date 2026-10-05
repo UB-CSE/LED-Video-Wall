@@ -5,6 +5,7 @@
 #include <optional>
 #include <readline/history.h>
 #include <readline/readline.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>
 #include <string>
 #include <sys/types.h>
@@ -337,7 +338,11 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
 
 #pragma region Command Prompt
 
-InteractiveCommandPrompt::InteractiveCommandPrompt() {
+PromptCommandSource::PromptCommandSource() {
+  m_cmdOutputLogger = spdlog::default_logger()->clone("LEDVW-Command-Prompt");
+  m_cmdOutputLogger->sinks().push_back(
+      std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+
   rl_catch_signals = false;
 
   rl_event_hook = []() -> int {
@@ -347,17 +352,17 @@ InteractiveCommandPrompt::InteractiveCommandPrompt() {
     return 0;
   };
 
-  m_thread = std::jthread(&InteractiveCommandPrompt::threadFunc, this);
+  m_thread = std::jthread(&PromptCommandSource::threadFunc, this);
 }
 
-InteractiveCommandPrompt::~InteractiveCommandPrompt() { m_isRunning = false; }
+PromptCommandSource::~PromptCommandSource() { m_isRunning = false; }
 
-void InteractiveCommandPrompt::setPromptName(std::string_view name) {
+void PromptCommandSource::setPromptName(std::string_view name) {
   std::lock_guard lock(m_mutex);
   m_promptName = name;
 }
 
-std::string InteractiveCommandPrompt::consumeLatestCommand() {
+std::string PromptCommandSource::consumeLatestCommand() {
   std::lock_guard lock(m_mutex);
   if (m_cmdQueue.empty()) {
     return "";
@@ -367,7 +372,7 @@ std::string InteractiveCommandPrompt::consumeLatestCommand() {
   return cmd;
 }
 
-void InteractiveCommandPrompt::threadFunc() {
+void PromptCommandSource::threadFunc() {
   while (m_isRunning) {
     if (!m_isActive) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -406,3 +411,54 @@ void InteractiveCommandPrompt::threadFunc() {
 }
 
 #pragma endregion
+
+UnixSocketCommandSource::UnixSocketCommandSource(
+    const std::filesystem::path &path)
+    : m_channel(path) {
+  m_cmdOutputLogger = spdlog::default_logger()->clone("LEDVW-Command");
+
+  m_lastHeartbeatTime = std::chrono::steady_clock::now();
+}
+
+void UnixSocketCommandSource::process() {
+  m_channel.process();
+
+  auto now = std::chrono::steady_clock::now();
+  if (m_channel.isConnected()) {
+    auto [success, receiveBuffer] = m_channel.receiveMessage();
+    if (success && !receiveBuffer.empty()) {
+      std::string commandString(
+          reinterpret_cast<const char *>(receiveBuffer.data()),
+          receiveBuffer.size());
+      m_cmdQueue.push(commandString);
+    }
+
+    // Send heartbeat messages every second to verify that we're still
+    // connected.
+    auto elapsed = now - m_lastHeartbeatTime;
+    if (elapsed > std::chrono::milliseconds(1000)) {
+      m_lastHeartbeatTime = now;
+      m_channel.sendMessage({});
+    }
+  } else {
+    m_lastHeartbeatTime = now;
+  }
+}
+
+std::string UnixSocketCommandSource::consumeLatestCommand() {
+  if (m_cmdQueue.empty()) {
+    return "";
+  }
+
+  std::string cmd = m_cmdQueue.front();
+  m_cmdQueue.pop();
+  return cmd;
+}
+
+void UnixSocketCommandSource::handleResponse(nlohmann::json response) {
+  std::string responseString = response.dump();
+  std::span responseBuffer(
+      reinterpret_cast<const uint8_t *>(responseString.data()),
+      responseString.size());
+  m_channel.sendMessage(responseBuffer);
+}

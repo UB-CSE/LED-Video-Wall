@@ -6,6 +6,7 @@
 #include "matrix-config.hpp"
 #include "rtmp.hpp"
 #include "tcp.hpp"
+#include "unix-socket-msg-channel-tests.hpp"
 #include <OptionParser.hpp>
 #include <cef_app.h>
 #include <cef_command_line.h>
@@ -31,10 +32,6 @@
 #include <unistd.h> // for close
 #include <unistd.h>
 #include <vector>
-
-// Change this flag as needed. Debug mode displays virtual canvas locally per
-// update
-#define TMP_CMD "/tmp/led-cmd"
 
 namespace {
 
@@ -284,81 +281,63 @@ int main(int argc, char *argv[]) {
 
   Controller cont(vCanvas, server, matrixConfig.ns_per_frame);
 
-  // Each instance gets its own command pipe based on its ledvw port.
-  const std::string cmd_pipe =
-      std::string(TMP_CMD) + "-" + std::to_string(matrixConfig.ledvwPort);
+  // Each instance gets its own command unix socket.
+  const std::filesystem::path commandUnixSocketPath =
+      std::format("/tmp/ledvw-cmd-{}", serverInstanceName);
 
-  // Setup for pipes
-  unlink(cmd_pipe.c_str()); // Destroys the existing pipe - dont want leftover
-                            // commands if any
-  if (mkfifo(cmd_pipe.c_str(), 0666) == -1 && errno != EEXIST) {
-    spdlog::error("mkfifo() failed: {}", strerror(errno));
-    return 1;
-  } // Creates a fifo style pipe
-  int pipe = open(cmd_pipe.c_str(),
-                  O_RDONLY | O_NONBLOCK); // Opens the pipe for reading only
-  if (pipe < 0) {
-    spdlog::error("open() failed: {}", strerror(errno));
-    return 1;
-  }
+  UnixSocketCommandSource unixSocketCommandSource(commandUnixSocketPath);
 
   spdlog::info("server {} started successfully", serverInstanceName);
-
-  std::shared_ptr<spdlog::logger> normalCmdLogger =
-      spdlog::default_logger()->clone("LEDVW-Command");
-  std::shared_ptr<spdlog::logger> promptCmdLogger =
-      spdlog::default_logger()->clone("LEDVW-Command-Prompt");
-  promptCmdLogger->sinks().push_back(
-      std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
 
   if (interactiveMode) {
     std::cout << "\nRun canvas commands here. Run the `help' command to see a "
                  "list of all commands\n";
 
-    InteractiveCommandPrompt::get().setPromptName(serverInstanceName);
+    PromptCommandSource::get().setPromptName(serverInstanceName);
+    PromptCommandSource::get().activate();
   }
 
+  std::vector<CommandSource *> commandSources = {&unixSocketCommandSource,
+                                                 &PromptCommandSource::get()};
+
   bool isPaused = false;
-  char buf[256];
   while (!stop_signal) {
     CefDoMessageLoopWork();
 
+    for (CommandSource *cmdSource : commandSources) {
+      cmdSource->process();
+    }
+
     std::string cmdString;
-    bool promptCommand = false;
+    CommandSource *cmdSource = nullptr;
 
-    if (interactiveMode) {
-      cmdString = InteractiveCommandPrompt::get().consumeLatestCommand();
-      promptCommand = true;
-    }
-    if (cmdString.empty()) {
-      ssize_t n = read(pipe, buf, sizeof(buf) - 1);
-      if (n > 0) {
-        buf[n] = '\0';
-        // Remove whitespaces
-        cmdString = buf;
-        cmdString.erase(cmdString.find_last_not_of(" \t\r\n") + 1);
+    for (auto it = commandSources.begin(); it != commandSources.end(); ++it) {
+      cmdSource = *it;
+      cmdString = cmdSource->consumeLatestCommand();
+      if (!cmdString.empty()) {
+        break;
       }
-      promptCommand = false;
     }
 
-    if (!cmdString.empty()) {
+    if (!cmdString.empty() && cmdSource != nullptr) {
       std::shared_ptr<spdlog::logger> cmdLogger =
-          promptCommand ? promptCmdLogger : normalCmdLogger;
+          cmdSource->getCommandOutputLogger();
 
       bool isRunning = true;
       nlohmann::json commandResult =
           ProcessCommand(vCanvas, cmdString, isPaused, isRunning, cmdLogger);
       if (!commandResult.empty()) { // Command was invoked.
         cmdLogger->info("result:\n{}", commandResult.dump(2));
+        cmdSource->handleResponse(commandResult);
       }
 
       if (!isRunning) {
-        goto EXIT_PROGRAM;
+        break;
       }
 
       if (interactiveMode) {
         // Re-activate the command prompt
-        InteractiveCommandPrompt::get().activate();
+        PromptCommandSource::get().activate();
       }
     }
 
@@ -367,11 +346,6 @@ int main(int argc, char *argv[]) {
     }
   }
 
-EXIT_PROGRAM:
-  close(pipe);
-  unlink(cmd_pipe.c_str());
-
   CefShutdown();
-
   return 0;
 }
