@@ -250,6 +250,78 @@ nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas, Controller &controller,
   return CommandResult{.success = success};
 }
 
+nlohmann::json doImageSetFile(VirtualCanvas &vCanvas, Controller &controller,
+                              std::span<std::string_view> args,
+                              std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() != 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  const std::string filepath(args[1]);
+
+  auto element =
+      std::dynamic_pointer_cast<ImageElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->loadImageFile(filepath);
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doCarouselSetFiles(VirtualCanvas &vCanvas,
+                                  Controller &controller,
+                                  std::span<std::string_view> args,
+                                  std::shared_ptr<spdlog::logger> logger) {
+  if (args.empty()) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+
+  auto element =
+      std::dynamic_pointer_cast<CarouselElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  if (args.size() == 1) {
+    element->loadImages({});
+  } else {
+    std::vector<std::string> filepaths(std::next(args.begin()), args.end());
+    element->loadImages(filepaths);
+  }
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doCarouselSetFrameRate(VirtualCanvas &vCanvas,
+                                      Controller &controller,
+                                      std::span<std::string_view> args,
+                                      std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  int frameRate;
+  try {
+    frameRate = std::stoi(std::string(args[1]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  auto element =
+      std::dynamic_pointer_cast<CarouselElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setFrameRate(frameRate);
+
+  // The element's event period was changed.
+  controller.reinitializeCanvasEvents();
+
+  return CommandResult{.success = true};
+}
+
 using DoCommandFunc = nlohmann::json(VirtualCanvas &vCanvas,
                                      Controller &controller,
                                      std::span<std::string_view> args,
@@ -315,6 +387,27 @@ std::map<std::string, CommandInfo> commands{
         CommandInfo{
             .doCommandFunc = doElementMoveDown,
             .usage = "<id>",
+        },
+    },
+    {
+        "image-set-file",
+        CommandInfo{
+            .doCommandFunc = doImageSetFile,
+            .usage = "<id> <filepath>",
+        },
+    },
+    {
+        "carousel-set-files",
+        CommandInfo{
+            .doCommandFunc = doCarouselSetFiles,
+            .usage = "<id> [filepaths...]",
+        },
+    },
+    {
+        "carousel-set-framerate",
+        CommandInfo{
+            .doCommandFunc = doCarouselSetFrameRate,
+            .usage = "<id> <framerate>",
         },
     },
 };
