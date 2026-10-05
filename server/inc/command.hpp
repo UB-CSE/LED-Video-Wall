@@ -1,6 +1,7 @@
 #pragma once
 
 #include "canvas.hpp"
+#include "controller.hpp"
 #include "unix-socket-msg-channel-tests.hpp"
 #include <mutex>
 #include <nlohmann/json.hpp>
@@ -44,6 +45,7 @@ struct CommandParser {
  * Parses and executes a command.
  *
  * @param vCanvas Canvas.
+ * @param controller Controller.
  * @param line Command line string to parse.
  * @param isPaused (Output) Will be assigned if the paused state gets changed by
  *                 pause & resume commands.
@@ -52,8 +54,9 @@ struct CommandParser {
  * @param logger The command output logger.
  * @return JSON Result, or an empty JSON if there was an invocation error.
  */
-nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
-                              bool &isPaused, bool &isRunning,
+nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, Controller &controller,
+                              const std::string &line, bool &isPaused,
+                              bool &isRunning,
                               std::shared_ptr<spdlog::logger> logger);
 
 class CommandSource {
@@ -63,7 +66,7 @@ public:
   virtual void process() {}
 
   virtual std::string consumeLatestCommand() = 0;
-  virtual void handleResponse(nlohmann::json response) {};
+  virtual void handleResponse(const nlohmann::json &response) {};
 
   virtual std::shared_ptr<spdlog::logger> getCommandOutputLogger() {
     return spdlog::default_logger();
@@ -106,7 +109,7 @@ public:
   void activate() { m_isActive = true; }
   std::string consumeLatestCommand() override;
 
- std::shared_ptr<spdlog::logger> getCommandOutputLogger() override {
+  std::shared_ptr<spdlog::logger> getCommandOutputLogger() override {
     return m_cmdOutputLogger;
   }
 
@@ -132,7 +135,7 @@ public:
   void process() override;
 
   std::string consumeLatestCommand() override;
-  void handleResponse(nlohmann::json response) override;
+  void handleResponse(const nlohmann::json &response) override;
 
   std::shared_ptr<spdlog::logger> getCommandOutputLogger() override {
     return m_cmdOutputLogger;

@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
   }
   server->start();
 
-  Controller cont(vCanvas, server, matrixConfig.ns_per_frame);
+  Controller controller(vCanvas, server, matrixConfig.ns_per_frame);
 
   // Each instance gets its own command unix socket.
   const std::filesystem::path commandUnixSocketPath =
@@ -324,8 +324,8 @@ int main(int argc, char *argv[]) {
           cmdSource->getCommandOutputLogger();
 
       bool isRunning = true;
-      nlohmann::json commandResult =
-          ProcessCommand(vCanvas, cmdString, isPaused, isRunning, cmdLogger);
+      nlohmann::json commandResult = ProcessCommand(
+          vCanvas, controller, cmdString, isPaused, isRunning, cmdLogger);
       if (!commandResult.empty()) {
         cmdLogger->info("result:\n{}", commandResult.dump(2));
         cmdSource->handleResponse(commandResult);
@@ -342,7 +342,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (!isPaused) {
-      cont.frame_exec(!prodMode);
+      controller.frameExec(!prodMode);
     }
   }
 

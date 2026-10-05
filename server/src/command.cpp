@@ -109,7 +109,8 @@ void invalidCommandInvocation(std::string_view commandName,
                 commandName, usage);
 }
 
-nlohmann::json doLoad(VirtualCanvas &vCanvas, std::span<std::string_view> args,
+nlohmann::json doLoad(VirtualCanvas &vCanvas, Controller &controller,
+                      std::span<std::string_view> args,
                       std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
     return BadInvocationResult;
@@ -117,10 +118,15 @@ nlohmann::json doLoad(VirtualCanvas &vCanvas, std::span<std::string_view> args,
   const std::filesystem::path filePath(args[0]);
 
   bool success = vCanvas.loadElementConfig(filePath);
+
+  // Controller needs to initialize events for all the new elements
+  controller.reinitializeCanvasEvents();
+
   return CommandResult{.success = success};
 }
 
-nlohmann::json doSave(VirtualCanvas &vCanvas, std::span<std::string_view> args,
+nlohmann::json doSave(VirtualCanvas &vCanvas, Controller &controller,
+                      std::span<std::string_view> args,
                       std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
     return BadInvocationResult;
@@ -131,7 +137,7 @@ nlohmann::json doSave(VirtualCanvas &vCanvas, std::span<std::string_view> args,
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementRename(VirtualCanvas &vCanvas,
+nlohmann::json doElementRename(VirtualCanvas &vCanvas, Controller &controller,
                                std::span<std::string_view> args,
                                std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 2) {
@@ -149,7 +155,7 @@ nlohmann::json doElementRename(VirtualCanvas &vCanvas,
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementMove(VirtualCanvas &vCanvas,
+nlohmann::json doElementMove(VirtualCanvas &vCanvas, Controller &controller,
                              std::span<std::string_view> args,
                              std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 3) {
@@ -173,7 +179,7 @@ nlohmann::json doElementMove(VirtualCanvas &vCanvas,
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementRotate(VirtualCanvas &vCanvas,
+nlohmann::json doElementRotate(VirtualCanvas &vCanvas, Controller &controller,
                                std::span<std::string_view> args,
                                std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 2) {
@@ -196,7 +202,7 @@ nlohmann::json doElementRotate(VirtualCanvas &vCanvas,
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementResize(VirtualCanvas &vCanvas,
+nlohmann::json doElementResize(VirtualCanvas &vCanvas, Controller &controller,
                                std::span<std::string_view> args,
                                std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 3) {
@@ -220,7 +226,7 @@ nlohmann::json doElementResize(VirtualCanvas &vCanvas,
   return CommandResult{.success = true};
 }
 
-nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas,
+nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas, Controller &controller,
                                std::span<std::string_view> args,
                                std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
@@ -232,7 +238,7 @@ nlohmann::json doElementMoveUp(VirtualCanvas &vCanvas,
   return CommandResult{.success = success};
 }
 
-nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas,
+nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas, Controller &controller,
                                  std::span<std::string_view> args,
                                  std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
@@ -245,6 +251,7 @@ nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas,
 }
 
 using DoCommandFunc = nlohmann::json(VirtualCanvas &vCanvas,
+                                     Controller &controller,
                                      std::span<std::string_view> args,
                                      std::shared_ptr<spdlog::logger> logger);
 
@@ -327,8 +334,9 @@ void doHelp(std::shared_ptr<spdlog::logger> logger) {
 
 } // namespace
 
-nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
-                              bool &isPaused, bool &isRunning,
+nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, Controller &controller,
+                              const std::string &line, bool &isPaused,
+                              bool &isRunning,
                               std::shared_ptr<spdlog::logger> logger) {
   spdlog::info("[Command] ProcessCommand: `{}'", line);
 
@@ -352,7 +360,7 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, const std::string &line,
   } else if (const auto it = commands.find(std::string(commandName));
              it != commands.end()) {
     auto &[doCommandFunc, usage] = it->second;
-    nlohmann::json result = doCommandFunc(vCanvas, args, logger);
+    nlohmann::json result = doCommandFunc(vCanvas, controller, args, logger);
     if (result["bad-invocation"].get<bool>()) {
       invalidCommandInvocation(commandName, usage, logger);
     }
@@ -488,7 +496,7 @@ std::string UnixSocketCommandSource::consumeLatestCommand() {
   return cmd;
 }
 
-void UnixSocketCommandSource::handleResponse(nlohmann::json response) {
+void UnixSocketCommandSource::handleResponse(const nlohmann::json &response) {
   std::string responseString = response.dump();
   std::span responseBuffer(
       reinterpret_cast<const uint8_t *>(responseString.data()),
