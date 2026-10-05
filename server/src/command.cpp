@@ -519,13 +519,23 @@ void PromptCommandSource::threadFunc() {
     prompt += "> ";
 
     char *line = readline(prompt.c_str());
-    if (!line || !m_isRunning) {
+    if (!m_isRunning) {
       break;
     }
 
-    if (*line != '\0') {
-      add_history(line);
+    if (!line || *line == '\0') {
+      continue;
     }
+
+    bool isAllWhitespace = true;
+    for (char* c = line; *c != '\0'; c++) {
+      isAllWhitespace = isAllWhitespace && std::isspace(*c);
+    }
+    if (isAllWhitespace) {
+      continue;
+    }
+
+    add_history(line);
 
     std::string lineString(line);
     free(line);
