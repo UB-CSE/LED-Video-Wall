@@ -29,6 +29,13 @@ using namespace testing;
 std::string getCurrentTestID();
 
 /**
+ * Returns a string identifying the test with the given TestInfo.
+ * @param info Test info
+ * @return Identifier
+ */
+std::string getTestID(const TestInfo &info);
+
+/**
  * Get the path to a directory for the test to write output files to for inspection later.
  * @return Path
  */

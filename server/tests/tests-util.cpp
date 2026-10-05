@@ -1,20 +1,24 @@
 #include <tests-util.hpp>
 
-std::string getCurrentTestID() {
-  const TestInfo *info = UnitTest::GetInstance()->current_test_info();
-  const std::string suiteName = info->test_suite_name();
-  const std::string testName = info->name();
+std::string getTestID(const TestInfo &info) {
+  const std::string suiteName = info.test_suite_name();
+  const std::string testName = info.name();
 
   std::string id = suiteName + "." + testName;
 
-  if (info->type_param() != nullptr) {
-    id += "." + std::string(info->type_param());
+  if (info.type_param() != nullptr) {
+    id += "." + std::string(info.type_param());
   }
-  if (info->value_param() != nullptr) {
-    id += "." + std::string(info->value_param());
+  if (info.value_param() != nullptr) {
+    id += "." + std::string(info.value_param());
   }
 
   return id;
+}
+
+std::string getCurrentTestID() {
+  const TestInfo *info = UnitTest::GetInstance()->current_test_info();
+  return getTestID(*info);
 }
 
 std::filesystem::path getTestOutputDirPath() {
