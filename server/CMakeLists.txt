@@ -9,6 +9,7 @@ enable_testing()
 ### Options ###
 
 option(BUILD_TESTS "Build unit tests" ON)
+option(BUILD_CMD_TESTER "Build command tester program" ON)
 
 ### Build type ###
 
@@ -165,7 +166,7 @@ set(CEF_RELEASE_DIR "${CEF_DIR}/Release/")
 set(CEF_INCLUDE_DIR "${CEF_DIR}/include/")
 
 # !!Important!!
-# Resources must be in the same directory as the CEF library or else you'll get this very criptic error followed by a hard crash:
+# Resources must be in the same directory as the CEF library or else you'll get this very cryptic error followed by a hard crash:
 # [0830/190409.395581:ERROR:base/i18n/icu_util.cc:232] Invalid file descriptor to ICU data received.
 file(COPY ${CEF_RESOURCES_DIR} DESTINATION ${CEF_RELEASE_DIR})
 
@@ -194,6 +195,15 @@ target_compile_options(${PROJECT_NAME} PUBLIC
 
 add_executable(led-wall-server src/main.cpp)
 target_link_libraries(led-wall-server ${PROJECT_NAME})
+
+if (BUILD_CMD_TESTER)
+    set(CMD_TESTER_NAME led-wall-server-cmd-tester)
+
+    file(GLOB_RECURSE CMD_TESTER_SOURCES cmd-tester/*.cpp)
+
+    add_executable(${CMD_TESTER_NAME} ${CMD_TESTER_SOURCES})
+    target_link_libraries(${CMD_TESTER_NAME} ${PROJECT_NAME})
+endif()
 
 ### Tests ###
 if (BUILD_TESTS)
