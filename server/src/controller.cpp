@@ -35,7 +35,9 @@ Controller::Controller(VirtualCanvas &canvas,
                        std::shared_ptr<LEDTCPServer> tcpServer,
                        int64_t nsPerFrame)
     : m_canvas(canvas), m_tcpServer(tcpServer),
-      m_clientConnInfo(m_tcpServer->getConnInfo()), m_nsPerFrame(nsPerFrame) {
+      m_clientConnInfo((m_tcpServer != nullptr) ? m_tcpServer->getConnInfo()
+                                                : nullptr),
+      m_nsPerFrame(nsPerFrame) {
   reinitializeCanvasEvents();
 }
 
@@ -92,6 +94,10 @@ void Controller::frameExec(bool showDebugWindow) {
 }
 
 void Controller::setAllLEDs() {
+  if (!m_tcpServer || !m_clientConnInfo) {
+    return;
+  }
+
   std::vector<std::pair<uint64_t, int>> conns;
   m_clientConnInfo->getAllConnected(conns);
   for (auto [addr, sock] : conns) {
@@ -100,6 +106,10 @@ void Controller::setAllLEDs() {
 }
 
 void Controller::redrawAll() {
+  if (!m_tcpServer || !m_clientConnInfo) {
+    return;
+  }
+
   std::vector<std::pair<uint64_t, int>> conns;
   m_clientConnInfo->getAllConnected(conns);
   for (auto [addr, sock] : conns) {

@@ -13,6 +13,9 @@ public:
                  "START TEST: {}\n"
                  "==============================",
                  getTestID(info));
+
+    // Load images in the current directory.
+    std::filesystem::current_path(TestImagesDir);
   }
 
   void OnTestEnd(const TestInfo &info) override {

@@ -8,16 +8,6 @@ using namespace testing;
 using enum ImageEncoding;
 using namespace std::string_literals;
 
-static const std::filesystem::path ParrotTestImagePath =
-    TestImagesDir / "parrot.jpg";
-static constexpr int ParrotTestImageWidth = 150;
-static constexpr int ParrotTestImageHeight = 200;
-
-static const std::filesystem::path ButterflyTestImagePath =
-    TestImagesDir / "butterfly.jpg";
-static constexpr int ButterflyTestImageWidth = 256;
-static constexpr int ButterflyTestImageHeight = 256;
-
 static void loadTestImage(cv::Mat &image,
                           const std::filesystem::path &imagePath, int width,
                           int height) {

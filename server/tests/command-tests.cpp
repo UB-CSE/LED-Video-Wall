@@ -1,9 +1,11 @@
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+#include <tests-util.hpp>
 
 #include "command.hpp"
+#include <format>
 
 using namespace testing;
+
+#pragma region CommandParser Tests
 
 TEST(CommandParser, Empty) {
   std::string_view input;
@@ -156,3 +158,247 @@ TEST(CommandParser, ToArgsNoCommand) {
   bool result = CommandParser::ToArgs(input, command, args);
   ASSERT_THAT(result, IsFalse());
 }
+
+#pragma endregion
+
+#pragma region Command Tests
+
+namespace {
+
+class Commands : public Test {
+protected:
+  const cv::Size canvasSize{128, 128};
+  RTMPServer rtmpServer;
+  VirtualCanvas canvas{canvasSize, rtmpServer};
+  Controller controller{canvas, nullptr, 40000000};
+
+  nlohmann::json responseJSON;
+
+public:
+  Commands() = default;
+  ~Commands() override = default;
+
+  static inline const std::filesystem::path CanvasConfigPath =
+      TestResourcesDir / "canvas-configs" / "input.yaml";
+
+  void validateCommonResponseJSON(bool badInvocation = false,
+                                  bool noSuchElement = false) {
+    ASSERT_THAT(responseJSON, Not(IsEmpty()));
+
+    ASSERT_THAT(responseJSON.contains("bad-invocation"), IsTrue());
+    ASSERT_THAT(responseJSON["bad-invocation"].is_boolean(), IsTrue());
+    ASSERT_THAT(responseJSON["bad-invocation"].get<bool>(), Eq(badInvocation));
+
+    ASSERT_THAT(responseJSON.contains("no-such-element"), IsTrue());
+    ASSERT_THAT(responseJSON["no-such-element"].is_boolean(), IsTrue());
+    ASSERT_THAT(responseJSON["no-such-element"].get<bool>(), Eq(noSuchElement));
+
+    const bool expectedSuccess = !badInvocation && !noSuchElement;
+
+    ASSERT_THAT(responseJSON.contains("success"), IsTrue());
+    ASSERT_THAT(responseJSON["success"].is_boolean(), IsTrue());
+    ASSERT_THAT(responseJSON["success"].get<bool>(), Eq(expectedSuccess));
+  }
+
+  void doCommand(const std::string &line, bool *isPausedPtr = nullptr,
+                 bool *isRunningPtr = nullptr) {
+    bool isPaused = isPausedPtr ? *isPausedPtr : false;
+    bool isRunning = isRunningPtr ? *isRunningPtr : true;
+
+    responseJSON = ProcessCommand(canvas, controller, line, isPaused, isRunning,
+                                  spdlog::default_logger());
+
+    if (isPausedPtr) {
+      *isPausedPtr = isPaused;
+    } else {
+      ASSERT_THAT(isPaused, IsFalse());
+    }
+
+    if (isRunningPtr) {
+      *isRunningPtr = isRunning;
+    } else {
+      ASSERT_THAT(isPaused, IsFalse());
+    }
+  }
+};
+
+} // namespace
+
+TEST_F(Commands, Load) {
+  const std::string commandLine =
+      std::format(R"(load "{}")", CanvasConfigPath.string());
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(canvas.getElementCount(), Eq(3));
+  // See the test "Canvas.LoadAndSave" for full load testing.
+}
+
+TEST_F(Commands, Save) {
+  ASSERT_THAT(canvas.loadElementConfig(CanvasConfigPath), IsTrue());
+
+  const std::filesystem::path saveFilePath =
+      getTestOutputDirPath() / "input.yaml";
+  ASSERT_THAT(std::filesystem::exists(saveFilePath), IsFalse());
+
+  const std::string commandLine =
+      std::format(R"(save "{}")", saveFilePath.string());
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(std::filesystem::exists(saveFilePath), IsTrue());
+}
+
+TEST_F(Commands, ElementRename) {
+  auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+  elem->setName("Cool Parrot");
+
+  canvas.addElement(elem);
+
+  const std::string newName = "Awesome Parrot";
+
+  const std::string commandLine =
+      std::format(R"(element-rename parrot "{}")", newName);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getName(), StrEq(newName));
+}
+
+TEST_F(Commands, ElementMove) {
+  auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+  elem->setLocation(cv::Point(10, 15));
+
+  canvas.addElement(elem);
+
+  cv::Point newLocation(25, 30);
+
+  const std::string commandLine =
+      std::format("element-move parrot {} {}", newLocation.x, newLocation.y);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getLocation().x, Eq(newLocation.x));
+  ASSERT_THAT(elem->getLocation().y, Eq(newLocation.y));
+}
+
+TEST_F(Commands, ElementRotate) {
+  auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+  elem->setRotation(15);
+
+  canvas.addElement(elem);
+
+  double newRotation = 25.7;
+
+  const std::string commandLine =
+      std::format("element-rotate parrot {}", newRotation);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getRotation(), DoubleEq(newRotation));
+}
+
+TEST_F(Commands, ElementMoveUp) {
+  auto elem1 = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+  auto elem2 =
+      std::make_shared<ImageElement>("butterfly", ButterflyTestImagePath);
+
+  canvas.addElement(elem1);
+  canvas.addElement(elem2);
+
+  ASSERT_THAT(canvas.getElements(), ElementsAre(elem2, elem1));
+
+  const std::string commandLine = std::format("element-move-up parrot");
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(canvas.getElements(), ElementsAre(elem1, elem2));
+}
+
+TEST_F(Commands, ElementMoveDown) {
+  auto elem1 = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+  auto elem2 =
+      std::make_shared<ImageElement>("butterfly", ButterflyTestImagePath);
+
+  canvas.addElement(elem1);
+  canvas.addElement(elem2);
+
+  ASSERT_THAT(canvas.getElements(), ElementsAre(elem2, elem1));
+
+  const std::string commandLine = std::format("element-move-down butterfly");
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(canvas.getElements(), ElementsAre(elem1, elem2));
+}
+
+TEST_F(Commands, ImageSetFile) {
+  auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+
+  canvas.addElement(elem);
+
+  double newRotation = 25.7;
+
+  const std::string commandLine = std::format(R"(image-set-file parrot {})",
+                                              ButterflyTestImagePath.string());
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getImageFilePath(), StrEq(ButterflyTestImagePath.string()));
+}
+
+TEST_F(Commands, CarouselSetFiles) {
+  const std::vector originalFilepaths = {
+      ParrotTestImagePath.string(),
+      ButterflyTestImagePath.string(),
+  };
+  auto elem =
+      std::make_shared<CarouselElement>("carousel", originalFilepaths, 1);
+
+  canvas.addElement(elem);
+
+  const std::vector newFilePaths = {
+      ButterflyTestImagePath.string(),
+      RainbowTestImagePath.string(),
+  };
+
+  const std::string commandLine =
+      std::format(R"(carousel-set-files carousel "{}" "{}")", newFilePaths[0],
+                  newFilePaths[1]);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getImageFilePaths(), ElementsAreArray(newFilePaths));
+}
+
+TEST_F(Commands, CarouselSetFrameRate) {
+  const std::vector filePaths = {
+    ParrotTestImagePath.string(),
+    ButterflyTestImagePath.string(),
+};
+  auto elem =
+      std::make_shared<CarouselElement>("carousel", filePaths, 1);
+
+  canvas.addElement(elem);
+
+  constexpr int newFrameRate = 2;
+
+  const std::string commandLine =
+      std::format("carousel-set-framerate carousel {}", newFrameRate);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getFrameRate(), Eq(newFrameRate));
+}
+
+#pragma endregion

@@ -9,16 +9,6 @@ using namespace testing;
 static const std::filesystem::path CanvasConfigPath =
     TestResourcesDir / "canvas-configs" / "input.yaml";
 
-static const std::filesystem::path ParrotTestImagePath =
-    TestImagesDir / "parrot.jpg";
-static constexpr int ParrotTestImageWidth = 150;
-static constexpr int ParrotTestImageHeight = 200;
-
-static const std::filesystem::path RainbowTestImagePath =
-    TestImagesDir / "rainbow.png";
-static const std::filesystem::path ButterflyTestImagePath =
-    TestImagesDir / "butterfly.jpg";
-
 #define VERIFY_CV_SIZE(size, expectedWidth, expectedHeight)                    \
   ASSERT_THAT(size.width, Eq(expectedWidth));                                  \
   ASSERT_THAT(size.height, Eq(expectedHeight));
@@ -104,7 +94,6 @@ TEST(Canvas, ImageElements) {
 }
 
 TEST(Canvas, LoadAndSave) {
-  std::filesystem::current_path(TestImagesDir);
   RTMPServer rtmpServer;
 
   const cv::Size canvasSize(128, 128);

@@ -22,6 +22,21 @@ using namespace testing;
 
 #pragma endregion
 
+static const std::filesystem::path RainbowTestImagePath =
+    TestImagesDir / "rainbow.png";
+static constexpr int RainbowTestImageWidth = 512;
+static constexpr int RainbowTestImageHeight = 320;
+
+static const std::filesystem::path ParrotTestImagePath =
+    TestImagesDir / "parrot.jpg";
+static constexpr int ParrotTestImageWidth = 150;
+static constexpr int ParrotTestImageHeight = 200;
+
+static const std::filesystem::path ButterflyTestImagePath =
+    TestImagesDir / "butterfly.jpg";
+static constexpr int ButterflyTestImageWidth = 256;
+static constexpr int ButterflyTestImageHeight = 256;
+
 /**
  * Returns a string identifying the current running test.
  * @return Identifier
@@ -36,7 +51,8 @@ std::string getCurrentTestID();
 std::string getTestID(const TestInfo &info);
 
 /**
- * Get the path to a directory for the test to write output files to for inspection later.
+ * Get the path to a directory for the test to write output files to for
+ * inspection later.
  * @return Path
  */
 std::filesystem::path getTestOutputDirPath();
