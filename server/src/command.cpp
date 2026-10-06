@@ -216,6 +216,9 @@ nlohmann::json doElementResize(VirtualCanvas &vCanvas, Controller &controller,
   } catch (...) {
     return BadInvocationResult;
   }
+  if (x <= 0 || y <= 0) {
+    return BadInvocationResult;
+  }
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
@@ -438,6 +441,65 @@ nlohmann::json doWebBrowserSetURL(VirtualCanvas &vCanvas,
   }
 
   element->setURL(url);
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doWebBrowserSetViewSize(VirtualCanvas &vCanvas,
+                                       Controller &controller,
+                                       std::span<std::string_view> args,
+                                       std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() != 3) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  int x, y;
+  try {
+    x = std::stoi(std::string(args[1]));
+    y = std::stoi(std::string(args[2]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+  if (x <= 0 || y <= 0) {
+    return BadInvocationResult;
+  }
+
+  auto element =
+      std::dynamic_pointer_cast<WebBrowserElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setViewSize(cv::Size(x, y));
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json
+doWebBrowserSetFrameRate(VirtualCanvas &vCanvas, Controller &controller,
+                         std::span<std::string_view> args,
+                         std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  int frameRate;
+  try {
+    frameRate = std::stoi(std::string(args[1]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  auto element =
+      std::dynamic_pointer_cast<WebBrowserElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setFrameRate(frameRate);
+
+  // The element's event period was changed.
+  controller.reinitializeCanvasEvents();
 
   return CommandResult{.success = true};
 }
@@ -717,6 +779,20 @@ std::map<std::string, CommandInfo> commands{
         CommandInfo{
             .doCommandFunc = doWebBrowserSetURL,
             .usage = "<id> <url>",
+        },
+    },
+    {
+        "web-browser-set-view-size",
+        CommandInfo{
+            .doCommandFunc = doWebBrowserSetViewSize,
+            .usage = "<id> <width> <height>",
+        },
+    },
+    {
+        "web-browser-set-framerate",
+        CommandInfo{
+            .doCommandFunc = doWebBrowserSetFrameRate,
+            .usage = "<id> <framerate>",
         },
     },
     {
