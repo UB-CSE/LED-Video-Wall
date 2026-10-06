@@ -341,12 +341,9 @@ TEST_F(Commands, ElementMoveDown) {
 
 TEST_F(Commands, ImageSetFile) {
   auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
-
   canvas.addElement(elem);
 
-  double newRotation = 25.7;
-
-  const std::string commandLine = std::format(R"(image-set-file parrot {})",
+  const std::string commandLine = std::format(R"(image-set-file parrot "{}")",
                                               ButterflyTestImagePath.string());
 
   doCommand(commandLine);
@@ -362,7 +359,6 @@ TEST_F(Commands, CarouselSetFiles) {
   };
   auto elem =
       std::make_shared<CarouselElement>("carousel", originalFilepaths, 1);
-
   canvas.addElement(elem);
 
   const std::vector newFilePaths = {
@@ -382,12 +378,10 @@ TEST_F(Commands, CarouselSetFiles) {
 
 TEST_F(Commands, CarouselSetFrameRate) {
   const std::vector filePaths = {
-    ParrotTestImagePath.string(),
-    ButterflyTestImagePath.string(),
-};
-  auto elem =
-      std::make_shared<CarouselElement>("carousel", filePaths, 1);
-
+      ParrotTestImagePath.string(),
+      ButterflyTestImagePath.string(),
+  };
+  auto elem = std::make_shared<CarouselElement>("carousel", filePaths, 1);
   canvas.addElement(elem);
 
   constexpr int newFrameRate = 2;
@@ -399,6 +393,115 @@ TEST_F(Commands, CarouselSetFrameRate) {
   validateCommonResponseJSON();
 
   ASSERT_THAT(elem->getFrameRate(), Eq(newFrameRate));
+}
+
+TEST_F(Commands, VideoSetFile) {
+  auto elem = std::make_shared<VideoElement>("alan", AlanTestVideoPath, 30);
+  canvas.addElement(elem);
+
+  const std::string commandLine =
+      std::format(R"(video-set-file alan "{}")", ConwayTestVideoPath.string());
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getVideoFilePath(), StrEq(ConwayTestVideoPath.string()));
+}
+
+TEST_F(Commands, VideoSetFrameRate) {
+  auto elem = std::make_shared<VideoElement>("alan", AlanTestVideoPath, 30);
+  canvas.addElement(elem);
+
+  constexpr int newFrameRate = 20;
+
+  const std::string commandLine =
+      std::format("video-set-framerate alan {}", newFrameRate);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getFrameRate(), Eq(newFrameRate));
+}
+
+TEST_F(Commands, RTMPSetStreamName) {
+  auto elem =
+      std::make_shared<RTMPStreamElement>("rtmp", rtmpServer, "mystream", 30);
+  canvas.addElement(elem);
+
+  const std::string newStreamName = "New Stream";
+
+  const std::string commandLine =
+      std::format(R"(rtmp-set-stream-name rtmp "{}")", newStreamName);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getStreamName(), StrEq(newStreamName));
+}
+
+TEST_F(Commands, RTMPSetFrameRate) {
+  auto elem =
+      std::make_shared<RTMPStreamElement>("rtmp", rtmpServer, "mystream", 30);
+  canvas.addElement(elem);
+
+  constexpr int newFrameRate = 20;
+
+  const std::string commandLine =
+      std::format("rtmp-set-framerate rtmp {}", newFrameRate);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getFrameRate(), Eq(newFrameRate));
+}
+
+// Unfortunately we cannot initialize CEF for unit tests so no web browser
+// command tests.
+
+TEST_F(Commands, TextSetContent) {
+  auto elem = std::make_shared<TextElement>("elem", "Hello!", RobotoFontPath,
+                                            24, cv::Scalar(0, 0, 255));
+  canvas.addElement(elem);
+
+  const std::string newContent = "Does this work??";
+
+  const std::string commandLine =
+      std::format(R"(text-set-content elem "{}")", newContent);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getText(), StrEq(newContent));
+}
+
+TEST_F(Commands, TextSetFont) {
+  auto elem = std::make_shared<TextElement>("elem", "Hello!", RobotoFontPath,
+                                            24, cv::Scalar(0, 0, 255));
+  canvas.addElement(elem);
+
+  const std::string commandLine =
+      std::format(R"(text-set-font elem "{}")", LobsterFontPath.string());
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getFontPath(), StrEq(LobsterFontPath.string()));
+}
+
+TEST_F(Commands, TextSetColor) {
+  auto elem = std::make_shared<TextElement>("elem", "Hello!", RobotoFontPath,
+                                            24, cv::Scalar(0, 0, 255));
+  canvas.addElement(elem);
+
+  const std::string commandLine =
+      std::format("text-set-color elem 100 200 50"); // R, G, B
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getColor()[0], Eq(50)); // B
+  ASSERT_THAT(elem->getColor()[1], Eq(200)); // G
+  ASSERT_THAT(elem->getColor()[2], Eq(100)); // R
 }
 
 #pragma endregion

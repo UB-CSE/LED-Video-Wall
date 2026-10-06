@@ -322,6 +322,273 @@ nlohmann::json doCarouselSetFrameRate(VirtualCanvas &vCanvas,
   return CommandResult{.success = true};
 }
 
+nlohmann::json doVideoSetFile(VirtualCanvas &vCanvas, Controller &controller,
+                              std::span<std::string_view> args,
+                              std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  const std::string filepath(args[1]);
+
+  auto element =
+      std::dynamic_pointer_cast<VideoElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->loadVideo(filepath);
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doVideoSetFrameRate(VirtualCanvas &vCanvas,
+                                   Controller &controller,
+                                   std::span<std::string_view> args,
+                                   std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  int frameRate;
+  try {
+    frameRate = std::stoi(std::string(args[1]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  auto element =
+      std::dynamic_pointer_cast<VideoElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setFrameRate(frameRate);
+
+  // The element's event period was changed.
+  controller.reinitializeCanvasEvents();
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doRTMPSetStreamName(VirtualCanvas &vCanvas,
+                                   Controller &controller,
+                                   std::span<std::string_view> args,
+                                   std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  const std::string streamName(args[1]);
+
+  auto element =
+      std::dynamic_pointer_cast<RTMPStreamElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setStreamName(streamName);
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doRTMPSetFrameRate(VirtualCanvas &vCanvas,
+                                  Controller &controller,
+                                  std::span<std::string_view> args,
+                                  std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  int frameRate;
+  try {
+    frameRate = std::stoi(std::string(args[1]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  auto element =
+      std::dynamic_pointer_cast<RTMPStreamElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setFrameRate(frameRate);
+
+  // The element's event period was changed.
+  controller.reinitializeCanvasEvents();
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doWebBrowserSetURL(VirtualCanvas &vCanvas,
+                                  Controller &controller,
+                                  std::span<std::string_view> args,
+                                  std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  const std::string url(args[1]);
+
+  auto element =
+      std::dynamic_pointer_cast<WebBrowserElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setURL(url);
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doWebBrowserSetCookie(VirtualCanvas &vCanvas,
+                                     Controller &controller,
+                                     std::span<std::string_view> args,
+                                     std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 7 || args.size() > 8) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  const std::string name(args[1]);
+  const std::string value(args[2]);
+  const std::string domain(args[3]);
+  const std::string path(args[4]);
+
+  auto getBoolean = [](std::string_view arg) {
+    if (arg == "true" || arg == "1") {
+      return true;
+    } else if (arg == "false" || arg == "0") {
+      return false;
+    }
+
+    throw std::runtime_error("not a boolean");
+  };
+
+  bool secure = false;
+  bool httpOnly = false;
+
+  try {
+    secure = getBoolean(args[5]);
+    httpOnly = getBoolean(args[6]);
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  cef_cookie_same_site_t sameSite = CEF_COOKIE_SAME_SITE_UNSPECIFIED;
+  if (args.size() == 8) {
+    const auto sameSiteStr = args[7];
+    if (sameSiteStr == "None") {
+      sameSite = CEF_COOKIE_SAME_SITE_NO_RESTRICTION;
+    } else if (sameSiteStr == "Lax") {
+      sameSite = CEF_COOKIE_SAME_SITE_LAX_MODE;
+    } else if (sameSiteStr == "Strict") {
+      sameSite = CEF_COOKIE_SAME_SITE_STRICT_MODE;
+    } else if (!sameSiteStr.empty()) {
+      return BadInvocationResult;
+    }
+  }
+
+  auto element =
+      std::dynamic_pointer_cast<WebBrowserElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setCookie(name, value, domain, path, secure, httpOnly, sameSite);
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json
+doWebBrowserDeleteCookie(VirtualCanvas &vCanvas, Controller &controller,
+                         std::span<std::string_view> args,
+                         std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  const std::string cookieName(args[1]);
+
+  auto element =
+      std::dynamic_pointer_cast<WebBrowserElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->deleteCookie(cookieName);
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doTextSetContent(VirtualCanvas &vCanvas, Controller &controller,
+                                std::span<std::string_view> args,
+                                std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  const std::string content(args[1]);
+
+  auto element = std::dynamic_pointer_cast<TextElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setText(content);
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doTextSetFont(VirtualCanvas &vCanvas, Controller &controller,
+                             std::span<std::string_view> args,
+                             std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  const std::string filepath(args[1]);
+
+  auto element = std::dynamic_pointer_cast<TextElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setFont(filepath);
+
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doTextSetColor(VirtualCanvas &vCanvas, Controller &controller,
+                              std::span<std::string_view> args,
+                              std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 4) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+
+  unsigned r, g, b;
+  try {
+    r = std::stoul(std::string(args[1]));
+    g = std::stoul(std::string(args[2]));
+    b = std::stoul(std::string(args[3]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+  if (r > 255 || g > 255 || b > 255) {
+    return BadInvocationResult;
+  }
+
+  auto element = std::dynamic_pointer_cast<TextElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setColor(cv::Scalar(b, g, r));
+
+  return CommandResult{.success = true};
+}
+
 using DoCommandFunc = nlohmann::json(VirtualCanvas &vCanvas,
                                      Controller &controller,
                                      std::span<std::string_view> args,
@@ -333,6 +600,7 @@ struct CommandInfo {
 };
 
 std::map<std::string, CommandInfo> commands{
+    // Canvas
     {
         "load",
         CommandInfo{
@@ -347,6 +615,7 @@ std::map<std::string, CommandInfo> commands{
             .usage = "<filepath>",
         },
     },
+    // Common element properties
     {
         "element-rename",
         CommandInfo{
@@ -389,6 +658,7 @@ std::map<std::string, CommandInfo> commands{
             .usage = "<id>",
         },
     },
+    // Image element properties
     {
         "image-set-file",
         CommandInfo{
@@ -396,6 +666,7 @@ std::map<std::string, CommandInfo> commands{
             .usage = "<id> <filepath>",
         },
     },
+    // Carousel element properties
     {
         "carousel-set-files",
         CommandInfo{
@@ -410,6 +681,82 @@ std::map<std::string, CommandInfo> commands{
             .usage = "<id> <framerate>",
         },
     },
+    // Video element properties
+    {
+        "video-set-file",
+        CommandInfo{
+            .doCommandFunc = doVideoSetFile,
+            .usage = "<id> <filepath>",
+        },
+    },
+    {
+        "video-set-framerate",
+        CommandInfo{
+            .doCommandFunc = doVideoSetFrameRate,
+            .usage = "<id> <framerate>",
+        },
+    },
+    // RTMP stream element properties
+    {
+        "rtmp-set-stream-name",
+        CommandInfo{
+            .doCommandFunc = doRTMPSetStreamName,
+            .usage = "<id> <stream-name>",
+        },
+    },
+    {
+        "rtmp-set-framerate",
+        CommandInfo{
+            .doCommandFunc = doRTMPSetFrameRate,
+            .usage = "<id> <framerate>",
+        },
+    },
+    // Web browser element properties
+    {
+        "web-browser-set-url",
+        CommandInfo{
+            .doCommandFunc = doWebBrowserSetURL,
+            .usage = "<id> <url>",
+        },
+    },
+    {
+        "web-browser-set-cookie",
+        CommandInfo{
+            .doCommandFunc = doWebBrowserSetCookie,
+            .usage = "<id> <name> <value> <domain> <path> <secure> <httpOnly> "
+                     "[sameSite]",
+        },
+    },
+    {
+        "web-browser-delete-cookie",
+        CommandInfo{
+            .doCommandFunc = doWebBrowserDeleteCookie,
+            .usage = "<id> <cookie-name>",
+        },
+    },
+    // Text element properties
+    {
+        "text-set-content",
+        CommandInfo{
+            .doCommandFunc = doTextSetContent,
+            .usage = "<id> <content>",
+        },
+    },
+    {
+        "text-set-font",
+        CommandInfo{
+            .doCommandFunc = doTextSetFont,
+            .usage = "<id> <filepath>",
+        },
+    },
+    {
+        "text-set-color",
+        CommandInfo{
+            .doCommandFunc = doTextSetColor,
+            .usage = "<id> <r> <g> <b>",
+        },
+    },
+
 };
 
 void doHelp(std::shared_ptr<spdlog::logger> logger) {
@@ -528,7 +875,7 @@ void PromptCommandSource::threadFunc() {
     }
 
     bool isAllWhitespace = true;
-    for (char* c = line; *c != '\0'; c++) {
+    for (char *c = line; *c != '\0'; c++) {
       isAllWhitespace = isAllWhitespace && std::isspace(*c);
     }
     if (isAllWhitespace) {

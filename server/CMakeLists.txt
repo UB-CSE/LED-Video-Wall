@@ -224,6 +224,7 @@ if (BUILD_TESTS)
     target_link_libraries(${TESTS_NAME} ${PROJECT_NAME})
 
     set(IMAGES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/images")
+    set(FONTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ttf")
     set(TEST_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/resources")
     set(TEST_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/test-output")
     file(MAKE_DIRECTORY ${TEST_OUTPUT_DIR})

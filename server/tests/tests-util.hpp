@@ -37,6 +37,18 @@ static const std::filesystem::path ButterflyTestImagePath =
 static constexpr int ButterflyTestImageWidth = 256;
 static constexpr int ButterflyTestImageHeight = 256;
 
+static const std::filesystem::path AlanTestVideoPath =
+    TestImagesDir / "alan" / "alan_ca_4_64x64.mp4";
+
+static const std::filesystem::path ConwayTestVideoPath =
+    TestImagesDir / "conway_pulsar.mp4";
+
+static const std::filesystem::path RobotoFontPath =
+    TestFontsDir / "Roboto-Regular.ttf";
+
+static const std::filesystem::path LobsterFontPath =
+    TestFontsDir / "Lobster-Regular.ttf";
+
 /**
  * Returns a string identifying the current running test.
  * @return Identifier
