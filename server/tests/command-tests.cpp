@@ -339,6 +339,24 @@ TEST_F(Commands, ElementMoveDown) {
   ASSERT_THAT(canvas.getElements(), ElementsAre(elem1, elem2));
 }
 
+TEST_F(Commands, ElementDelete) {
+  auto elem1 = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+  auto elem2 =
+      std::make_shared<ImageElement>("butterfly", ButterflyTestImagePath);
+
+  canvas.addElement(elem1);
+  canvas.addElement(elem2);
+
+  ASSERT_THAT(canvas.getElements(), ElementsAre(elem2, elem1));
+
+  const std::string commandLine = std::format("element-delete butterfly");
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(canvas.getElements(), ElementsAre(elem1));
+}
+
 TEST_F(Commands, ImageSetFile) {
   auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
   canvas.addElement(elem);
@@ -499,7 +517,7 @@ TEST_F(Commands, TextSetColor) {
   doCommand(commandLine);
   validateCommonResponseJSON();
 
-  ASSERT_THAT(elem->getColor()[0], Eq(50)); // B
+  ASSERT_THAT(elem->getColor()[0], Eq(50));  // B
   ASSERT_THAT(elem->getColor()[1], Eq(200)); // G
   ASSERT_THAT(elem->getColor()[2], Eq(100)); // R
 }

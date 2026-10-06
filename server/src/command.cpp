@@ -102,13 +102,6 @@ void to_json(nlohmann::json &j, const CommandResult &result) {
   };
 }
 
-void invalidCommandInvocation(std::string_view commandName,
-                              std::string_view usage,
-                              std::shared_ptr<spdlog::logger> logger) {
-  logger->error("invalid invocation of `{}', usage: {} {}", commandName,
-                commandName, usage);
-}
-
 nlohmann::json doLoad(VirtualCanvas &vCanvas, Controller &controller,
                       std::span<std::string_view> args,
                       std::shared_ptr<spdlog::logger> logger) {
@@ -148,7 +141,6 @@ nlohmann::json doElementRename(VirtualCanvas &vCanvas, Controller &controller,
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    logger->error("element-rename: no such element `{}'", id);
     return NoSuchElementResult;
   }
   element->setName(name);
@@ -172,7 +164,6 @@ nlohmann::json doElementMove(VirtualCanvas &vCanvas, Controller &controller,
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    logger->error("element-move: no such element `{}'", id);
     return NoSuchElementResult;
   }
   element->setLocation(cv::Point(x, y));
@@ -195,7 +186,6 @@ nlohmann::json doElementRotate(VirtualCanvas &vCanvas, Controller &controller,
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    logger->error("element-rotate: no such element `{}'", id);
     return NoSuchElementResult;
   }
   element->setRotation(degrees);
@@ -222,7 +212,6 @@ nlohmann::json doElementResize(VirtualCanvas &vCanvas, Controller &controller,
 
   std::shared_ptr<Element> element = vCanvas.getElement(id);
   if (!element) {
-    logger->error("element-resize: no such element `{}'", id);
     return NoSuchElementResult;
   }
   element->setSize(cv::Size(x, y));
@@ -251,6 +240,22 @@ nlohmann::json doElementMoveDown(VirtualCanvas &vCanvas, Controller &controller,
 
   bool success = vCanvas.moveElementDown(id);
   return CommandResult{.success = success};
+}
+
+nlohmann::json doElementDelete(VirtualCanvas &vCanvas, Controller &controller,
+                               std::span<std::string_view> args,
+                               std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() != 1) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+
+  bool success = vCanvas.removeElement(id);
+
+  // The element's event should get removed.
+  controller.reinitializeCanvasEvents();
+
+  return CommandResult{.success = success, .noSuchElement = !success};
 }
 
 nlohmann::json doImageSetFile(VirtualCanvas &vCanvas, Controller &controller,
@@ -720,6 +725,13 @@ std::map<std::string, CommandInfo> commands{
             .usage = "<id>",
         },
     },
+    {
+        "element-delete",
+        CommandInfo{
+            .doCommandFunc = doElementDelete,
+            .usage = "<id>",
+        },
+    },
     // Image element properties
     {
         "image-set-file",
@@ -878,7 +890,11 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, Controller &controller,
     auto &[doCommandFunc, usage] = it->second;
     nlohmann::json result = doCommandFunc(vCanvas, controller, args, logger);
     if (result["bad-invocation"].get<bool>()) {
-      invalidCommandInvocation(commandName, usage, logger);
+      logger->error("{}: invalid invocation, usage: {} {}", commandName,
+                    commandName, usage);
+    }
+    else if (result["no-such-element"].get<bool>()) {
+      logger->error("{}: no element with given id", commandName);
     }
     return result;
   } else {
