@@ -15,6 +15,7 @@ public:
   void setViewSize(unsigned int width, unsigned int height);
 
   void setCookie(const CefCookie& cookie);
+  void deleteCookie(std::string_view name);
 
   bool getLatestFrame(cv::Mat &frame);
 

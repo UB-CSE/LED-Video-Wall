@@ -431,7 +431,12 @@ void WebBrowserElement::setCookie(
   cookie.has_expires = false; // Add expiration configuration in the future?
 
   m_webBrowser.setCookie(cookie);
-  m_cookies.push_back(cookie);
+  m_cookies[std::string(name)] = cookie;
+}
+
+void WebBrowserElement::deleteCookie(std::string_view name) {
+  m_webBrowser.deleteCookie(name);
+  m_cookies.erase(std::string(name));
 }
 
 static std::shared_ptr<Element>
@@ -490,7 +495,8 @@ WebBrowserElementToYAML(std::shared_ptr<WebBrowserElement> webBrowserElement,
   node["view-size"] = webBrowserElement->getViewSize();
 
   YAML::Node cookiesNode;
-  for (const CefCookie &cookie : webBrowserElement->getCookies()) {
+  for (const CefCookie &cookie :
+       webBrowserElement->getCookies() | std::views::values) {
     YAML::Node cookieNode;
     cookieNode["name"] = CefString(&cookie.name).ToString();
     cookieNode["value"] = CefString(&cookie.value).ToString();

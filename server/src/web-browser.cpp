@@ -111,6 +111,12 @@ void WebBrowser::setCookie(const CefCookie &cookie) {
   cookieManager->FlushStore(nullptr);
 }
 
+void WebBrowser::deleteCookie(std::string_view name) {
+  CefRefPtr<CefCookieManager> cookieManager =
+      CefCookieManager::GetGlobalManager(nullptr);
+  cookieManager->DeleteCookies(m_url, std::string(name), nullptr);
+}
+
 bool WebBrowser::getLatestFrame(cv::Mat &frame) {
   std::lock_guard lock(m_frameMutex);
   if (m_hasFrame) {

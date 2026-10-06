@@ -8,6 +8,7 @@
 #include <span>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 /**
@@ -297,7 +298,7 @@ class WebBrowserElement final : public Element {
   const cv::Mat kNoFrameMat =
       cv::Mat(100, 100, CV_8UC3, cv::Scalar(255, 0, 0)); // red
 
-  std::vector<CefCookie> m_cookies;
+  std::unordered_map<std::string, CefCookie> m_cookies;
 
 public:
   /**
@@ -327,7 +328,11 @@ public:
             bool httpOnly = false,
             cef_cookie_same_site_t sameSite = CEF_COOKIE_SAME_SITE_UNSPECIFIED);
 
-  std::span<const CefCookie> getCookies() const { return m_cookies; }
+  void deleteCookie(std::string_view name);
+
+  const std::unordered_map<std::string, CefCookie>& getCookies() const {
+    return m_cookies;
+  }
 
 private:
   bool nextFrame(cv::Mat &output) override;
@@ -362,7 +367,7 @@ private:
 };
 
 class VirtualCanvas final {
-  RTMPServer& m_rtmpServer;
+  RTMPServer &m_rtmpServer;
 
   cv::Mat m_pixelMatrix;
   double m_gamma = 1.0;
@@ -378,7 +383,7 @@ class VirtualCanvas final {
       m_elementPositions; // Make access O(1)
 
 public:
-  VirtualCanvas(const cv::Size &size, RTMPServer& rtmpServer);
+  VirtualCanvas(const cv::Size &size, RTMPServer &rtmpServer);
   ~VirtualCanvas() = default;
 
   VirtualCanvas(const VirtualCanvas &) = delete;
