@@ -357,6 +357,24 @@ TEST_F(Commands, ElementDelete) {
   ASSERT_THAT(canvas.getElements(), ElementsAre(elem1));
 }
 
+TEST_F(Commands, ImageNew) {
+  const std::string commandLine =
+      std::format(R"(image-new "{}")", ButterflyTestImagePath.string());
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(responseJSON.contains("id"), IsTrue());
+  ASSERT_THAT(responseJSON["id"].is_string(), IsTrue());
+  const auto uid = responseJSON["id"].get<std::string>();
+
+  auto element =
+      std::dynamic_pointer_cast<ImageElement>(canvas.getElement(uid));
+  ASSERT_THAT(element, NotNull());
+
+  ASSERT_THAT(element->getImageFilePath(), StrEq(ButterflyTestImagePath));
+}
+
 TEST_F(Commands, ImageSetFile) {
   auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
   canvas.addElement(elem);
@@ -368,6 +386,30 @@ TEST_F(Commands, ImageSetFile) {
   validateCommonResponseJSON();
 
   ASSERT_THAT(elem->getImageFilePath(), StrEq(ButterflyTestImagePath.string()));
+}
+
+TEST_F(Commands, CarouselNew) {
+  const std::vector filepaths = {
+      ParrotTestImagePath.string(),
+      ButterflyTestImagePath.string(),
+  };
+
+  const std::string commandLine =
+      std::format(R"(carousel-new 3 "{}" "{}")", filepaths[0], filepaths[1]);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(responseJSON.contains("id"), IsTrue());
+  ASSERT_THAT(responseJSON["id"].is_string(), IsTrue());
+  const auto uid = responseJSON["id"].get<std::string>();
+
+  auto element =
+      std::dynamic_pointer_cast<CarouselElement>(canvas.getElement(uid));
+  ASSERT_THAT(element, NotNull());
+
+  ASSERT_THAT(element->getImageFilePaths(), ElementsAreArray(filepaths));
+  ASSERT_THAT(element->getFrameRate(), Eq(3));
 }
 
 TEST_F(Commands, CarouselSetFiles) {
@@ -426,6 +468,25 @@ TEST_F(Commands, VideoSetFile) {
   ASSERT_THAT(elem->getVideoFilePath(), StrEq(ConwayTestVideoPath.string()));
 }
 
+TEST_F(Commands, VideoNew) {
+  const std::string commandLine =
+      std::format(R"(video-new "{}" 30)", AlanTestVideoPath.string());
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(responseJSON.contains("id"), IsTrue());
+  ASSERT_THAT(responseJSON["id"].is_string(), IsTrue());
+  const auto uid = responseJSON["id"].get<std::string>();
+
+  auto element =
+      std::dynamic_pointer_cast<VideoElement>(canvas.getElement(uid));
+  ASSERT_THAT(element, NotNull());
+
+  ASSERT_THAT(element->getVideoFilePath(), StrEq(AlanTestVideoPath.string()));
+  ASSERT_THAT(element->getFrameRate(), Eq(30));
+}
+
 TEST_F(Commands, VideoSetFrameRate) {
   auto elem = std::make_shared<VideoElement>("alan", AlanTestVideoPath, 30);
   canvas.addElement(elem);
@@ -439,6 +500,27 @@ TEST_F(Commands, VideoSetFrameRate) {
   validateCommonResponseJSON();
 
   ASSERT_THAT(elem->getFrameRate(), Eq(newFrameRate));
+}
+
+TEST_F(Commands, RTMPNew) {
+  const std::string streamName = "My Stream";
+
+  const std::string commandLine =
+      std::format(R"(rtmp-new "{}" 30)", streamName);
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(responseJSON.contains("id"), IsTrue());
+  ASSERT_THAT(responseJSON["id"].is_string(), IsTrue());
+  const auto uid = responseJSON["id"].get<std::string>();
+
+  auto element =
+      std::dynamic_pointer_cast<RTMPStreamElement>(canvas.getElement(uid));
+  ASSERT_THAT(element, NotNull());
+
+  ASSERT_THAT(element->getStreamName(), StrEq(streamName));
+  ASSERT_THAT(element->getFrameRate(), Eq(30));
 }
 
 TEST_F(Commands, RTMPSetStreamName) {
@@ -475,6 +557,32 @@ TEST_F(Commands, RTMPSetFrameRate) {
 
 // Unfortunately we cannot initialize CEF for unit tests so no web browser
 // command tests.
+
+TEST_F(Commands, TextNew) {
+  const std::string content = "My Text";
+
+  const std::string commandLine =
+      std::format(R"(text-new "{}" "{}" 24 255 128 200)", content,
+                  RobotoFontPath.string());
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(responseJSON.contains("id"), IsTrue());
+  ASSERT_THAT(responseJSON["id"].is_string(), IsTrue());
+  const auto uid = responseJSON["id"].get<std::string>();
+
+  auto element =
+      std::dynamic_pointer_cast<TextElement>(canvas.getElement(uid));
+  ASSERT_THAT(element, NotNull());
+
+  ASSERT_THAT(element->getText(), StrEq(content));
+  ASSERT_THAT(element->getFontPath(), StrEq(RobotoFontPath.string()));
+  ASSERT_THAT(element->getFontSize(), Eq(24));
+  ASSERT_THAT(element->getColor()[0], Eq(200)); // B
+  ASSERT_THAT(element->getColor()[1], Eq(128)); // G
+  ASSERT_THAT(element->getColor()[2], Eq(255)); // R
+}
 
 TEST_F(Commands, TextSetContent) {
   auto elem = std::make_shared<TextElement>("elem", "Hello!", RobotoFontPath,

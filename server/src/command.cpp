@@ -91,6 +91,14 @@ struct CommandResult {
   bool noSuchElement = false;
 };
 
+struct NewElementCommandResult {
+  CommandResult base;
+  std::string uid;
+
+  NewElementCommandResult(const std::string &uid)
+      : base{.success = true}, uid(uid) {}
+};
+
 CommandResult BadInvocationResult{.success = false, .badInvocation = true};
 CommandResult NoSuchElementResult{.success = false, .noSuchElement = true};
 
@@ -100,6 +108,11 @@ void to_json(nlohmann::json &j, const CommandResult &result) {
       {"bad-invocation", result.badInvocation},
       {"no-such-element", result.noSuchElement},
   };
+}
+
+void to_json(nlohmann::json &j, const NewElementCommandResult &result) {
+  j = result.base;
+  j["id"] = result.uid;
 }
 
 nlohmann::json doLoad(VirtualCanvas &vCanvas, Controller &controller,
@@ -199,14 +212,11 @@ nlohmann::json doElementResize(VirtualCanvas &vCanvas, Controller &controller,
     return BadInvocationResult;
   }
   const std::string id(args[0]);
-  int x, y;
+  unsigned x, y;
   try {
-    x = std::stoi(std::string(args[1]));
-    y = std::stoi(std::string(args[2]));
+    x = std::stoul(std::string(args[1]));
+    y = std::stoul(std::string(args[2]));
   } catch (...) {
-    return BadInvocationResult;
-  }
-  if (x <= 0 || y <= 0) {
     return BadInvocationResult;
   }
 
@@ -258,6 +268,21 @@ nlohmann::json doElementDelete(VirtualCanvas &vCanvas, Controller &controller,
   return CommandResult{.success = success, .noSuchElement = !success};
 }
 
+nlohmann::json doImageNew(VirtualCanvas &vCanvas, Controller &controller,
+                          std::span<std::string_view> args,
+                          std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() != 1) {
+    return BadInvocationResult;
+  }
+  const std::string filepath(args[0]);
+
+  std::string uid = Element::NewUID();
+  auto element = std::make_shared<ImageElement>(uid, filepath);
+  vCanvas.addElement(element);
+
+  return NewElementCommandResult(uid);
+}
+
 nlohmann::json doImageSetFile(VirtualCanvas &vCanvas, Controller &controller,
                               std::span<std::string_view> args,
                               std::shared_ptr<spdlog::logger> logger) {
@@ -275,6 +300,31 @@ nlohmann::json doImageSetFile(VirtualCanvas &vCanvas, Controller &controller,
 
   element->loadImageFile(filepath);
   return CommandResult{.success = true};
+}
+
+nlohmann::json doCarouselNew(VirtualCanvas &vCanvas, Controller &controller,
+                             std::span<std::string_view> args,
+                             std::shared_ptr<spdlog::logger> logger) {
+  if (args.empty()) {
+    return BadInvocationResult;
+  }
+  int frameRate;
+  try {
+    frameRate = std::stoi(std::string(args[0]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  std::vector<std::string> filepaths;
+  if (args.size() > 1) {
+    filepaths = std::vector<std::string>(std::next(args.begin()), args.end());
+  }
+
+  std::string uid = Element::NewUID();
+  auto element = std::make_shared<CarouselElement>(uid, filepaths, frameRate);
+  vCanvas.addElement(element);
+
+  return NewElementCommandResult(uid);
 }
 
 nlohmann::json doCarouselSetFiles(VirtualCanvas &vCanvas,
@@ -330,6 +380,27 @@ nlohmann::json doCarouselSetFrameRate(VirtualCanvas &vCanvas,
   return CommandResult{.success = true};
 }
 
+nlohmann::json doVideoNew(VirtualCanvas &vCanvas, Controller &controller,
+                          std::span<std::string_view> args,
+                          std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() != 2) {
+    return BadInvocationResult;
+  }
+  const std::string filepath(args[0]);
+  int frameRate;
+  try {
+    frameRate = std::stoi(std::string(args[1]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  std::string uid = Element::NewUID();
+  auto element = std::make_shared<VideoElement>(uid, filepath, frameRate);
+  vCanvas.addElement(element);
+
+  return NewElementCommandResult(uid);
+}
+
 nlohmann::json doVideoSetFile(VirtualCanvas &vCanvas, Controller &controller,
                               std::span<std::string_view> args,
                               std::shared_ptr<spdlog::logger> logger) {
@@ -377,6 +448,28 @@ nlohmann::json doVideoSetFrameRate(VirtualCanvas &vCanvas,
   controller.reinitializeCanvasEvents();
 
   return CommandResult{.success = true};
+}
+
+nlohmann::json doRTMPNew(VirtualCanvas &vCanvas, Controller &controller,
+                         std::span<std::string_view> args,
+                         std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() != 2) {
+    return BadInvocationResult;
+  }
+  const std::string streamName(args[0]);
+  int frameRate;
+  try {
+    frameRate = std::stoi(std::string(args[1]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  std::string uid = Element::NewUID();
+  auto element = std::make_shared<RTMPStreamElement>(
+      uid, vCanvas.getRTMPServer(), streamName, frameRate);
+  vCanvas.addElement(element);
+
+  return NewElementCommandResult(uid);
 }
 
 nlohmann::json doRTMPSetStreamName(VirtualCanvas &vCanvas,
@@ -429,6 +522,32 @@ nlohmann::json doRTMPSetFrameRate(VirtualCanvas &vCanvas,
   return CommandResult{.success = true};
 }
 
+nlohmann::json doWebBrowserNew(VirtualCanvas &vCanvas, Controller &controller,
+                               std::span<std::string_view> args,
+                               std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() != 4) {
+    return BadInvocationResult;
+  }
+  const std::string url(args[0]);
+  int frameRate;
+  unsigned viewSizeWidth;
+  unsigned viewSizeHeight;
+  try {
+    frameRate = std::stoi(std::string(args[1]));
+    viewSizeWidth = std::stoul(std::string(args[2]));
+    viewSizeHeight = std::stoul(std::string(args[3]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  std::string uid = Element::NewUID();
+  auto element = std::make_shared<WebBrowserElement>(
+      uid, url, frameRate, cv::Size(viewSizeWidth, viewSizeHeight));
+  vCanvas.addElement(element);
+
+  return NewElementCommandResult(uid);
+}
+
 nlohmann::json doWebBrowserSetURL(VirtualCanvas &vCanvas,
                                   Controller &controller,
                                   std::span<std::string_view> args,
@@ -458,14 +577,11 @@ nlohmann::json doWebBrowserSetViewSize(VirtualCanvas &vCanvas,
     return BadInvocationResult;
   }
   const std::string id(args[0]);
-  int x, y;
+  unsigned x, y;
   try {
-    x = std::stoi(std::string(args[1]));
-    y = std::stoi(std::string(args[2]));
+    x = std::stoul(std::string(args[1]));
+    y = std::stoul(std::string(args[2]));
   } catch (...) {
-    return BadInvocationResult;
-  }
-  if (x <= 0 || y <= 0) {
     return BadInvocationResult;
   }
 
@@ -525,7 +641,8 @@ nlohmann::json doWebBrowserSetCookie(VirtualCanvas &vCanvas,
   auto getBoolean = [](std::string_view arg) {
     if (arg == "true" || arg == "1") {
       return true;
-    } else if (arg == "false" || arg == "0") {
+    }
+    if (arg == "false" || arg == "0") {
       return false;
     }
 
@@ -586,6 +703,36 @@ doWebBrowserDeleteCookie(VirtualCanvas &vCanvas, Controller &controller,
   element->deleteCookie(cookieName);
 
   return CommandResult{.success = true};
+}
+
+nlohmann::json doTextNew(VirtualCanvas &vCanvas, Controller &controller,
+                         std::span<std::string_view> args,
+                         std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() != 6) {
+    return BadInvocationResult;
+  }
+  const std::string content(args[0]);
+  const std::string fontPath(args[1]);
+  int fontSize;
+  unsigned r, g, b;
+  try {
+    fontSize = std::stoi(std::string(args[2]));
+    r = std::stoul(std::string(args[3]));
+    g = std::stoul(std::string(args[4]));
+    b = std::stoul(std::string(args[5]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+  if (r > 255 || g > 255 || b > 255) {
+    return BadInvocationResult;
+  }
+
+  std::string uid = Element::NewUID();
+  auto element = std::make_shared<TextElement>(uid, content, fontPath, fontSize,
+                                               cv::Scalar(b, g, r));
+  vCanvas.addElement(element);
+
+  return NewElementCommandResult(uid);
 }
 
 nlohmann::json doTextSetContent(VirtualCanvas &vCanvas, Controller &controller,
@@ -734,6 +881,13 @@ std::map<std::string, CommandInfo> commands{
     },
     // Image element properties
     {
+        "image-new",
+        CommandInfo{
+            .doCommandFunc = doImageNew,
+            .usage = "<filepath>",
+        },
+    },
+    {
         "image-set-file",
         CommandInfo{
             .doCommandFunc = doImageSetFile,
@@ -741,6 +895,13 @@ std::map<std::string, CommandInfo> commands{
         },
     },
     // Carousel element properties
+    {
+        "carousel-new",
+        CommandInfo{
+            .doCommandFunc = doCarouselNew,
+            .usage = "<framerate> [filepaths...]",
+        },
+    },
     {
         "carousel-set-files",
         CommandInfo{
@@ -757,6 +918,13 @@ std::map<std::string, CommandInfo> commands{
     },
     // Video element properties
     {
+        "video-new",
+        CommandInfo{
+            .doCommandFunc = doVideoNew,
+            .usage = "<filepath> <framerate>",
+        },
+    },
+    {
         "video-set-file",
         CommandInfo{
             .doCommandFunc = doVideoSetFile,
@@ -772,6 +940,13 @@ std::map<std::string, CommandInfo> commands{
     },
     // RTMP stream element properties
     {
+        "rtmp-new",
+        CommandInfo{
+            .doCommandFunc = doRTMPNew,
+            .usage = "<stream-name> <framerate>",
+        },
+    },
+    {
         "rtmp-set-stream-name",
         CommandInfo{
             .doCommandFunc = doRTMPSetStreamName,
@@ -786,6 +961,13 @@ std::map<std::string, CommandInfo> commands{
         },
     },
     // Web browser element properties
+    {
+        "web-browser-new",
+        CommandInfo{
+            .doCommandFunc = doWebBrowserNew,
+            .usage = "<url> <framerate> <view-width> <view-height>",
+        },
+    },
     {
         "web-browser-set-url",
         CommandInfo{
@@ -823,6 +1005,13 @@ std::map<std::string, CommandInfo> commands{
         },
     },
     // Text element properties
+    {
+        "text-new",
+        CommandInfo{
+            .doCommandFunc = doTextNew,
+            .usage = "<content> <font-path> <font-size> <r> <g> <b>",
+        },
+    },
     {
         "text-set-content",
         CommandInfo{
@@ -892,8 +1081,7 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, Controller &controller,
     if (result["bad-invocation"].get<bool>()) {
       logger->error("{}: invalid invocation, usage: {} {}", commandName,
                     commandName, usage);
-    }
-    else if (result["no-such-element"].get<bool>()) {
+    } else if (result["no-such-element"].get<bool>()) {
       logger->error("{}: no element with given id", commandName);
     }
     return result;

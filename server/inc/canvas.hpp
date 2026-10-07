@@ -330,7 +330,7 @@ public:
 
   void deleteCookie(std::string_view name);
 
-  const std::unordered_map<std::string, CefCookie>& getCookies() const {
+  const std::unordered_map<std::string, CefCookie> &getCookies() const {
     return m_cookies;
   }
 
@@ -388,6 +388,8 @@ public:
 
   VirtualCanvas(const VirtualCanvas &) = delete;
   VirtualCanvas &operator=(const VirtualCanvas &) = delete;
+
+  RTMPServer &getRTMPServer() const { return m_rtmpServer; }
 
   cv::Size getDimensions() const { return m_dim; }
 
