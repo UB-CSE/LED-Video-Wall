@@ -12,6 +12,9 @@
 template <MessageChannel::Side Side> class UnixSocketMessageChannel;
 
 class UnixSocketMessageChannelCommon {
+public:
+  virtual ~UnixSocketMessageChannelCommon();
+
 protected:
   using LengthType = uint32_t;
 
@@ -30,7 +33,7 @@ protected:
 
   void releaseMessage();
 
-  uint8_t m_receiveBuffer[1024] = {};
+  uint8_t* m_messageContent = nullptr;
   ssize_t m_numBytesReceived = 0;
 
   bool m_isHoldingMessage = false;

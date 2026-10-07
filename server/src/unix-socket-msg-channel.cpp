@@ -19,6 +19,12 @@ static bool isNoDataAvailable() {
 
 #pragma region UnixSocketMessageChannelCommon
 
+UnixSocketMessageChannelCommon::~UnixSocketMessageChannelCommon() {
+  if (m_messageContent) {
+    delete[] m_messageContent;
+  }
+}
+
 bool UnixSocketMessageChannelCommon::setSocketNonBlocking(int socketFd,
                                                           bool nonBlocking) {
   if (socketFd < 0) {
@@ -55,11 +61,14 @@ bool UnixSocketMessageChannelCommon::readMessage(int socketFd) {
   // Read message length.
 
   if (m_expectedMessageLength < 0) {
+    uint8_t buffer[sizeof(LengthType)];
+
     if (m_numBytesReceived < static_cast<ssize_t>(sizeof(LengthType))) {
+
       const size_t numBytesLeft = sizeof(LengthType) - m_numBytesReceived;
 
       const ssize_t numBytesRead =
-          read(socketFd, m_receiveBuffer + m_numBytesReceived, numBytesLeft);
+          read(socketFd, buffer + m_numBytesReceived, numBytesLeft);
       if (numBytesRead < 0) {
         if (isNoDataAvailable()) {
           return true;
@@ -76,7 +85,11 @@ bool UnixSocketMessageChannelCommon::readMessage(int socketFd) {
       return true;
     }
 
-    m_expectedMessageLength = *reinterpret_cast<LengthType *>(m_receiveBuffer);
+    m_expectedMessageLength = *reinterpret_cast<LengthType *>(buffer);
+    if (m_messageContent) {
+      delete[] m_messageContent;
+    }
+    m_messageContent = new uint8_t[m_expectedMessageLength];
     m_numBytesReceived = 0;
   }
 
@@ -86,7 +99,7 @@ bool UnixSocketMessageChannelCommon::readMessage(int socketFd) {
     const size_t numBytesLeft = m_expectedMessageLength - m_numBytesReceived;
 
     const ssize_t numBytesRead =
-        read(socketFd, m_receiveBuffer + m_numBytesReceived, numBytesLeft);
+        read(socketFd, m_messageContent + m_numBytesReceived, numBytesLeft);
     if (numBytesRead < 0) {
       if (isNoDataAvailable()) {
         return true;
@@ -197,7 +210,7 @@ UnixSocketMessageChannel<Server>::receiveMessage() {
     return ReceivedMessage{.success = true, .message = {}};
   }
 
-  std::span<const uint8_t> result(m_receiveBuffer,
+  std::span<const uint8_t> result(m_messageContent,
                                   static_cast<size_t>(m_expectedMessageLength));
   releaseMessage();
 
@@ -380,7 +393,7 @@ UnixSocketMessageChannel<Client>::receiveMessage() {
     return ReceivedMessage{.success = true, .message = {}};
   }
 
-  std::span<const uint8_t> result(m_receiveBuffer,
+  std::span<const uint8_t> result(m_messageContent,
                                   static_cast<size_t>(m_expectedMessageLength));
   releaseMessage();
 

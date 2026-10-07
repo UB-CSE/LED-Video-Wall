@@ -201,3 +201,19 @@ TEST_F(UnixSocketMsgChannel, ClientRestart) {
   ASSERT_THAT(serverChannel->isConnected(), IsTrue());
   ASSERT_THAT(clientChannel->isConnected(), IsTrue());
 }
+
+TEST_F(UnixSocketMsgChannel, BigMessage) {
+  ASSERT_THAT(waitForConnection(), IsTrue());
+  ASSERT_THAT(serverChannel->isConnected(), IsTrue());
+  ASSERT_THAT(clientChannel->isConnected(), IsTrue());
+
+  std::vector<uint8_t> message(12345, 0xAB);
+
+  ASSERT_THAT(serverChannel->sendMessage(message), IsTrue());
+
+  spin();
+
+  MessageChannel::ReceivedMessage result = receiveMessage(clientChannel);
+  ASSERT_THAT(result.success, IsTrue());
+  ASSERT_THAT(result.message, ElementsAreArray(message));
+}
