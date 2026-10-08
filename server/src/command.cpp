@@ -836,6 +836,30 @@ nlohmann::json doTextSetFont(VirtualCanvas &vCanvas, Controller &controller,
   return CommandResult{.success = true};
 }
 
+nlohmann::json doTextSetFontSize(VirtualCanvas &vCanvas, Controller &controller,
+                                 std::span<std::string_view> args,
+                                 std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() < 2) {
+    return BadInvocationResult;
+  }
+  const std::string id(args[0]);
+  int fontSize;
+  try {
+    fontSize = std::stoi(std::string(args[1]));
+  } catch (...) {
+    return BadInvocationResult;
+  }
+
+  auto element = std::dynamic_pointer_cast<TextElement>(vCanvas.getElement(id));
+  if (!element) {
+    return NoSuchElementResult;
+  }
+
+  element->setFontSize(fontSize);
+
+  return CommandResult{.success = true};
+}
+
 nlohmann::json doTextSetColor(VirtualCanvas &vCanvas, Controller &controller,
                               std::span<std::string_view> args,
                               std::shared_ptr<spdlog::logger> logger) {
@@ -1106,6 +1130,13 @@ std::map<std::string, CommandInfo> commands{
         CommandInfo{
             .doCommandFunc = doTextSetFont,
             .usage = "<id> <filepath>",
+        },
+    },
+    {
+        "text-set-font-size",
+        CommandInfo{
+            .doCommandFunc = doTextSetFontSize,
+            .usage = "<id> <font-size>",
         },
     },
     {

@@ -672,6 +672,17 @@ TEST_F(Commands, TextSetFont) {
   ASSERT_THAT(elem->getFontPath(), StrEq(LobsterFontPath.string()));
 }
 
+TEST_F(Commands, TextSetFontSize) {
+  auto elem = std::make_shared<TextElement>("elem", "Hello!", RobotoFontPath,
+                                            24, cv::Scalar(0, 0, 255));
+  canvas.addElement(elem);
+
+  doCommand("text-set-font-size elem 30");
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getFontSize(), Eq(30));
+}
+
 TEST_F(Commands, TextSetColor) {
   auto elem = std::make_shared<TextElement>("elem", "Hello!", RobotoFontPath,
                                             24, cv::Scalar(0, 0, 255));
