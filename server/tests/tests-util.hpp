@@ -22,6 +22,8 @@ using namespace testing;
 
 #pragma endregion
 
+#pragma region Resource File Paths
+
 static const std::filesystem::path RainbowTestImagePath =
     TestImagesDir / "rainbow.png";
 static constexpr int RainbowTestImageWidth = 512;
@@ -48,6 +50,8 @@ static const std::filesystem::path RobotoFontPath =
 
 static const std::filesystem::path LobsterFontPath =
     TestFontsDir / "Lobster-Regular.ttf";
+
+#pragma endregion
 
 /**
  * Returns a string identifying the current running test.
@@ -82,3 +86,10 @@ void saveImage(const cv::Mat &image, std::string name);
  * @param title Window title.
  */
 void inspect(const cv::Mat &image, std::string title = "");
+
+/**
+ * Returns the string contents of a file.
+ * @param path File path
+ * @return Contents
+ */
+std::string readFile(const std::filesystem::path &path);

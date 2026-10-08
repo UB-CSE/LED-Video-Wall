@@ -99,6 +99,14 @@ struct NewElementCommandResult {
       : base{.success = true}, uid(uid) {}
 };
 
+struct CanvasGetElementsCommandResult {
+  CommandResult base;
+  nlohmann::json elements;
+
+  CanvasGetElementsCommandResult(const nlohmann::json &elements)
+      : base{.success = true}, elements(elements) {}
+};
+
 CommandResult BadInvocationResult{.success = false, .badInvocation = true};
 CommandResult NoSuchElementResult{.success = false, .noSuchElement = true};
 
@@ -115,9 +123,14 @@ void to_json(nlohmann::json &j, const NewElementCommandResult &result) {
   j["id"] = result.uid;
 }
 
-nlohmann::json doLoad(VirtualCanvas &vCanvas, Controller &controller,
-                      std::span<std::string_view> args,
-                      std::shared_ptr<spdlog::logger> logger) {
+void to_json(nlohmann::json &j, const CanvasGetElementsCommandResult &result) {
+  j = result.base;
+  j["canvas"] = result.elements;
+}
+
+nlohmann::json doCanvasLoad(VirtualCanvas &vCanvas, Controller &controller,
+                            std::span<std::string_view> args,
+                            std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
     return BadInvocationResult;
   }
@@ -131,9 +144,9 @@ nlohmann::json doLoad(VirtualCanvas &vCanvas, Controller &controller,
   return CommandResult{.success = success};
 }
 
-nlohmann::json doSave(VirtualCanvas &vCanvas, Controller &controller,
-                      std::span<std::string_view> args,
-                      std::shared_ptr<spdlog::logger> logger) {
+nlohmann::json doCanvasSave(VirtualCanvas &vCanvas, Controller &controller,
+                            std::span<std::string_view> args,
+                            std::shared_ptr<spdlog::logger> logger) {
   if (args.size() != 1) {
     return BadInvocationResult;
   }
@@ -141,6 +154,28 @@ nlohmann::json doSave(VirtualCanvas &vCanvas, Controller &controller,
 
   vCanvas.saveElementConfig(filePath);
   return CommandResult{.success = true};
+}
+
+nlohmann::json doCanvasClear(VirtualCanvas &vCanvas, Controller &controller,
+                             std::span<std::string_view> args,
+                             std::shared_ptr<spdlog::logger> logger) {
+  if (!args.empty()) {
+    return BadInvocationResult;
+  }
+
+  vCanvas.clearElements();
+  return CommandResult{.success = true};
+}
+
+nlohmann::json doCanvasGetElements(VirtualCanvas &vCanvas,
+                                   Controller &controller,
+                                   std::span<std::string_view> args,
+                                   std::shared_ptr<spdlog::logger> logger) {
+  if (!args.empty()) {
+    return BadInvocationResult;
+  }
+  nlohmann::json elementsJSON = vCanvas.elementsToJSON();
+  return CanvasGetElementsCommandResult(elementsJSON);
 }
 
 nlohmann::json doElementRename(VirtualCanvas &vCanvas, Controller &controller,
@@ -266,6 +301,34 @@ nlohmann::json doElementDelete(VirtualCanvas &vCanvas, Controller &controller,
   controller.reinitializeCanvasEvents();
 
   return CommandResult{.success = success, .noSuchElement = !success};
+}
+
+nlohmann::json
+doElementSetPreserveAspectRatio(VirtualCanvas &vCanvas, Controller &controller,
+                                std::span<std::string_view> args,
+                                std::shared_ptr<spdlog::logger> logger) {
+  if (args.size() != 2) {
+    return BadInvocationResult;
+  }
+
+  const std::string id(args[0]);
+  bool preserveAspectRatio;
+
+  if (args[1] == "true" || args[1] == "1") {
+    preserveAspectRatio = true;
+  }
+  if (args[1] == "false" || args[1] == "0") {
+    preserveAspectRatio = false;
+  } else {
+    return BadInvocationResult;
+  }
+
+  std::shared_ptr<Element> element = vCanvas.getElement(id);
+  if (!element) {
+    return NoSuchElementResult;
+  }
+  element->setPreserveAspectRatio(preserveAspectRatio);
+  return CommandResult{.success = true};
 }
 
 nlohmann::json doImageNew(VirtualCanvas &vCanvas, Controller &controller,
@@ -816,17 +879,31 @@ struct CommandInfo {
 std::map<std::string, CommandInfo> commands{
     // Canvas
     {
-        "load",
+        "canvas-load",
         CommandInfo{
-            .doCommandFunc = doLoad,
+            .doCommandFunc = doCanvasLoad,
             .usage = "<filepath>",
         },
     },
     {
-        "save",
+        "canvas-save",
         CommandInfo{
-            .doCommandFunc = doSave,
+            .doCommandFunc = doCanvasSave,
             .usage = "<filepath>",
+        },
+    },
+    {
+        "canvas-clear",
+        CommandInfo{
+            .doCommandFunc = doCanvasClear,
+            .usage = "",
+        },
+    },
+    {
+        "canvas-get-elements",
+        CommandInfo{
+            .doCommandFunc = doCanvasGetElements,
+            .usage = "",
         },
     },
     // Common element properties
@@ -879,6 +956,11 @@ std::map<std::string, CommandInfo> commands{
             .usage = "<id>",
         },
     },
+    {"element-set-preserve-aspect-ratio",
+     CommandInfo{
+         .doCommandFunc = doElementSetPreserveAspectRatio,
+         .usage = "<id> <true|false>",
+     }},
     // Image element properties
     {
         "image-new",

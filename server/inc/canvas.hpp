@@ -4,6 +4,7 @@
 #include "web-browser.hpp"
 #include <filesystem>
 #include <opencv2/opencv.hpp>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <span>
 #include <string>
@@ -412,6 +413,12 @@ public:
    * @param path Config file path.
    */
   void saveElementConfig(const std::filesystem::path &path) const;
+
+  /**
+   * Encodes the canvas to JSON.
+   * @return JSON of all elements on the canvas.
+   */
+  nlohmann::json elementsToJSON() const;
 
   /**
    * Remove all elements from the canvas.

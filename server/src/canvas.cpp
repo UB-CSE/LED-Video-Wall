@@ -223,6 +223,13 @@ static void ImageElementToYAML(std::shared_ptr<ImageElement> element,
   node["filepath"] = element->getImageFilePath().string();
 }
 
+static void to_json(nlohmann::json &j, const ImageElement &elem) {
+  j = nlohmann::json{
+      {"type", "image"},
+      {"filepath", elem.getImageFilePath().string()},
+  };
+}
+
 #pragma endregion
 
 #pragma region CarouselElement
@@ -282,6 +289,14 @@ CarouselElementToYAML(std::shared_ptr<CarouselElement> carouselElement,
                       YAML::Node &node) {
   node["filepaths"] = carouselElement->getImageFilePaths();
   node["framerate"] = carouselElement->getFrameRate();
+}
+
+static void to_json(nlohmann::json &j, const CarouselElement &elem) {
+  j = nlohmann::json{
+      {"type", "carousel"},
+      {"filepaths", elem.getImageFilePaths()},
+      {"framerate", elem.getFrameRate()},
+  };
 }
 
 #pragma endregion
@@ -351,6 +366,14 @@ static void VideoElementToYAML(std::shared_ptr<VideoElement> videoElement,
   node["framerate"] = videoElement->getFrameRate();
 }
 
+static void to_json(nlohmann::json &j, const VideoElement &elem) {
+  j = nlohmann::json{
+      {"type", "video"},
+      {"filepath", elem.getVideoFilePath().string()},
+      {"framerate", elem.getFrameRate()},
+  };
+}
+
 #pragma endregion
 
 #pragma region RTMPStreamElement
@@ -386,6 +409,14 @@ static void RTMPElementToYAML(std::shared_ptr<RTMPStreamElement> rtmpElement,
                               YAML::Node &node) {
   node["stream-name"] = rtmpElement->getStreamName();
   node["framerate"] = rtmpElement->getFrameRate();
+}
+
+static void to_json(nlohmann::json &j, const RTMPStreamElement &elem) {
+  j = nlohmann::json{
+      {"type", "rtmp"},
+      {"stream-name", elem.getStreamName()},
+      {"framerate", elem.getFrameRate()},
+  };
 }
 
 #pragma endregion
@@ -527,6 +558,44 @@ WebBrowserElementToYAML(std::shared_ptr<WebBrowserElement> webBrowserElement,
   }
 }
 
+static void to_json(nlohmann::json &j, const WebBrowserElement &elem) {
+  nlohmann::json cookies;
+
+  for (const CefCookie &cookie : elem.getCookies() | std::views::values) {
+    nlohmann::json cookieNode;
+    cookieNode["name"] = CefString(&cookie.name).ToString();
+    cookieNode["value"] = CefString(&cookie.value).ToString();
+    cookieNode["domain"] = CefString(&cookie.domain).ToString();
+    cookieNode["path"] = CefString(&cookie.path).ToString();
+    cookieNode["secure"] = static_cast<bool>(cookie.secure);
+    cookieNode["httpOnly"] = static_cast<bool>(cookie.httponly);
+
+    switch (cookie.same_site) {
+    case CEF_COOKIE_SAME_SITE_NO_RESTRICTION:
+      cookieNode["sameSite"] = "None";
+      break;
+    case CEF_COOKIE_SAME_SITE_LAX_MODE:
+      cookieNode["sameSite"] = "Lax";
+      break;
+    case CEF_COOKIE_SAME_SITE_STRICT_MODE:
+      cookieNode["sameSite"] = "Strict";
+      break;
+    default:
+      break;
+    }
+
+    cookies.push_back(cookieNode);
+  }
+
+  j = nlohmann::json{
+      {"type", "web-browser"},
+      {"url", elem.getURL()},
+      {"framerate", elem.getFrameRate()},
+      {"view-size", elem.getViewSize()},
+      {"cookies", cookies},
+  };
+}
+
 #pragma endregion
 
 #pragma region TextElement
@@ -607,6 +676,21 @@ static void TextElementToYAML(std::shared_ptr<TextElement> textElement,
   snprintf(colorBuffer, sizeof(colorBuffer), "#%02x%02x%02x", r, g, b);
 
   node["color"] = std::string(colorBuffer);
+}
+
+static void to_json(nlohmann::json &j, const TextElement &elem) {
+  nlohmann::json color = nlohmann::json{
+      {"b", static_cast<int>(elem.getColor()[0])},
+      {"g", static_cast<int>(elem.getColor()[1])},
+      {"r", static_cast<int>(elem.getColor()[2])},
+  };
+
+  j = nlohmann::json{
+      {"type", "text"},
+      {"font-path", elem.getFontPath().string()},
+      {"font-size", elem.getFontSize()},
+      {"color", color},
+  };
 }
 
 #pragma endregion
@@ -824,6 +908,40 @@ void VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
     spdlog::error("[Canvas] failed to save config to file");
   }
 }
+
+static void to_json(nlohmann::json &j,
+                    const std::shared_ptr<Element> &element) {
+  if (auto imageElement = std::dynamic_pointer_cast<ImageElement>(element)) {
+    j = *imageElement;
+  } else if (auto carouselElement =
+                 std::dynamic_pointer_cast<CarouselElement>(element)) {
+    j = *carouselElement;
+  } else if (auto videoElement =
+                 std::dynamic_pointer_cast<VideoElement>(element)) {
+    j = *videoElement;
+  } else if (auto rtmpElement =
+                 std::dynamic_pointer_cast<RTMPStreamElement>(element)) {
+    j = *rtmpElement;
+  } else if (auto webBrowserElement =
+                 std::dynamic_pointer_cast<WebBrowserElement>(element)) {
+    j = *webBrowserElement;
+  } else if (auto textElement =
+                 std::dynamic_pointer_cast<TextElement>(element)) {
+    j = *textElement;
+  } else {
+    spdlog::error("[Canvas] cannot encode element of unknown type to JSON");
+    return;
+  }
+
+  j["id"] = element->getUID();
+  j["name"] = element->getName();
+  j["location"] = element->getRawLocation();
+  j["rotation"] = element->getRotation();
+  j["size"] = element->getSize();
+  j["preserve-aspect-ratio"] = element->getPreserveAspectRatio();
+}
+
+nlohmann::json VirtualCanvas::elementsToJSON() const { return m_elements; }
 
 void VirtualCanvas::clearElements() {
   m_elements.clear();

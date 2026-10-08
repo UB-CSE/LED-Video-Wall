@@ -1,13 +1,14 @@
 #include "tests-util.hpp"
 
 #include "canvas.hpp"
-
-// TODO: Add more tests for all the elements....
-
-using namespace testing;
+#include <fstream>
+#include <yaml-cpp/yaml.h>
 
 static const std::filesystem::path CanvasConfigPath =
     TestResourcesDir / "canvas-configs" / "input.yaml";
+
+static inline const std::filesystem::path ExpectedCanvasJSONPath =
+    TestResourcesDir / "canvas-configs" / "canvas.json";
 
 #define VERIFY_CV_SIZE(size, expectedWidth, expectedHeight)                    \
   ASSERT_THAT(size.width, Eq(expectedWidth));                                  \
@@ -65,6 +66,8 @@ TEST(ImageElement, Gamut) {
   inspect(elemMat, "ImageElement: Parrot Image - 45 deg");
   saveImage(elemMat, "Parrot_45Deg");
 }
+
+// TODO: Add more tests for all the elements....
 
 TEST(Canvas, ImageElements) {
   auto elem1 = std::make_shared<ImageElement>("rainbow", RainbowTestImagePath);
@@ -132,4 +135,37 @@ TEST(Canvas, LoadAndSave) {
   canvas.saveElementConfig(savePath);
 
   ASSERT_THAT(std::filesystem::exists(savePath), IsTrue());
+
+  // YAML::Node equality does not work... ugh, so just compare the file contents
+  ASSERT_THAT(readFile(savePath), StrEq(readFile(CanvasConfigPath)));
+}
+
+TEST(Canvas, ElementsToJSON) {
+  RTMPServer rtmpServer;
+
+  const cv::Size canvasSize(128, 128);
+  VirtualCanvas canvas(canvasSize, rtmpServer);
+
+  bool result = canvas.loadElementConfig(CanvasConfigPath);
+  ASSERT_THAT(result, IsTrue());
+
+  nlohmann::json elementsJSON = canvas.elementsToJSON();
+
+  {
+    const std::filesystem::path savePath =
+        getTestOutputDirPath() / "canvas.json";
+    std::ofstream ofs(savePath);
+    ASSERT_THAT(ofs.good(), IsTrue());
+
+    ofs << elementsJSON.dump(2);
+  }
+
+  nlohmann::json expectedElementsJSON;
+  {
+    std::ifstream ifs(ExpectedCanvasJSONPath);
+    ASSERT_THAT(ifs.good(), IsTrue());
+    expectedElementsJSON = nlohmann::json::parse(ifs, nullptr, true, true);
+  }
+
+  ASSERT_THAT(elementsJSON, Eq(expectedElementsJSON));
 }

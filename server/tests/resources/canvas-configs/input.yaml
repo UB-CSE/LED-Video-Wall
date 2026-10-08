@@ -1,32 +1,37 @@
 settings:
   gamma: 1
 elements:
-  "elem0":
+  elem0:
     order: 0
-    name: "Horse"
-    type: "image"
-    filepath: "treefrog.jpg"
-    location: [ 0, 0 ]
+    type: image
+    filepath: treefrog.jpg
+    name: Horse
+    location:
+      - 0
+      - 0
     size:
       width: 64
       height: 64
-  "elem1":
+  elem1:
     order: 1
-    type: "video"
-    filepath: "alan/alan_ca_4_64x64.mp4"
-    location: [64, 0]
+    type: video
+    filepath: alan/alan_ca_4_64x64.mp4
+    framerate: 30
+    location:
+      - 64
+      - 0
+    rotation: 180
     size:
       width: 64
       height: 64
-    framerate: 30
-    rotation: 180
-  "elem2":
+  elem2:
     order: 2
-    type: "text"
-    text: "Hello"
-    font-path: "../ttf/Lobster-Regular.ttf"
+    type: text
+    text: Hello
+    font-path: ../ttf/Lobster-Regular.ttf
     font-size: 24
     color: "#ff0000"
-    location: [70,30]
-    rotation: 15.0
-
+    location:
+      - 70
+      - 30
+    rotation: 15

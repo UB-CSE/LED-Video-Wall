@@ -2,8 +2,9 @@
 
 #include "command.hpp"
 #include <format>
+#include <fstream>
 
-using namespace testing;
+using namespace nlohmann::json_literals;
 
 #pragma region CommandParser Tests
 
@@ -181,6 +182,9 @@ public:
   static inline const std::filesystem::path CanvasConfigPath =
       TestResourcesDir / "canvas-configs" / "input.yaml";
 
+  static inline const std::filesystem::path ExpectedCanvasJSONPath =
+      TestResourcesDir / "canvas-configs" / "canvas.json";
+
   void validateCommonResponseJSON(bool badInvocation = false,
                                   bool noSuchElement = false) {
     ASSERT_THAT(responseJSON, Not(IsEmpty()));
@@ -224,9 +228,9 @@ public:
 
 } // namespace
 
-TEST_F(Commands, Load) {
+TEST_F(Commands, CanvasLoad) {
   const std::string commandLine =
-      std::format(R"(load "{}")", CanvasConfigPath.string());
+      std::format(R"(canvas-load "{}")", CanvasConfigPath.string());
 
   doCommand(commandLine);
   validateCommonResponseJSON();
@@ -235,7 +239,7 @@ TEST_F(Commands, Load) {
   // See the test "Canvas.LoadAndSave" for full load testing.
 }
 
-TEST_F(Commands, Save) {
+TEST_F(Commands, CanvasSave) {
   ASSERT_THAT(canvas.loadElementConfig(CanvasConfigPath), IsTrue());
 
   const std::filesystem::path saveFilePath =
@@ -243,12 +247,53 @@ TEST_F(Commands, Save) {
   ASSERT_THAT(std::filesystem::exists(saveFilePath), IsFalse());
 
   const std::string commandLine =
-      std::format(R"(save "{}")", saveFilePath.string());
+      std::format(R"(canvas-save "{}")", saveFilePath.string());
 
   doCommand(commandLine);
   validateCommonResponseJSON();
 
   ASSERT_THAT(std::filesystem::exists(saveFilePath), IsTrue());
+
+  // YAML::Node equality does not work so just compare the file contents
+  ASSERT_THAT(readFile(saveFilePath), StrEq(readFile(CanvasConfigPath)));
+}
+
+TEST_F(Commands, CanvasClear) {
+  ASSERT_THAT(canvas.loadElementConfig(CanvasConfigPath), IsTrue());
+  ASSERT_THAT(canvas.getElementCount(), Eq(3));
+
+  doCommand("canvas-clear");
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(canvas.getElementCount(), Eq(0));
+}
+
+TEST_F(Commands, CanvasGetElements) {
+  ASSERT_THAT(canvas.loadElementConfig(CanvasConfigPath), IsTrue());
+
+  doCommand("canvas-get-elements");
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(responseJSON.contains("canvas"), IsTrue());
+  const nlohmann::json elementsJSON = responseJSON["canvas"];
+
+  {
+    const std::filesystem::path savePath =
+        getTestOutputDirPath() / "canvas.json";
+    std::ofstream ofs(savePath);
+    ASSERT_THAT(ofs.good(), IsTrue());
+
+    ofs << elementsJSON.dump(2);
+  }
+
+  nlohmann::json expectedElementsJSON;
+  {
+    std::ifstream ifs(ExpectedCanvasJSONPath);
+    ASSERT_THAT(ifs.good(), IsTrue());
+    expectedElementsJSON = nlohmann::json::parse(ifs, nullptr, true, true);
+  }
+
+  ASSERT_THAT(elementsJSON, Eq(expectedElementsJSON));
 }
 
 TEST_F(Commands, ElementRename) {
@@ -355,6 +400,21 @@ TEST_F(Commands, ElementDelete) {
   validateCommonResponseJSON();
 
   ASSERT_THAT(canvas.getElements(), ElementsAre(elem1));
+}
+
+TEST_F(Commands, ElementSetPreserveAspectRatio) {
+  auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+  ASSERT_THAT(elem->getPreserveAspectRatio(), IsTrue());
+
+  canvas.addElement(elem);
+
+  const std::string commandLine =
+      std::format("element-set-preserve-aspect-ratio parrot false");
+
+  doCommand(commandLine);
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getPreserveAspectRatio(), IsFalse());
 }
 
 TEST_F(Commands, ImageNew) {
@@ -561,9 +621,8 @@ TEST_F(Commands, RTMPSetFrameRate) {
 TEST_F(Commands, TextNew) {
   const std::string content = "My Text";
 
-  const std::string commandLine =
-      std::format(R"(text-new "{}" "{}" 24 255 128 200)", content,
-                  RobotoFontPath.string());
+  const std::string commandLine = std::format(
+      R"(text-new "{}" "{}" 24 255 128 200)", content, RobotoFontPath.string());
 
   doCommand(commandLine);
   validateCommonResponseJSON();
@@ -572,8 +631,7 @@ TEST_F(Commands, TextNew) {
   ASSERT_THAT(responseJSON["id"].is_string(), IsTrue());
   const auto uid = responseJSON["id"].get<std::string>();
 
-  auto element =
-      std::dynamic_pointer_cast<TextElement>(canvas.getElement(uid));
+  auto element = std::dynamic_pointer_cast<TextElement>(canvas.getElement(uid));
   ASSERT_THAT(element, NotNull());
 
   ASSERT_THAT(element->getText(), StrEq(content));

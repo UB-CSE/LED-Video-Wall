@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
 #include <yaml-cpp/yaml.h>
 
@@ -47,3 +48,13 @@ template <typename T> struct convert<cv::Size_<T>> {
 };
 
 } // namespace YAML
+
+namespace cv {
+
+void to_json(nlohmann::json &j, const Point &p);
+void from_json(const nlohmann::json &j, Point &p);
+
+void to_json(nlohmann::json &j, const Size &s);
+void from_json(const nlohmann::json &j, Size &s);
+
+} // namespace cv

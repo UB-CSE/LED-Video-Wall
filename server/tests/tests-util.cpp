@@ -1,3 +1,4 @@
+#include <fstream>
 #include <tests-util.hpp>
 
 std::string getTestID(const TestInfo &info) {
@@ -33,7 +34,8 @@ void saveImage(const cv::Mat &image, std::string name) {
     path += ".png";
   }
 
-  ASSERT_TRUE(cv::imwrite(path, image)) << "Failed to save image to " << path.string();
+  ASSERT_TRUE(cv::imwrite(path, image))
+      << "Failed to save image to " << path.string();
 }
 
 void inspect(const cv::Mat &image, std::string title) {
@@ -48,4 +50,10 @@ void inspect(const cv::Mat &image, std::string title) {
   cv::imshow(title, image);
   cv::waitKey(0);
 #endif
+}
+
+std::string readFile(const std::filesystem::path &path) {
+  std::ifstream file(path);
+  return {std::istreambuf_iterator<char>(file),
+          std::istreambuf_iterator<char>()};
 }
