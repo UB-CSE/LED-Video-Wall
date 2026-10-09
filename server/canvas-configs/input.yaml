@@ -1,0 +1,62 @@
+#Beyond just the id, the id is also a weight to determine which images have layering priority
+
+#Gamma - Less than 1 -> lighter, More than 1 -> Darker
+
+settings:
+  gamma: 1
+elements:
+  "elem1":
+    order: 0
+    name: "Horse"
+    type: "image"
+    filepath: "images/horse.jpg"
+    location: [ 0, 0 ]
+    size:
+      width: 64
+      height: 64
+  "elem2":
+    order: 1
+    name: "Butterfly"
+    type: "image"
+    filepath: "images/butterfly.jpg"
+    location: [ 0, 64 ]
+    size:
+      width: 64
+      height: 64
+  "elem3":
+    order: 2
+    name: "Parrot"
+    type: "image"
+    filepath: "images/parrot.jpg"
+    location: [ 0, 128 ]
+    size:
+      width: 64
+      height: 64
+  "elem4":
+    order: 3
+    name: "Clownfish"
+    type: "image"
+    filepath: "images/clownfish.jpg"
+    location: [ 0, 192 ]
+    size:
+      width: 64
+      height: 64
+  "elem5":
+    order: 4
+    name: "Tree frog"
+    type: "image"
+    filepath: "images/treefrog.jpg"
+    location: [ 0, 256 ]
+    size:
+      width: 64
+      height: 64
+  "elem6":
+    order: 5
+    name: "Rainbow"
+    type: "image"
+    filepath: "images/rainbow.png"
+    location: [ 0, 320 ]
+    size:
+      width: 64
+      height: 64
+

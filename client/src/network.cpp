@@ -360,12 +360,6 @@ int parse_tcp_message(int sockfd, uint8_t **buffer, uint32_t *buffer_size) {
   ESP_LOGD(TAG, "Received OpCode: 0x%04X", op_code);
 
   switch (op_code) {
-  case OperationCode::SET_LEDS: {
-    if (set_leds(decode<SetLEDsMessage>(*buffer)) != 0) {
-      return -1;
-    }
-    break;
-  }
   case OperationCode::SET_LEDS_BATCHED: {
     if (set_leds_batched(decode<SetLEDsBatchedMessage>(*buffer)) != 0) {
       return -1;

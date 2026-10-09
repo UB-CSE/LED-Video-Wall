@@ -17,11 +17,11 @@ public:
   }
 
   void setNextWebBrowser(WebBrowser *webBrowser) {
-    nextWebBrowser = webBrowser;
+    m_nextWebBrowser = webBrowser;
   }
 
-  void unregisterWebBrowser(WebBrowser *webBrowser) {
-    webBrowsers.erase(webBrowser->browser->GetIdentifier());
+  void unregisterWebBrowser(const WebBrowser *webBrowser) {
+    m_webBrowsers.erase(webBrowser->m_browser->GetIdentifier());
   }
 
 private:
@@ -35,27 +35,27 @@ private:
   void OnAfterCreated(CefRefPtr<CefBrowser> browser) override {
     CEF_REQUIRE_UI_THREAD();
 
-    numBrowsers++;
+    m_numBrowsers++;
 
-    if (nextWebBrowser) {
-      nextWebBrowser->browser = browser;
-      webBrowsers[browser->GetIdentifier()] = nextWebBrowser;
-      nextWebBrowser = nullptr;
+    if (m_nextWebBrowser) {
+      m_nextWebBrowser->m_browser = browser;
+      m_webBrowsers[browser->GetIdentifier()] = m_nextWebBrowser;
+      m_nextWebBrowser = nullptr;
     }
   }
 
   void OnBeforeClose(CefRefPtr<CefBrowser> browser) override {
     CEF_REQUIRE_UI_THREAD();
 
-    webBrowsers.erase(browser->GetIdentifier());
-    numBrowsers--;
+    m_webBrowsers.erase(browser->GetIdentifier());
+    m_numBrowsers--;
   }
 
   // CefRenderHandler methods.
 
   void GetViewRect(CefRefPtr<CefBrowser> browser, CefRect &rect) override {
-    auto it = webBrowsers.find(browser->GetIdentifier());
-    if (it != webBrowsers.end()) {
+    auto it = m_webBrowsers.find(browser->GetIdentifier());
+    if (it != m_webBrowsers.end()) {
       rect = it->second->getViewRect();
     }
   }
@@ -63,8 +63,8 @@ private:
   void OnPaint(CefRefPtr<CefBrowser> browser, PaintElementType type,
                const RectList &dirtyRects, const void *buffer, int width,
                int height) override {
-    auto it = webBrowsers.find(browser->GetIdentifier());
-    if (it != webBrowsers.end()) {
+    auto it = m_webBrowsers.find(browser->GetIdentifier());
+    if (it != m_webBrowsers.end()) {
       it->second->onPaint(dirtyRects, buffer, width, height);
     }
   }
@@ -72,67 +72,65 @@ private:
   IMPLEMENT_REFCOUNTING(WebBrowserClient);
 
 private:
-  int numBrowsers = 0;
-  std::unordered_map<int, WebBrowser *> webBrowsers;
-  WebBrowser *nextWebBrowser = nullptr;
+  int m_numBrowsers = 0;
+  std::unordered_map<int, WebBrowser *> m_webBrowsers;
+  WebBrowser *m_nextWebBrowser = nullptr;
 };
 
-WebBrowser::WebBrowser(const std::string &_url, unsigned int width,
+WebBrowser::WebBrowser(std::string_view url, unsigned int width,
                        unsigned int height)
-    : url(_url), viewRect(0, 0, width, height) {
-  windowInfo.SetAsWindowless(0);
+    : m_url(std::string(url)),
+      m_viewRect(0, 0, static_cast<int>(width), static_cast<int>(height)) {
+  m_windowInfo.SetAsWindowless(0);
 
   WebBrowserClient::get()->setNextWebBrowser(this);
 
-  browser =
-      CefBrowserHost::CreateBrowserSync(windowInfo, WebBrowserClient::get(),
-                                        url, browserSettings, nullptr, nullptr);
+  m_browser = CefBrowserHost::CreateBrowserSync(
+      m_windowInfo, WebBrowserClient::get(), m_url, m_browserSettings, nullptr,
+      nullptr);
 }
 
 WebBrowser::~WebBrowser() {
   WebBrowserClient::get()->unregisterWebBrowser(this);
 }
 
-void WebBrowser::loadURL(const std::string &url) {
-  browser->GetMainFrame()->LoadURL(CefString(url));
+void WebBrowser::loadURL(std::string_view url) {
+  m_browser->GetMainFrame()->LoadURL(CefString(std::string(url)));
 }
 
-void WebBrowser::setCookie(const std::string &name, const std::string &value,
-                           const std::string &domain, const std::string &path,
-                           bool secure, bool httpOnly,
-                           cef_cookie_same_site_t sameSite) {
-  CefCookie cookie;
-  CefString(&cookie.name).FromString(name);
-  CefString(&cookie.value).FromString(value);
-  CefString(&cookie.domain).FromString(domain);
-  CefString(&cookie.path).FromString(path);
-  cookie.secure = secure;
-  cookie.httponly = httpOnly;
-  cookie.same_site = sameSite;
-  cookie.has_expires = false; // Add expiration configuration in the future?
+void WebBrowser::setViewSize(unsigned int width, unsigned int height) {
+  m_viewRect = CefRect(0, 0, static_cast<int>(width), static_cast<int>(height));
+}
 
+void WebBrowser::setCookie(const CefCookie &cookie) {
   CefRefPtr<CefCookieManager> cookieManager =
       CefCookieManager::GetGlobalManager(nullptr);
 
-  cookieManager->SetCookie(url, cookie, nullptr);
+  cookieManager->SetCookie(m_url, cookie, nullptr);
 
   cookieManager->FlushStore(nullptr);
 }
 
+void WebBrowser::deleteCookie(std::string_view name) {
+  CefRefPtr<CefCookieManager> cookieManager =
+      CefCookieManager::GetGlobalManager(nullptr);
+  cookieManager->DeleteCookies(m_url, std::string(name), nullptr);
+}
+
 bool WebBrowser::getLatestFrame(cv::Mat &frame) {
-  std::lock_guard<std::mutex> lock(frameMutex);
-  if (hasFrame) {
-    frame = latestFrame.clone();
+  std::lock_guard lock(m_frameMutex);
+  if (m_hasFrame) {
+    frame = m_latestFrame.clone();
     return true;
   }
   return false;
 }
 
-void WebBrowser::onPaint(const std::span<const CefRect> dirtyRects,
+void WebBrowser::onPaint([[maybe_unused]] std::span<const CefRect> dirtyRects,
                          const void *buffer, int width, int height) {
 
-  std::lock_guard<std::mutex> lock(frameMutex);
-  (void)dirtyRects;
-  hasFrame = true;
-  latestFrame = cv::Mat(height, width, CV_8UC4, (void *)buffer).clone();
+  std::lock_guard lock(m_frameMutex);
+  m_hasFrame = true;
+  m_latestFrame =
+      cv::Mat(height, width, CV_8UC4, const_cast<void *>(buffer)).clone();
 }

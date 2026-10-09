@@ -9,6 +9,7 @@ enable_testing()
 ### Options ###
 
 option(BUILD_TESTS "Build unit tests" ON)
+option(BUILD_CMD_TESTER "Build command tester program" ON)
 
 ### Build type ###
 
@@ -59,12 +60,33 @@ target_link_directories(${PROJECT_NAME} PUBLIC ${OpenCV_LIBRARY_DIRS})
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBRARIES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${OpenCV_DEFINITIONS})
 
+# nlohmann-json
+FetchContent_Declare(
+        json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG v3.12.0
+)
+FetchContent_MakeAvailable(json)
+target_link_libraries(${PROJECT_NAME} nlohmann_json::nlohmann_json)
+
 # yaml-cpp
-pkg_check_modules(YAML_CPP REQUIRED yaml-cpp)
-target_include_directories(${PROJECT_NAME} PUBLIC ${YAML_CPP_INCLUDE_DIRS})
-target_link_directories(${PROJECT_NAME} PUBLIC ${YAML_CPP_LIBRARY_DIRS})
-target_link_libraries(${PROJECT_NAME} ${YAML_CPP_LIBRARIES})
-target_compile_definitions(${PROJECT_NAME} PUBLIC ${YAML_CPP_DEFINITIONS})
+FetchContent_Declare(
+        yaml-cpp
+        GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
+        GIT_TAG yaml-cpp-0.9.0
+)
+FetchContent_MakeAvailable(yaml-cpp)
+target_link_libraries(${PROJECT_NAME} yaml-cpp::yaml-cpp)
+
+# Command-line option parser
+FetchContent_Declare(
+        CppOptionParser
+        GIT_REPOSITORY https://github.com/petelilley/CppOptionParser.git
+        GIT_TAG        main
+)
+FetchContent_MakeAvailable(CppOptionParser)
+
+target_link_libraries(${PROJECT_NAME} OptionParser)
 
 # freetype2
 pkg_check_modules(FREETYPE2 REQUIRED freetype2)
@@ -87,6 +109,13 @@ target_link_directories(${PROJECT_NAME} PUBLIC ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries(${PROJECT_NAME} ${FFMPEG_LIBRARIES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${FFMPEG_DEFINITIONS})
 
+# GNU readline
+pkg_check_modules(READLINE REQUIRED readline)
+target_include_directories(${PROJECT_NAME} PUBLIC ${READLINE_INCLUDE_DIRS})
+target_link_directories(${PROJECT_NAME} PUBLIC ${READLINE_LIBRARY_DIRS})
+target_link_libraries(${PROJECT_NAME} ${READLINE_LIBRARIES})
+target_compile_definitions(${PROJECT_NAME} PUBLIC ${READLINE_DEFINITIONS})
+
 # spdlog
 FetchContent_Declare(
         spdlog
@@ -96,7 +125,6 @@ FetchContent_Declare(
 set(SPDLOG_USE_STD_FORMAT ON)
 set(SPDLOG_ENABLE_PCH ON)
 FetchContent_MakeAvailable(spdlog)
-
 target_link_libraries(${PROJECT_NAME} spdlog::spdlog)
 
 # CEF
@@ -138,7 +166,7 @@ set(CEF_RELEASE_DIR "${CEF_DIR}/Release/")
 set(CEF_INCLUDE_DIR "${CEF_DIR}/include/")
 
 # !!Important!!
-# Resources must be in the same directory as the CEF library or else you'll get this very criptic error followed by a hard crash:
+# Resources must be in the same directory as the CEF library or else you'll get this very cryptic error followed by a hard crash:
 # [0830/190409.395581:ERROR:base/i18n/icu_util.cc:232] Invalid file descriptor to ICU data received.
 file(COPY ${CEF_RESOURCES_DIR} DESTINATION ${CEF_RELEASE_DIR})
 
@@ -168,6 +196,15 @@ target_compile_options(${PROJECT_NAME} PUBLIC
 add_executable(led-wall-server src/main.cpp)
 target_link_libraries(led-wall-server ${PROJECT_NAME})
 
+if (BUILD_CMD_TESTER)
+    set(CMD_TESTER_NAME led-wall-server-cmd-tester)
+
+    file(GLOB_RECURSE CMD_TESTER_SOURCES cmd-tester/*.cpp)
+
+    add_executable(${CMD_TESTER_NAME} ${CMD_TESTER_SOURCES})
+    target_link_libraries(${CMD_TESTER_NAME} ${PROJECT_NAME})
+endif()
+
 ### Tests ###
 if (BUILD_TESTS)
     FetchContent_Declare(
@@ -186,7 +223,15 @@ if (BUILD_TESTS)
     add_executable(${TESTS_NAME} ${TEST_SOURCES})
     target_link_libraries(${TESTS_NAME} ${PROJECT_NAME})
 
-    target_compile_definitions(${TESTS_NAME} PUBLIC "IMAGES_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/images\"")
+    set(IMAGES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/images")
+    set(FONTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/ttf")
+    set(TEST_RESOURCES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests/resources")
+    set(TEST_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/test-output")
+    file(MAKE_DIRECTORY ${TEST_OUTPUT_DIR})
+
+    configure_file("tests/tests-config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/tests/tests-config.hpp")
+
+    target_include_directories(${TESTS_NAME} PRIVATE tests "${CMAKE_CURRENT_BINARY_DIR}/tests")
 
     target_link_libraries(${TESTS_NAME} GTest::gtest_main GTest::gmock_main)
     gtest_discover_tests(${TESTS_NAME})

@@ -1,0 +1,62 @@
+// A JSON representation of elements in input.yaml, used to test conversion
+// Order matters - bottom up
+[
+  {
+    "id": "elem2",
+    "name": "",
+    "location": {
+      "x": 70,
+      "y": 30
+    },
+    "rotation": 15.0,
+    "size": {
+      "height": 0,
+      "width": 0
+    },
+    "preserve-aspect-ratio": true,
+
+    "type": "text",
+    "font-path": "../ttf/Lobster-Regular.ttf",
+    "font-size": 24,
+    "color": {
+      "r": 255,
+      "g": 0,
+      "b": 0
+    }
+  },
+  {
+    "id": "elem1",
+    "name": "",
+    "location": {
+      "x": 64,
+      "y": 0
+    },
+    "rotation": 180.0,
+    "size": {
+      "height": 64,
+      "width": 64
+    },
+    "preserve-aspect-ratio": true,
+
+    "type": "video",
+    "filepath": "alan/alan_ca_4_64x64.mp4",
+    "framerate": 30
+  },
+  {
+    "id": "elem0",
+    "name": "Horse",
+    "location": {
+      "x": 0,
+      "y": 0
+    },
+    "rotation": 0.0,
+    "size": {
+      "height": 64,
+      "width": 64
+    },
+    "preserve-aspect-ratio": true,
+
+    "type": "image",
+    "filepath": "treefrog.jpg"
+  }
+]

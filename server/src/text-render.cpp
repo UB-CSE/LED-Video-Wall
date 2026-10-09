@@ -1,35 +1,46 @@
 #include "text-render.hpp"
 #include "canvas.hpp"
-#include "opencv2/core/mat.hpp"
-#include "opencv2/imgcodecs.hpp"
-#include "opencv2/imgproc.hpp"
-#include <ft2build.h>
-#include FT_FREETYPE_H
 #include <algorithm>
 #include <iostream>
+#include <opencv2/core/mat.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <spdlog/spdlog.h>
 
-Element *renderTextToElement(const std::string &text,
-                             const std::string &fontPath, int fontSize,
-                             cv::Scalar textColor, int elementId,
-                             cv::Point position, double rotationDegrees) {
-  // FreeType initialization
-  FT_Library ft;
-  if (FT_Init_FreeType(&ft)) {
-    std::cerr << "Error: Could not initialize FreeType library" << std::endl;
-    return nullptr;
-  }
-  std::cerr << "Trying to load font from: " << fontPath << std::endl;
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
-  // load font
-  FT_Face face;
-  if (FT_New_Face(ft, fontPath.c_str(), 0, &face)) {
-    std::cerr << "Error: Failed to load font" << std::endl;
-    FT_Done_FreeType(ft);
-    return nullptr;
+FontManager::FontManager() {
+  if (FT_Error error = FT_Init_FreeType(&m_ft); error != FT_Err_Ok) {
+    spdlog::error("[Fonts] could not initialized FreeType library: {}",
+                  FT_Error_String(error));
+    m_isInitialized = false;
   }
 
-  // improve font rendering by enabling hinting and using a slightly higher
-  // resolution for better antialiasing
+  m_isInitialized = true;
+}
+
+FontManager::~FontManager() {
+  for (auto &[path, face] : m_faces) {
+    FT_Done_Face(face);
+  }
+  FT_Done_FreeType(m_ft);
+}
+
+cv::Mat FontManager::renderText(std::string_view text,
+                                const std::filesystem::path &fontPath,
+                                int fontSize, cv::Scalar textColor) {
+  cv::Mat result;
+
+  if (!m_isInitialized) {
+    return result;
+  }
+
+  FT_Face face = loadFont(fontPath);
+  if (!face) {
+    return result;
+  }
+
   FT_Set_Pixel_Sizes(face, 0, fontSize * 2);
 
   // enable hinting for better rendering at small sizes
@@ -62,7 +73,7 @@ Element *renderTextToElement(const std::string &text,
     // apply kerning
     if (FT_HAS_KERNING(face) && previous && glyph_index) {
       FT_Get_Kerning(face, previous, glyph_index, FT_KERNING_DEFAULT, &kerning);
-      x += kerning.x >> 6;
+      x += static_cast<int>(kerning.x) >> 6;
     }
 
     if (FT_Load_Glyph(face, glyph_index, load_flags) ||
@@ -92,7 +103,7 @@ Element *renderTextToElement(const std::string &text,
           unsigned char alpha = bitmap.buffer[i * bitmap.width + j];
 
           if (alpha > 0) {
-            cv::Vec4b &pixel = tempImg.at<cv::Vec4b>(py, px); // BGRA
+            auto &pixel = tempImg.at<cv::Vec4b>(py, px); // BGRA
             pixel[0] = static_cast<uchar>(textColor[0]);
             pixel[1] = static_cast<uchar>(textColor[1]);
             pixel[2] = static_cast<uchar>(textColor[2]);
@@ -108,7 +119,7 @@ Element *renderTextToElement(const std::string &text,
     }
 
     // advance position
-    x += (face->glyph->advance.x >> 6);
+    x += (static_cast<int>(face->glyph->advance.x) >> 6);
     previous = glyph_index;
   }
 
@@ -129,22 +140,39 @@ Element *renderTextToElement(const std::string &text,
 
   cv::Mat croppedImg = tempImg(croppedRegion).clone();
 
-  // FreeType clean up
-  FT_Done_Face(face);
-  FT_Done_FreeType(ft);
-
   // downsample the cropped image to get better antialiasing
-  cv::Mat img;
   cv::resize(
-      croppedImg, img,
+      croppedImg, result,
       cv::Size(std::max(1, actualWidth / 2), std::max(1, actualHeight / 2)), 0,
       0, cv::INTER_AREA);
 
-  if (img.empty()) {
+  return result;
+}
+
+FT_Face FontManager::loadFont(const std::filesystem::path &path) {
+  if (!m_isInitialized) {
     return nullptr;
   }
 
-  // return a concrete element pointer
-  return new TextElement(img, elementId, position, text, fontPath, fontSize,
-                         textColor, rotationDegrees);
+  std::filesystem::path absPath = std::filesystem::absolute(path);
+  if (!std::filesystem::exists(absPath)) {
+    spdlog::error("[Fonts] no such font `{}'", path.string());
+    return nullptr;
+  }
+
+  if (m_faces.contains(absPath)) {
+    return m_faces.at(absPath);
+  }
+
+  FT_Face face;
+  if (FT_Error error = FT_New_Face(m_ft, absPath.c_str(), 0, &face);
+      error != FT_Err_Ok) {
+    spdlog::error("[Fonts] failed to load font `{}': {}", path.string(),
+                  FT_Error_String(error));
+    return nullptr;
+  }
+
+  m_faces[absPath] = face;
+  spdlog::info("[Fonts] successfully loaded font `{}'", path.string());
+  return face;
 }

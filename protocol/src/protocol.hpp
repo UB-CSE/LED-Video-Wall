@@ -1,15 +1,15 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <span>
-#include <vector>
-#include <algorithm>
 #include <string_view>
+#include <vector>
 
 enum class OperationCode : uint8_t {
   UNKNOWN = 0,
-  SET_LEDS = 1,
   GET_LOGS,
   REDRAW,
   SET_CONFIG,
@@ -36,10 +36,10 @@ enum class ImageEncoding : uint8_t {
 
   YUV_444,
   YUV_422, // YUYV
-  // YUV_420, // NV12
+  YUV_420, // NV12
 };
 
-const char* encoding_to_string(ImageEncoding encoding);
+const char *encoding_to_string(ImageEncoding encoding);
 ImageEncoding encoding_from_string(std::string_view encoding_string);
 
 #pragma pack(push, 1)
@@ -53,19 +53,6 @@ struct MessageHeader {
   OperationCode op_code;
 };
 
-// set_leds
-
-struct SetLEDsMessageHeader {
-  MessageHeader header;
-  int8_t gpio_pin;
-  uint32_t num_leds;
-};
-
-struct SetLEDsMessage {
-  SetLEDsMessageHeader header;
-  uint8_t pixel_data[];
-};
-
 // set_leds_batched
 
 struct SetLEDsBatchedMessageHeader {
@@ -75,12 +62,18 @@ struct SetLEDsBatchedMessageHeader {
 
 struct LEDsBatchEntryHeader {
   int8_t gpio_pin;
+  uint8_t num_matrices;
   uint32_t num_leds;
+};
+
+struct LEDsPixelData {
+  uint16_t width, height;
+  uint8_t pixel_data[];
 };
 
 struct LEDsBatchEntry {
   LEDsBatchEntryHeader header;
-  uint8_t pixel_data[];
+  LEDsPixelData matrices[];
 };
 
 struct SetLEDsBatchedMessage {
@@ -91,7 +84,7 @@ struct SetLEDsBatchedMessage {
 struct LEDsBatchEntryData {
   int8_t gpio_pin;
   uint32_t num_leds;
-  uint8_t *pixel_data;
+  std::vector<std::shared_ptr<LEDsPixelData>> matrices;
 };
 
 // get_logs
@@ -146,20 +139,6 @@ struct SendLogsMessage {
 //
 
 /**
- * Encode a set_leds message to send an image to display on a LED matrix.
- *
- * @param gpio_pin Pin index of the display.
- * @param num_leds Number of pixels.
- * @param pixel_data Pixel color data. Should be encoded in RGB24.
- * @param encoding Pixel encoding to convert to.
- *
- * @return Message buffer
- */
-std::vector<uint8_t> encode_set_leds(int8_t gpio_pin, uint32_t num_leds,
-                                     const uint8_t *pixel_data,
-                                     ImageEncoding encoding);
-
-/**
  * Encode a set_leds_batched message to send multiple images to display on
  * multiple LED matrices.
  *
@@ -177,16 +156,17 @@ std::vector<uint8_t> encode_get_logs();
 
 std::vector<uint8_t> encode_redraw();
 
-std::vector<uint8_t> encode_set_config(std::span<const PinInfo> pin_info, ImageEncoding encoding);
+std::vector<uint8_t> encode_set_config(std::span<const PinInfo> pin_info,
+                                       ImageEncoding encoding);
 
-std::vector<uint8_t> encode_check_in(uint8_t* mac_address);
+std::vector<uint8_t> encode_check_in(uint8_t *mac_address);
 std::vector<uint8_t> encode_check_in(std::array<uint8_t, 6> mac_address);
 
 std::vector<uint8_t> encode_send_logs(const char *logs);
 
-uint32_t get_message_size(const uint8_t* buffer);
+uint32_t get_message_size(const uint8_t *buffer);
 
-OperationCode get_message_op_code(const uint8_t* buffer);
+OperationCode get_message_op_code(const uint8_t *buffer);
 
 /**
  * Decode an encoded message.
@@ -199,7 +179,7 @@ OperationCode get_message_op_code(const uint8_t* buffer);
  *
  * @return The decoded message, or nullptr if invalid.
  */
-template <typename T> const T *decode(const uint8_t* buffer) {
+template <typename T> const T *decode(const uint8_t *buffer) {
   if (get_message_size(buffer) < sizeof(MessageHeader)) {
     return nullptr;
   }
@@ -209,18 +189,32 @@ template <typename T> const T *decode(const uint8_t* buffer) {
 /**
  * Get the size in bytes of an image in a given encoding format.
  *
- * @param num_leds Number of pixels in the image.
+ * @param width Pixel width of image.
+ * @param height Pixel height of image.
  * @param encoding Image encoding format.
  *
  * @return Size in bytes.
  */
-size_t get_encoded_image_size(uint32_t num_leds, ImageEncoding encoding);
-uint8_t get_bits_per_pixel(ImageEncoding encoding);
+size_t get_encoded_image_size(uint32_t width, uint32_t height,
+                              ImageEncoding encoding);
+
+/**
+ * Get the average bits per pixel of an encoding format.
+ *
+ * @note Multiplying this number by the total number of pixels is NOT a valid
+ * way of finding the full encoded image size. Use get_encoded_image_size()
+ * instead.
+ *
+ * @param encoding Image encoding format.
+ * @return Number of bits.
+ */
+uint8_t get_average_bits_per_pixel(ImageEncoding encoding);
 
 /**
  * Convert an image to a different encoding.
  *
- * @param num_leds Number of pixels in the image.
+ * @param width Pixel width of image.
+ * @param height Pixel height of image.
  * @param src Source image pixel array.
  * @param src_encoding Encoding of source image.
  * @param dest Destination image pixel array. Must be allocated to the right
@@ -229,9 +223,9 @@ uint8_t get_bits_per_pixel(ImageEncoding encoding);
  *
  * @return Size in bytes of the destination image.
  */
-size_t convert_image_encoding(uint32_t num_leds, const uint8_t *src,
-                              ImageEncoding src_encoding, uint8_t *dest,
-                              ImageEncoding dest_encoding);
+size_t convert_image_encoding(uint32_t width, uint32_t height,
+                              const uint8_t *src, ImageEncoding src_encoding,
+                              uint8_t *dest, ImageEncoding dest_encoding);
 
 class Pixel {
   bool is_rgb = true;
@@ -339,11 +333,15 @@ private:
  * @param head Pointer to current byte in input buffer.
  * @param bit Bit offset within *head, (0-7).
  * @param pixel_index Index of the pixel being decoded.
+ * @param start Pointer to the start of the image buffer.
+ * @param image_width Width of the image in pixels.
+ * @param image_height Height of the image in pixels.
  * @param encoding Encoding format.
  * @return The decoded pixel.
  */
 Pixel decode_pixel(const uint8_t *&head, uint8_t &bit, uint32_t pixel_index,
-                   ImageEncoding encoding);
+                   const uint8_t *start, uint32_t image_width,
+                   uint32_t image_height, ImageEncoding encoding);
 
 /**
  * Encode a pixel into a buffer.
@@ -351,8 +349,12 @@ Pixel decode_pixel(const uint8_t *&head, uint8_t &bit, uint32_t pixel_index,
  * @param pixel The pixel to encode.
  * @param encoding Encoding format.
  * @param pixel_index Index of the pixel being encoded.
+ * @param image_width Width of the image in pixels.
+ * @param image_height Height of the image in pixels.
  * @param head Pointer to the current byte in the output buffer.
  * @param bit Bit offset witin *head, (0-7).
+ * @param start Pointer to the start of the output buffer.
  */
 void encode_pixel(Pixel pixel, ImageEncoding encoding, uint32_t pixel_index,
-                  uint8_t *&head, uint8_t &bit);
+                  uint32_t image_width, uint32_t image_height, uint8_t *&head,
+                  uint8_t &bit, uint8_t *start);

@@ -1,0 +1,66 @@
+settings:
+  ignore-bounds-checks: true
+
+  ns-per-frame: 40000000 # 25 fps
+
+  brightness-percent: 97
+  image-encoding: rgb18
+
+  ledvw-port: 7070
+  rtmp-port: 1935
+
+matrix-specs:
+  "ws2812b:32x8":
+    power-limit-amps: 2.5
+    dimensions:
+      width: 8
+      height: 32
+  "p3:64x64":
+    power-limit-amps: 5.0
+    dimensions:
+      width: 64
+      height: 64
+
+matrices:
+  mat1:
+    spec: "ws2812b:32x8"
+    pos: [0, 0]
+    rot: down
+  mat2:
+    spec: "ws2812b:32x8"
+    pos: [8, 0]
+    rot: down
+  mat3:
+    spec: "ws2812b:32x8"
+    pos: [16, 0]
+    rot: down
+  mat4:
+    spec: "ws2812b:32x8"
+    pos: [24, 0]
+    rot: down
+  mat5:
+    spec: "p3:64x64"
+    pos: [0, 0]
+    rot: down
+  mat6:
+    spec: "p3:64x64"
+    pos: [0, 64]
+    rot: down
+
+clients:
+  30-C6-F7-26-05-D4:
+    matrix-connections:
+      - pin: 16
+        matrices: [mat1]
+      - pin: 17
+        matrices: [mat2]
+      - pin: 18
+        matrices: [mat3]
+      - pin: 19
+        matrices: [mat4]
+  D8-85-AC-89-56-6C:
+    matrix-connections:
+      - pin: -1
+        matrices: [mat5]
+      - pin: -2
+        matrices: [mat6]
