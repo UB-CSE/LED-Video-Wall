@@ -53,7 +53,8 @@ enum Options {
   Interactive,
   CanvasConfig,
   RTMP_TLSCert,
-  RTMP_TLSKey
+  RTMP_TLSKey,
+  DisableGPU,
 };
 
 const CommandLine::Option cmdLineOptions[] = {
@@ -72,7 +73,6 @@ const CommandLine::Option cmdLineOptions[] = {
         .Names = {"interactive", "i"},
         .Help = "Show a command prompt for interacting with the canvas",
     },
-
     {
         .ID = Options::CanvasConfig,
         .Names = {"canvas-config", "canvas"},
@@ -93,6 +93,12 @@ const CommandLine::Option cmdLineOptions[] = {
         .RequiresValue = true,
         .ValueName = "key-file",
         .Help = "Set the RTMP TLS Key (use with --rtmp-tls-cert)",
+    },
+    {
+        // This option gets passed through to CEF
+        .ID = Options::DisableGPU,
+        .Names = {"disable-gpu"},
+        .Help = "Turn off usage of the GPU when rendering webpages",
     },
 };
 
