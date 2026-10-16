@@ -291,64 +291,67 @@ int main(int argc, char *argv[]) {
   const std::filesystem::path commandUnixSocketPath =
       std::format("/tmp/ledvw-cmd-{}", serverInstanceName);
 
-  UnixSocketCommandSource unixSocketCommandSource(commandUnixSocketPath);
+  {
+    UnixSocketCommandSource unixSocketCommandSource(commandUnixSocketPath);
 
-  spdlog::info("server {} started successfully", serverInstanceName);
+    spdlog::info("server {} started successfully", serverInstanceName);
 
-  if (interactiveMode) {
-    std::cout << "\nRun canvas commands here. Run the `help' command to see a "
-                 "list of all commands\n";
+    if (interactiveMode) {
+      std::cout
+          << "\nRun canvas commands here. Run the `help' command to see a "
+             "list of all commands\n";
 
-    PromptCommandSource::get().setPromptName(serverInstanceName);
-    PromptCommandSource::get().activate();
-  }
-
-  std::vector<CommandSource *> commandSources = {&unixSocketCommandSource,
-                                                 &PromptCommandSource::get()};
-
-  bool isPaused = false;
-  while (!stop_signal) {
-    CefDoMessageLoopWork();
-
-    for (CommandSource *cmdSource : commandSources) {
-      cmdSource->process();
+      PromptCommandSource::get().setPromptName(serverInstanceName);
+      PromptCommandSource::get().activate();
     }
 
-    std::string cmdString;
-    CommandSource *cmdSource = nullptr;
+    std::vector<CommandSource *> commandSources = {&unixSocketCommandSource,
+                                                   &PromptCommandSource::get()};
 
-    for (auto it = commandSources.begin(); it != commandSources.end(); ++it) {
-      cmdSource = *it;
-      cmdString = cmdSource->consumeLatestCommand();
-      if (!cmdString.empty()) {
-        break;
-      }
-    }
+    bool isPaused = false;
+    while (!stop_signal) {
+      CefDoMessageLoopWork();
 
-    if (!cmdString.empty() && cmdSource != nullptr) {
-      std::shared_ptr<spdlog::logger> cmdLogger =
-          cmdSource->getCommandOutputLogger();
-
-      bool isRunning = true;
-      nlohmann::json commandResult = ProcessCommand(
-          vCanvas, controller, cmdString, isPaused, isRunning, cmdLogger);
-      if (!commandResult.empty()) {
-        cmdLogger->info("result:\n{}", commandResult.dump(2));
-        cmdSource->handleResponse(commandResult);
+      for (CommandSource *cmdSource : commandSources) {
+        cmdSource->process();
       }
 
-      if (!isRunning) {
-        break;
+      std::string cmdString;
+      CommandSource *cmdSource = nullptr;
+
+      for (auto it = commandSources.begin(); it != commandSources.end(); ++it) {
+        cmdSource = *it;
+        cmdString = cmdSource->consumeLatestCommand();
+        if (!cmdString.empty()) {
+          break;
+        }
       }
 
-      if (interactiveMode) {
-        // Re-activate the command prompt
-        PromptCommandSource::get().activate();
-      }
-    }
+      if (!cmdString.empty() && cmdSource != nullptr) {
+        std::shared_ptr<spdlog::logger> cmdLogger =
+            cmdSource->getCommandOutputLogger();
 
-    if (!isPaused) {
-      controller.frameExec(!prodMode);
+        bool isRunning = true;
+        nlohmann::json commandResult = ProcessCommand(
+            vCanvas, controller, cmdString, isPaused, isRunning, cmdLogger);
+        if (!commandResult.empty()) {
+          cmdLogger->info("result:\n{}", commandResult.dump(2));
+          cmdSource->handleResponse(commandResult);
+        }
+
+        if (!isRunning) {
+          break;
+        }
+
+        if (interactiveMode) {
+          // Re-activate the command prompt
+          PromptCommandSource::get().activate();
+        }
+      }
+
+      if (!isPaused) {
+        controller.frameExec(!prodMode);
+      }
     }
   }
 
