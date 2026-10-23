@@ -62,7 +62,7 @@ button {
     font-weight: 600;
 }
 
-.header-controls button {
+.header-controls button,select {
     padding: 5px 10px;
     border: 1px solid #b9c0c8;
     border-radius: 3px;
@@ -194,5 +194,55 @@ button {
 
     .workspace {
         grid-template-columns: minmax(0, 1fr) 6px minmax(180px, var(--side-width));
+    }
+}
+
+.wall-select-label {
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.header-controls select:disabled {
+    color: #555;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.header-controls button:disabled {
+    color: #7a8189;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.status {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.status-connected {
+    color: #18733b;
+}
+
+.status-connecting {
+    color: #956400;
+}
+
+.status-error {
+    color: #b42318;
+}
+
+.header-error {
+    max-width: 300px;
+    overflow: hidden;
+    color: #b42318;
+    font-size: 11px;
+    font-weight: normal;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 850px) {
+    .header-error,
+    .wall-select-label {
+        display: none;
     }
 }

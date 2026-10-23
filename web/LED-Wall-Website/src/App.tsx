@@ -1,9 +1,9 @@
 import {useRef, useState} from "react";
 import "./App.css";
-import Header from "./Header.tsx"
-import Properties from "./Properties.tsx";
-import Elements from "./Elements.tsx";
-import Canvas from "./Canvas.tsx";
+import Header from "./components/Header.tsx"
+import Properties from "./components/Properties.tsx";
+import Elements from "./components/Elements.tsx";
+import Canvas from "./components/Canvas.tsx";
 
 type ResizeState =
     | {
