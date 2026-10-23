@@ -1,122 +1,140 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import {useRef, useState} from "react";
+import "./App.css";
+import Header from "./Header.tsx"
+import Properties from "./Properties.tsx";
+import Elements from "./Elements.tsx";
+import Canvas from "./Canvas.tsx";
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+type ResizeState =
+    | {
+    type: "side";
+    startX: number;
+    startWidth: number;
 }
+    | {
+    type: "vertical";
+    startY: number;
+    startHeight: number;
+};
 
-export default App
+const MIN_SIDE_WIDTH = 220;
+const MIN_PANEL_HEIGHT = 100;
+
+export default function App() {
+    const workspaceRef = useRef<HTMLElement>(null);
+    const sideRegionRef = useRef<HTMLElement>(null);
+
+    const [sideWidth, setSideWidth] = useState(320);
+    const [topHeight, setTopHeight] = useState(50);
+    const [resize, setResize] = useState<ResizeState | null>(null);
+
+    function startSideResize(event: React.PointerEvent<HTMLDivElement>) {
+        const width = sideRegionRef.current?.getBoundingClientRect().width;
+        if (width === undefined) return;
+
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setResize({type: "side", startX: event.clientX, startWidth: width});
+    }
+
+    function startVerticalResize(event: React.PointerEvent<HTMLDivElement>) {
+        const height = sideRegionRef.current
+            ?.querySelector(".side-panel")
+            ?.getBoundingClientRect().height;
+
+        if (height === undefined) return;
+
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setResize({type: "vertical", startY: event.clientY, startHeight: height});
+    }
+
+    function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+        if (!resize) return;
+
+        if (resize.type === "side") {
+            const workspaceWidth =
+                workspaceRef.current?.getBoundingClientRect().width ?? window.innerWidth;
+            const maxWidth = Math.max(MIN_SIDE_WIDTH, workspaceWidth - 250);
+            const width = resize.startWidth - (event.clientX - resize.startX);
+
+            setSideWidth(Math.max(MIN_SIDE_WIDTH, Math.min(width, maxWidth)));
+            return;
+        }
+
+        const sideHeight =
+            sideRegionRef.current?.getBoundingClientRect().height ?? 0;
+        if (!sideHeight) return;
+
+        const maxHeight = Math.max(MIN_PANEL_HEIGHT, sideHeight - MIN_PANEL_HEIGHT);
+        const height = resize.startHeight + (event.clientY - resize.startY);
+        const clampedHeight = Math.max(
+            MIN_PANEL_HEIGHT,
+            Math.min(height, maxHeight),
+        );
+
+        setTopHeight((clampedHeight / sideHeight) * 100);
+    }
+
+    const resizing = resize?.type ?? "";
+
+    return (
+        <div
+            className={`app ${resizing ? `resizing-${resizing}` : ""}`}
+            onPointerMove={handlePointerMove}
+            onPointerUp={() => setResize(null)}
+            onPointerCancel={() => setResize(null)}
+        >
+            <header className="page-header">
+                <Header/>
+            </header>
+
+            <main
+                className="workspace"
+                ref={workspaceRef}
+                style={{"--side-width": `${sideWidth}px`} as React.CSSProperties}
+            >
+                <section className="main-region">
+                    <div className="panel-title">Canvas</div>
+                    <div className="panel-content">
+                        <Canvas/>
+                    </div>
+                </section>
+
+                <div
+                    className="resize-handle resize-horizontal"
+                    role="separator"
+                    aria-label="Resize side region"
+                    aria-orientation="vertical"
+                    onPointerDown={startSideResize}
+                />
+
+                <aside
+                    className="side-region"
+                    ref={sideRegionRef}
+                    style={{"--top-height": `${topHeight}%`} as React.CSSProperties}
+                >
+                    <section className="side-panel">
+                        <div className="panel-title">Properties</div>
+                        <div className="panel-content">
+                            <Properties/>
+                        </div>
+                    </section>
+
+                    <div
+                        className="resize-handle resize-vertical"
+                        role="separator"
+                        aria-label="Resize top side region"
+                        aria-orientation="horizontal"
+                        onPointerDown={startVerticalResize}
+                    />
+
+                    <section className="side-panel">
+                        <div className="panel-title">Elements</div>
+                        <div className="panel-content">
+                            <Elements/>
+                        </div>
+                    </section>
+                </aside>
+            </main>
+        </div>
+    );
+}
