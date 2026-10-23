@@ -6,7 +6,7 @@ elements:
   "elem1":
     order: 1
     type: "image"
-    filepath: "images/rainbow.png"
+    filepath: "rainbow.png"
     location: [0, 0]
     size:
       width: 64

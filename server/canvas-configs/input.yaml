@@ -9,7 +9,7 @@ elements:
     order: 0
     name: "Horse"
     type: "image"
-    filepath: "images/horse.jpg"
+    filepath: "horse.jpg"
     location: [ 0, 0 ]
     size:
       width: 64
@@ -18,7 +18,7 @@ elements:
     order: 1
     name: "Butterfly"
     type: "image"
-    filepath: "images/butterfly.jpg"
+    filepath: "butterfly.jpg"
     location: [ 0, 64 ]
     size:
       width: 64
@@ -27,7 +27,7 @@ elements:
     order: 2
     name: "Parrot"
     type: "image"
-    filepath: "images/parrot.jpg"
+    filepath: "parrot.jpg"
     location: [ 0, 128 ]
     size:
       width: 64
@@ -36,7 +36,7 @@ elements:
     order: 3
     name: "Clownfish"
     type: "image"
-    filepath: "images/clownfish.jpg"
+    filepath: "clownfish.jpg"
     location: [ 0, 192 ]
     size:
       width: 64
@@ -45,7 +45,7 @@ elements:
     order: 4
     name: "Tree frog"
     type: "image"
-    filepath: "images/treefrog.jpg"
+    filepath: "treefrog.jpg"
     location: [ 0, 256 ]
     size:
       width: 64
@@ -54,7 +54,7 @@ elements:
     order: 5
     name: "Rainbow"
     type: "image"
-    filepath: "images/rainbow.png"
+    filepath: "rainbow.png"
     location: [ 0, 320 ]
     size:
       width: 64

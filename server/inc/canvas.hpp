@@ -3,8 +3,8 @@
 #include "rtmp.hpp"
 #include "web-browser.hpp"
 #include <filesystem>
-#include <opencv2/opencv.hpp>
 #include <nlohmann/json.hpp>
+#include <opencv2/opencv.hpp>
 #include <optional>
 #include <span>
 #include <string>
@@ -16,6 +16,10 @@
  * Base class for all canvas elements.
  */
 class Element {
+  // Lazy way to do this...
+  static inline std::filesystem::path s_resourcesDirPath;
+  static inline bool s_constrainResourceLoadPaths = false;
+
   std::string m_uid;
   std::string m_name;
 
@@ -35,11 +39,20 @@ class Element {
   // Rotates m_finalPixelMatrix by m_rotationDegrees
   void rotateFrame();
 
+protected:
+  static std::filesystem::path GetResourcePath(const std::filesystem::path& relativeResourcePath);
+
 public:
   virtual ~Element() = default;
 
   Element(const Element &) = delete;
   Element &operator=(const Element &) = delete;
+
+  static void
+  SetResourcesDirPath(const std::filesystem::path &resourcesDirPath, bool constrainResourceLoadPaths) {
+    s_resourcesDirPath = resourcesDirPath;
+    s_constrainResourceLoadPaths = constrainResourceLoadPaths;
+  }
 
   static std::string NewUID();
 
@@ -370,6 +383,9 @@ private:
 class VirtualCanvas final {
   RTMPServer &m_rtmpServer;
 
+  std::filesystem::path m_configsDirPath;
+  bool m_constrainConfigLoadPaths;
+
   cv::Mat m_pixelMatrix;
   double m_gamma = 1.0;
   cv::Mat m_canvasLUT = cv::Mat(1, 256, CV_8UC1);
@@ -384,7 +400,9 @@ class VirtualCanvas final {
       m_elementPositions; // Make access O(1)
 
 public:
-  VirtualCanvas(const cv::Size &size, RTMPServer &rtmpServer);
+  VirtualCanvas(const cv::Size &size, RTMPServer &rtmpServer,
+                const std::filesystem::path &configsDirPath,
+                bool constrainConfigLoadPaths);
   ~VirtualCanvas() = default;
 
   VirtualCanvas(const VirtualCanvas &) = delete;
@@ -411,8 +429,9 @@ public:
   /**
    * Write the current canvas state to a YAML configuration file.
    * @param path Config file path.
+   * @return True if successful, false otherwise.
    */
-  void saveElementConfig(const std::filesystem::path &path) const;
+  bool saveElementConfig(const std::filesystem::path &path) const;
 
   /**
    * Encodes the canvas to JSON.

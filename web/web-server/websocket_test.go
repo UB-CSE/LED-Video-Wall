@@ -3,21 +3,23 @@ package main
 import (
 	"log"
 	"net/url"
+	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-// Simple program to test sending a websocket message to the webserver.
+// Run this while the webserver is running
 
-func main() {
+func TestWebsockets(t *testing.T) {
+	time.Sleep(50 * time.Millisecond)
 
 	u := url.URL{Scheme: "ws", Host: "localhost:5000", Path: "/api/video-wall/p3-demo-wall"}
 	log.Printf("connecting to %s", u.String())
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		log.Fatal("dial:", err)
+		t.Fatal(err)
 	}
 	defer func() { _ = c.Close() }()
 
@@ -39,15 +41,14 @@ func main() {
 	}()
 
 	command := LEDVWCommand{}
-	command.Name = "canvas-get-elements"
+	//command.Name = "canvas-get-elements"
 
-	//command.Name = "canvas-load"
-	//command.Args = append(command.Args, "input.yaml")
+	command.Name = "canvas-load"
+	command.Args = append(command.Args, "input.yaml")
 
 	err = c.WriteJSON(command)
 	if err != nil {
-		log.Println("write:", err)
-		return
+		t.Fatal(err)
 	}
 
 	deadline := time.Now().Add(time.Second * 5)
@@ -55,6 +56,6 @@ func main() {
 		time.Sleep(10 * time.Millisecond)
 	}
 	if !gotResponse {
-		log.Println("no response")
+		t.Fatal("no response")
 	}
 }

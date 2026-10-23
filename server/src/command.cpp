@@ -152,8 +152,8 @@ nlohmann::json doCanvasSave(VirtualCanvas &vCanvas, Controller &controller,
   }
   const std::filesystem::path filePath(args[0]);
 
-  vCanvas.saveElementConfig(filePath);
-  return CommandResult{.success = true};
+  const bool success = vCanvas.saveElementConfig(filePath);
+  return CommandResult{.success = success};
 }
 
 nlohmann::json doCanvasClear(VirtualCanvas &vCanvas, Controller &controller,

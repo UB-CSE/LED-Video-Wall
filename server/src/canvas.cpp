@@ -19,6 +19,18 @@
 
 #pragma region Element
 
+std::filesystem::path
+Element::GetResourcePath(const std::filesystem::path &resourcePath) {
+  if (resourcePath.has_root_path()) {
+    if (s_constrainResourceLoadPaths) {
+      return "";
+    }
+    return resourcePath;
+  }
+
+  return std::filesystem::weakly_canonical(s_resourcesDirPath / resourcePath);
+}
+
 std::string Element::NewUID() {
   static constexpr char chars[] =
       "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -199,7 +211,8 @@ ImageElement::ImageElement(std::string_view uid,
 }
 
 void ImageElement::loadImageFile(const std::filesystem::path &path) {
-  cv::Mat frame = cv::imread(path, cv::IMREAD_UNCHANGED);
+  std::filesystem::path resourcePath = GetResourcePath(path);
+  cv::Mat frame = cv::imread(resourcePath, cv::IMREAD_UNCHANGED);
   m_filePath = path;
 
   m_isLoaded = !frame.empty();
@@ -207,7 +220,7 @@ void ImageElement::loadImageFile(const std::filesystem::path &path) {
     setFrame(frame);
   } else {
     spdlog::error("[Element] {}: failed to load image at path `{}'", getUID(),
-                  m_filePath.string());
+                  resourcePath.string());
     setFrame(kNoFrameMat);
   }
 }
@@ -247,10 +260,11 @@ void CarouselElement::loadImages(std::span<const std::string> filepaths) {
   m_isLoaded = true;
 
   for (const auto &path : filepaths) {
-    cv::Mat img = cv::imread(path, cv::IMREAD_COLOR);
+    std::filesystem::path resourcePath = GetResourcePath(path);
+    cv::Mat img = cv::imread(resourcePath, cv::IMREAD_COLOR);
     if (img.empty()) {
       spdlog::error("[Element] {}: failed to load carousel image at path `{}'",
-                    getUID(), path);
+                    getUID(), resourcePath.string());
       m_isLoaded = false;
     } else {
       m_pixelMatrices.push_back(img);
@@ -312,10 +326,12 @@ VideoElement::VideoElement(std::string_view uid,
 void VideoElement::loadVideo(const std::filesystem::path &filepath) {
   m_filepath = filepath;
 
+  std::filesystem::path resourcePath = filepath;
   if (filepath.string().starts_with("rtsp://")) {
     m_cap.open(filepath, cv::CAP_FFMPEG);
   } else {
-    m_cap.open(filepath);
+    resourcePath = GetResourcePath(filepath);
+    m_cap.open(resourcePath);
   }
 
   m_isLoaded = m_cap.isOpened();
@@ -325,7 +341,7 @@ void VideoElement::loadVideo(const std::filesystem::path &filepath) {
 
   } else {
     spdlog::error("[Element] {}: failed to load video at path `{}'", getUID(),
-                  filepath.string());
+                  resourcePath.string());
     setFrame(kNoFrameMat);
   }
 }
@@ -697,8 +713,11 @@ static void to_json(nlohmann::json &j, const TextElement &elem) {
 
 #pragma region VirtualCanvas
 
-VirtualCanvas::VirtualCanvas(const cv::Size &size, RTMPServer &rtmpServer)
-    : m_rtmpServer(rtmpServer), m_dim(size) {
+VirtualCanvas::VirtualCanvas(const cv::Size &size, RTMPServer &rtmpServer,
+                             const std::filesystem::path &configsDirPath,
+                             bool constrainConfigLoadPaths)
+    : m_rtmpServer(rtmpServer), m_configsDirPath(configsDirPath),
+      m_constrainConfigLoadPaths(constrainConfigLoadPaths), m_dim(size) {
   clearPixelMatrix();
   setGamma(1.0);
 }
@@ -767,9 +786,22 @@ static void CommonElementPropsToYAML(std::shared_ptr<Element> element,
 bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path) {
   clearElements();
 
-  spdlog::info("[Canvas] loading config from `{}'", path.string());
+  std::filesystem::path configPath(path);
+
+  if (configPath.has_root_path()) {
+    if (m_constrainConfigLoadPaths) {
+      spdlog::error("[Canvas] rejecting absolute element config path `{}'",
+                    path.string());
+      return false;
+    }
+  } else {
+    configPath =
+        std::filesystem::weakly_canonical(m_configsDirPath / configPath);
+  }
+
+  spdlog::info("[Canvas] loading config from `{}'", configPath.string());
   try {
-    YAML::Node configNode = YAML::LoadFile(path);
+    YAML::Node configNode = YAML::LoadFile(configPath);
 
     // Settings
     {
@@ -841,7 +873,20 @@ bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path) {
   return true;
 }
 
-void VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
+bool VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
+  std::filesystem::path configPath(path);
+
+  if (configPath.has_root_path()) {
+    if (m_constrainConfigLoadPaths) {
+      spdlog::error("[Canvas] rejecting absolute element config save path `{}'",
+                    path.string());
+      return false;
+    }
+  } else {
+    configPath =
+        std::filesystem::weakly_canonical(m_configsDirPath / configPath);
+  }
+
   YAML::Node configNode;
 
   // Settings
@@ -889,7 +934,7 @@ void VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
         TextElementToYAML(textElement, elementNode);
       } else {
         spdlog::error("[Canvas] cannot save element of unknown type to config");
-        return;
+        return false;
       }
 
       CommonElementPropsToYAML(element, elementNode);
@@ -900,13 +945,16 @@ void VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
     configNode["elements"] = elementsNode;
   }
 
-  std::ofstream ofs(path);
+  std::ofstream ofs(configPath);
   if (ofs) {
     ofs << configNode;
-    spdlog::info("[Canvas] saved config to `{}'", path.string());
-  } else {
-    spdlog::error("[Canvas] failed to save config to file");
+    spdlog::info("[Canvas] saved config to `{}'", configPath.string());
+    return true;
   }
+
+  spdlog::error("[Canvas] failed to save config to file `{}'",
+                configPath.string());
+  return false;
 }
 
 static void to_json(nlohmann::json &j,

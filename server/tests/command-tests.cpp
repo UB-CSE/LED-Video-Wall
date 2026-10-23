@@ -170,7 +170,7 @@ class Commands : public Test {
 protected:
   const cv::Size canvasSize{128, 128};
   RTMPServer rtmpServer;
-  VirtualCanvas canvas{canvasSize, rtmpServer};
+  VirtualCanvas canvas{canvasSize, rtmpServer, TestResourcesDir / "canvas-configs", false};
   Controller controller{canvas, nullptr, 40000000};
 
   nlohmann::json responseJSON;
@@ -179,9 +179,7 @@ public:
   Commands() = default;
   ~Commands() override = default;
 
-  static inline const std::filesystem::path CanvasConfigPath =
-      TestResourcesDir / "canvas-configs" / "input.yaml";
-
+  static inline const std::filesystem::path CanvasConfigPath = "input.yaml";
   static inline const std::filesystem::path ExpectedCanvasJSONPath =
       TestResourcesDir / "canvas-configs" / "canvas.json";
 
@@ -255,7 +253,7 @@ TEST_F(Commands, CanvasSave) {
   ASSERT_THAT(std::filesystem::exists(saveFilePath), IsTrue());
 
   // YAML::Node equality does not work so just compare the file contents
-  ASSERT_THAT(readFile(saveFilePath), StrEq(readFile(CanvasConfigPath)));
+  ASSERT_THAT(readFile(saveFilePath), StrEq(readFile(TestResourcesDir / "canvas-configs" / CanvasConfigPath)));
 }
 
 TEST_F(Commands, CanvasClear) {

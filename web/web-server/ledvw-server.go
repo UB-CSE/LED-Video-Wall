@@ -211,6 +211,9 @@ func (m *LEDVWServerManager) StartServer(name string, serverConfig *ServerConfig
 	if !serverConfig.DebugMode {
 		args = append(args, "--prod")
 	}
+	args = append(args, "--canvas-configs-dir", serverConfig.UserCanvasConfigsDir)
+	args = append(args, "--resources-dir", serverConfig.UserResourceUploadsDir)
+	args = append(args, "--logs-dir", serverConfig.LogsDir)
 
 	command := exec.Command(serverConfig.VWServerPath, args...)
 	if err := command.Start(); err != nil {

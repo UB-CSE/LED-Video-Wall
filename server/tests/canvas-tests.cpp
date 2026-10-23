@@ -4,8 +4,7 @@
 #include <fstream>
 #include <yaml-cpp/yaml.h>
 
-static const std::filesystem::path CanvasConfigPath =
-    TestResourcesDir / "canvas-configs" / "input.yaml";
+static const std::filesystem::path CanvasConfigPath = "input.yaml";
 
 static inline const std::filesystem::path ExpectedCanvasJSONPath =
     TestResourcesDir / "canvas-configs" / "canvas.json";
@@ -84,7 +83,8 @@ TEST(Canvas, ImageElements) {
   RTMPServer rtmpServer;
 
   const cv::Size canvasSize(64, 64);
-  VirtualCanvas canvas(canvasSize, rtmpServer);
+  VirtualCanvas canvas(canvasSize, rtmpServer,
+                       TestResourcesDir / "canvas-configs", true);
 
   canvas.addElement(elem1);
   canvas.addElement(elem2);
@@ -100,7 +100,8 @@ TEST(Canvas, LoadAndSave) {
   RTMPServer rtmpServer;
 
   const cv::Size canvasSize(128, 128);
-  VirtualCanvas canvas(canvasSize, rtmpServer);
+  VirtualCanvas canvas(canvasSize, rtmpServer,
+                       TestResourcesDir / "canvas-configs", false);
 
   bool result = canvas.loadElementConfig(CanvasConfigPath);
   ASSERT_THAT(result, IsTrue());
@@ -132,19 +133,23 @@ TEST(Canvas, LoadAndSave) {
   // Save
 
   const std::filesystem::path savePath = getTestOutputDirPath() / "input.yaml";
-  canvas.saveElementConfig(savePath);
+  bool success = canvas.saveElementConfig(savePath);
+  ASSERT_THAT(success, IsTrue());
 
   ASSERT_THAT(std::filesystem::exists(savePath), IsTrue());
 
   // YAML::Node equality does not work... ugh, so just compare the file contents
-  ASSERT_THAT(readFile(savePath), StrEq(readFile(CanvasConfigPath)));
+  ASSERT_THAT(
+      readFile(savePath),
+      StrEq(readFile(TestResourcesDir / "canvas-configs" / CanvasConfigPath)));
 }
 
 TEST(Canvas, ElementsToJSON) {
   RTMPServer rtmpServer;
 
   const cv::Size canvasSize(128, 128);
-  VirtualCanvas canvas(canvasSize, rtmpServer);
+  VirtualCanvas canvas(canvasSize, rtmpServer,
+                       TestResourcesDir / "canvas-configs", true);
 
   bool result = canvas.loadElementConfig(CanvasConfigPath);
   ASSERT_THAT(result, IsTrue());
