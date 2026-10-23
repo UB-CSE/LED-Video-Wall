@@ -25,7 +25,7 @@ Ubuntu/Debian:
 
 ```bash
 sudo apt install -y git \
-					build-essential \
+                    build-essential \
                     cmake \
                     pkg-config \
                     libopencv-dev \
