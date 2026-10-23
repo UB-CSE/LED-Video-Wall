@@ -20,6 +20,12 @@ endif ()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+### Languages ###
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 ### Project ###
 
 project(LEDWallServer)
@@ -33,13 +39,6 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if (NOT CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(FATAL_ERROR "Unsupported platform ${CMAKE_SYSTEM_NAME}")
 endif ()
-
-### Languages ###
-
-enable_language(CXX)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
 ### Sources ###
 
@@ -55,7 +54,7 @@ find_package(PkgConfig REQUIRED)
 
 # opencv4
 pkg_check_modules(OpenCV REQUIRED opencv4)
-target_include_directories(${PROJECT_NAME} PUBLIC ${OpenCV_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${OpenCV_INCLUDE_DIRS})
 target_link_directories(${PROJECT_NAME} PUBLIC ${OpenCV_LIBRARY_DIRS})
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBRARIES})
 target_compile_definitions(${PROJECT_NAME} PUBLIC ${OpenCV_DEFINITIONS})
@@ -139,9 +138,11 @@ if (("${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "arm64") OR
     ("${CMAKE_CXX_COMPILER_ARCHITECTURE_ID}" STREQUAL "ARM64"))
     set(PROJECT_ARCH "arm64")
     set(CEF_DOWNLOAD_ARCH "arm64")
+    set(CEF_DOWNLOAD_MD5_HASH "c4f5d1f90ba5292fa7208b87344f3912")
 elseif (CMAKE_SIZEOF_VOID_P MATCHES 8)
     set(PROJECT_ARCH "x86_64")
     set(CEF_DOWNLOAD_ARCH "64")
+    set(CEF_DOWNLOAD_MD5_HASH "7b64fb91de6a5645a6dff00308a64b5b")
 else ()
     message(FATAL_ERROR "Unsupported architecture ${CMAKE_SYSTEM_PROCESSOR}")
 endif ()
@@ -154,7 +155,7 @@ set(CEF_DOWNLOAD_URL "https://cef-builds.spotifycdn.com/${CEF_DOWNLOAD_FILE}")
 FetchContent_Declare(
         cef
         URL ${CEF_DOWNLOAD_URL}
-        URL_HASH MD5=c4f5d1f90ba5292fa7208b87344f3912
+        URL_HASH MD5=${CEF_DOWNLOAD_MD5_HASH}
 )
 # libcef.so is already built, so we only need to build libcef_dll_wrapper.a
 FetchContent_MakeAvailable(cef)
