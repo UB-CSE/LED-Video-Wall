@@ -11,11 +11,11 @@ Each microcontroller can control up to six daisy-chained 64x64 matrices (due to 
 
 The microcontroller has a 2x10 socket connector to connect the first matrix:
 
-<img src="images/p3-matrix-microcontroller.JPEG" width=400/>
+<img src="images/p3-matrix-microcontroller.jpeg" width=400/>
 
 The matrix needs its own power supply from the fuse box
 
-<img src="images/p3-matrix-back.JPEG" width=400/>
+<img src="images/p3-matrix-back.jpeg" width=400/>
 
 Subsequent microcontrollers can be "daisy-chained" by connecting them to previous matrices, as seen above.
 
@@ -30,7 +30,7 @@ Each microcontroller controls a 32x32 square chunk of LEDs, consisting of four 3
 
 The wiring of each chunk looks like this:
 
-<img src="images/ws2812b-chunk-back.JPEG" width=400/>
+<img src="images/ws2812b-chunk-back.jpeg" width=400/>
 
 On the bottom left is the fuse box where all power is routed. Each LED matrix is given a 5 Amp fuse. 
 
