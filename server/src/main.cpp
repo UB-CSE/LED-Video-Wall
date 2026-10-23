@@ -52,6 +52,9 @@ enum Options {
   Prod,
   Interactive,
   CanvasConfig,
+  CanvasConfigsDir,
+  ResourcesDir,
+  LogsDir,
   RTMP_TLSCert,
   RTMP_TLSKey,
   DisableGPU,
@@ -77,8 +80,30 @@ const CommandLine::Option cmdLineOptions[] = {
         .ID = Options::CanvasConfig,
         .Names = {"canvas-config", "canvas"},
         .RequiresValue = true,
-        .ValueName = "config-file",
+        .ValueName = "path",
         .Help = "Load a canvas config YAML file at start-up",
+    },
+    {
+        .ID = Options::CanvasConfigsDir,
+        .Names = {"canvas-configs-dir"},
+        .RequiresValue = true,
+        .ValueName = "path",
+        .Help = "Directory to look for canvas configs in",
+    },
+    {
+        .ID = Options::ResourcesDir,
+        .Names = {"resources-dir"},
+        .RequiresValue = true,
+        .ValueName = "path",
+        .Help =
+            "Directory to look for canvas resources (images, videos, etc.) in",
+    },
+    {
+        .ID = Options::LogsDir,
+        .Names = {"logs-dir"},
+        .RequiresValue = true,
+        .ValueName = "path",
+        .Help = "Directory to save log files to",
     },
     {
         .ID = Options::RTMP_TLSCert,
@@ -101,6 +126,10 @@ const CommandLine::Option cmdLineOptions[] = {
         .Help = "Turn off usage of the GPU when rendering webpages",
     },
 };
+
+std::filesystem::path canvasConfigsDirPath;
+std::filesystem::path resourcesDirPath;
+std::filesystem::path logsDirPath;
 
 std::filesystem::path matrixConfigFilePath;
 std::filesystem::path canvasConfigFilePath;
@@ -152,6 +181,24 @@ bool handleCommandLine(int argc, char **argv) {
     return false;
   }
 
+  if (cmdLine->Options.contains(Options::CanvasConfigsDir)) {
+    canvasConfigsDirPath = cmdLine->Options[Options::CanvasConfigsDir];
+  } else {
+    canvasConfigsDirPath = std::filesystem::current_path();
+  }
+
+  if (cmdLine->Options.contains(Options::ResourcesDir)) {
+    resourcesDirPath = cmdLine->Options[Options::ResourcesDir];
+  } else {
+    resourcesDirPath = std::filesystem::current_path() / "images";
+  }
+
+  if (cmdLine->Options.contains(Options::LogsDir)) {
+    logsDirPath = cmdLine->Options[Options::LogsDir];
+  } else {
+    logsDirPath = std::filesystem::current_path() / "logs";
+  }
+
   if (cmdLine->Options.contains(Options::CanvasConfig)) {
     canvasConfigFilePath = cmdLine->Options[Options::CanvasConfig];
   }
@@ -201,20 +248,16 @@ int main(int argc, char *argv[]) {
   CefSettings settings;
   settings.windowless_rendering_enabled = true;
 
-  const std::filesystem::path logsDirectory =
-      std::filesystem::current_path() / "logs";
-
   if (prodMode || interactiveMode) {
     const bool withStdout = (interactiveMode == false);
 
     std::filesystem::path mainLogFilePath =
-        InitializeLogging(withStdout, logsDirectory, DefaultMaxLogFiles);
+        InitializeLogging(withStdout, logsDirPath, DefaultMaxLogFiles);
 
     // We cannot capture CEF log messages and redirect them to our main log
     // file, so CEF gets its own file.
-    std::filesystem::path cefLogFilePath =
-        MakeLogFilePath(logsDirectory, "CEF");
-    CleanUpLogsDirectory(DefaultMaxLogFiles, logsDirectory, "CEF");
+    std::filesystem::path cefLogFilePath = MakeLogFilePath(logsDirPath, "CEF");
+    CleanUpLogsDirectory(DefaultMaxLogFiles, logsDirPath, "CEF");
     CefString(&settings.log_file).FromString(cefLogFilePath.string());
 
     // CEF logging is silly... even though you tell it to log to file, it will
@@ -267,7 +310,9 @@ int main(int argc, char *argv[]) {
   RTMPServer rtmpServer(matrixConfig.rtmpPort, "0.0.0.0", rtmpCertPath,
                         rtmpKeyPath);
 
-  VirtualCanvas vCanvas(matrixConfig.canvas_size, rtmpServer);
+  Element::SetResourcesDirPath(resourcesDirPath, prodMode);
+  VirtualCanvas vCanvas(matrixConfig.canvas_size, rtmpServer,
+                        canvasConfigsDirPath, prodMode);
 
   if (!canvasConfigFilePath.empty()) {
     if (!vCanvas.loadElementConfig(canvasConfigFilePath)) {

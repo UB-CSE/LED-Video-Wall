@@ -4,14 +4,14 @@ elements:
   "elem1":
     order: 1
     type: "video"
-    filepath: "images/alan/alan_ca_4_64x64.mp4"
+    filepath: "alan/alan_ca_4_64x64.mp4"
     location: [0, 0]
     framerate: 30
     rotation: 180
   "elem2":
     order: 2
     type: "image"
-    filepath: "images/treefrog.jpg"
+    filepath: "treefrog.jpg"
     location: [40,10]
     size:
       width: 20

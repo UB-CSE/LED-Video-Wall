@@ -90,7 +90,6 @@ func main() {
 	log.SetPrefix("[LEDVW-Web-Server] ")
 
 	serverConfig := GetServerConfig()
-
 	r := setupRouter(serverConfig)
 
 	_ = r.Run(":5000")
