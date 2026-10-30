@@ -59,7 +59,7 @@ export default function Properties() {
             <h3> Load Canvas</h3>
             <form onSubmit={(event) => void submitCommand(
                 event,
-                "canva-load", new Array<string>(configPath)
+                "canvas-load", new Array<string>(configPath)
             )}>
                 <label key="Configuration File">
                     <span>Configuration File</span>

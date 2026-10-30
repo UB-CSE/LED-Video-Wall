@@ -1,9 +1,9 @@
 import {useRef, useState} from "react";
 import "./App.css";
 import Header from "./components/Header.tsx"
-import Properties from "./components/Properties.tsx";
 import Elements from "./components/Elements.tsx";
 import Canvas from "./components/Canvas.tsx";
+import {Redo2, Undo2, ZoomIn, ZoomOut} from "lucide-react";
 
 type ResizeState =
     | {
@@ -17,15 +17,15 @@ type ResizeState =
     startHeight: number;
 };
 
-const MIN_SIDE_WIDTH = 220;
+const MIN_SIDE_WIDTH = 205;
 const MIN_PANEL_HEIGHT = 100;
 
 export default function App() {
     const workspaceRef = useRef<HTMLElement>(null);
     const sideRegionRef = useRef<HTMLElement>(null);
 
-    const [sideWidth, setSideWidth] = useState(320);
-    const [topHeight, setTopHeight] = useState(50);
+    const [sideWidth, setSideWidth] = useState(215);
+    const [topHeight, setTopHeight] = useState(46);
     const [resize, setResize] = useState<ResizeState | null>(null);
 
     function startSideResize(event: React.PointerEvent<HTMLDivElement>) {
@@ -93,8 +93,28 @@ export default function App() {
                 style={{"--side-width": `${sideWidth}px`} as React.CSSProperties}
             >
                 <section className="main-region">
-                    <div className="panel-title">Canvas</div>
-                    <div className="panel-content">
+                    <div className="canvas-toolbar" aria-label="Canvas toolbar">
+                        <div className="canvas-toolbar-actions">
+                            <button type="button" className="canvas-tool-button" disabled title="Undo (coming soon)" aria-label="Undo">
+                                <Undo2 size={22}/>
+                            </button>
+                            <button type="button" className="canvas-tool-button" disabled title="Redo (coming soon)" aria-label="Redo">
+                                <Redo2 size={22}/>
+                            </button>
+                        </div>
+                        <div className="canvas-zoom-controls">
+                            <button type="button" className="zoom-level-button" disabled aria-label="Zoom level">
+                                100% <span className="zoom-caret"/>
+                            </button>
+                            <button type="button" className="canvas-tool-button" disabled title="Zoom in" aria-label="Zoom in">
+                                <ZoomIn size={22}/>
+                            </button>
+                            <button type="button" className="canvas-tool-button" disabled title="Zoom out" aria-label="Zoom out">
+                                <ZoomOut size={22}/>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="panel-content canvas-content">
                         <Canvas/>
                     </div>
                 </section>
@@ -113,10 +133,8 @@ export default function App() {
                     style={{"--top-height": `${topHeight}%`} as React.CSSProperties}
                 >
                     <section className="side-panel">
-                        <div className="panel-title">Properties</div>
-                        <div className="panel-content">
-                            <Properties/>
-                        </div>
+                        <div className="panel-header">Properties</div>
+                        <div className="panel-content" aria-label="Properties panel"/>
                     </section>
 
                     <div
@@ -128,10 +146,7 @@ export default function App() {
                     />
 
                     <section className="side-panel">
-                        <div className="panel-title">Elements</div>
-                        <div className="panel-content">
-                            <Elements/>
-                        </div>
+                        <Elements/>
                     </section>
                 </aside>
             </main>
