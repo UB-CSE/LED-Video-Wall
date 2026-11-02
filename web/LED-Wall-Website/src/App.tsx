@@ -1,237 +1,155 @@
-import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import {
-  setGamma,
-  resetState,
-  addElement,
-  clearElement,
-} from "./state/config/configSlice.ts";
+import {useRef, useState} from "react";
+import "./App.css";
+import Header from "./components/Header.tsx"
+import Elements from "./components/Elements.tsx";
 import Canvas from "./components/Canvas.tsx";
-import Buttoncontrols from "./button-controls.tsx";
-import DetailsPanel from "./components/DetailsPanel.tsx";
-import ElementList from "./components/ElementList.tsx";
-import type { RootState } from "./state/store.ts";
+import {Redo2, Undo2, ZoomIn, ZoomOut} from "lucide-react";
 
-function App() {
-  const dispatch = useDispatch();
-
-  const [canvasDimensions, setCanvasDimensions] = useState([0, 0]);
-
-  const [sizeMultiplier, setSizeMultiplier] = useState(0);
-
-  const configState = useSelector((state: RootState) => state.config);
-
-  const isValidPort = (port: number) =>
-    Number.isInteger(port) && port >= 1024 && port <= 65535;
-
-  //Gets the current configuration file from the backend
-  //This function is passed down to other components to allow them to refresh the config
-  async function getConfig(multiplier: number, ledvwPort: number) {
-    if (!isValidPort(ledvwPort)) {
-      console.log(`Invalid LEDVW port (${ledvwPort}), skipping getConfig`);
-      return;
-    }
-
-    try {
-      // requests config from backend using the selected LEDVW port
-      const response = await fetch("/api/" + ledvwPort + "/get-yaml-config", { method: "GET" });
-      if (!response.ok) {
-        console.log(`Failed to fetch config from port ${ledvwPort}: ${response.statusText}`);
-        return;
-      }
-      const config = await response.json();
-      dispatch(resetState(config));
-      //Sets the gamma in the state
-      dispatch(setGamma(config.settings.gamma));
-      //Creates JSX elements and saves initial state
-      const elements = [];
-      for (const key in config["elements"]) {
-        elements.push({ key, ...config.elements[key] });
-      }
-      elements.sort((a, b) => a.id - b.id);
-      for (const element of elements) {
-        //Adds the element to the state
-        if (element.type === "image") {
-          dispatch(
-            addElement({
-              name: element.key,
-              id: element.id,
-              type: element.type,
-              location: [
-                element.location[0] * multiplier,
-                element.location[1] * multiplier,
-              ],
-              filepath: element.filepath,
-              scale: element.scale,
-            })
-          );
-        } else if (element.type === "text") {
-          dispatch(
-            addElement({
-              name: element.key,
-              id: element.id,
-              type: element.type,
-              location: [
-                element.location[0] * multiplier,
-                element.location[1] * multiplier,
-              ],
-              content: element.content,
-              size: element.size,
-              color: element.color,
-              font_path: element.font_path,
-            })
-          );
-        }
-      }
-    } catch (error) {
-      console.log("Get Config encountered an error: " + error);
-      return;
-    }
-  }
-
-  // Sets the canvas dimensions and size multiplier based on the LED wall configuration
-  async function setCanvas() {
-    //Setting starting width and height to define maximum dimensions for the canvas
-    const maxWidth = window.innerWidth * 0.5;
-    const maxHeight = window.innerHeight * 0.9;
-
-    //Fetch LED wall config
-    const response = await fetch("/api/get-matrix-config", { method: "GET" });
-    const config = await response.json();
-    let minX;
-    let minY;
-    let maxX;
-    let maxY;
-
-    //Copies the matrix specifications into a map for easy access
-    const specs = new Map();
-    for (const key in config["matrix-specs"]) {
-      specs.set(key, config["matrix-specs"][key]["width-height"]);
-    }
-
-    //Populate mins and maxs using the matrix positions and width-heights
-    for (const key in config["matrices"]) {
-      const startingX = config["matrices"][key]["pos"][0];
-      const startingY = config["matrices"][key]["pos"][1];
-      let x: number;
-      let y: number;
-      const rot = config["matrices"][key]["rot"];
-      const spec = config["matrices"][key]["spec"];
-      const widthHeight: number[] = specs.get(spec);
-
-      if (rot == "down") {
-        x = startingX + widthHeight[0];
-        y = startingY + widthHeight[1];
-      } else if (rot == "up") {
-        x = startingX - widthHeight[0];
-        y = startingY - widthHeight[1];
-      } else if (rot == "right") {
-        x = startingX + widthHeight[1];
-        y = startingY - widthHeight[0];
-      } else if (rot == "left") {
-        x = startingX - widthHeight[1];
-        y = startingY + widthHeight[0];
-      } else {
-        return;
-      }
-
-      if (typeof minX == "undefined") {
-        minX = Math.min(x, startingX);
-      } else {
-        minX = Math.min(x, startingX, minX);
-      }
-      if (typeof maxX == "undefined") {
-        maxX = Math.max(x, startingX);
-      } else {
-        maxX = Math.max(x, startingX, maxX);
-      }
-      if (typeof minY == "undefined") {
-        minY = Math.min(y, startingY);
-      } else {
-        minY = Math.min(y, startingY, minY);
-      }
-      if (typeof maxY == "undefined") {
-        maxY = Math.max(y, startingY);
-      } else {
-        maxY = Math.max(y, startingY, maxY);
-      }
-    }
-    if (
-      typeof minX == "undefined" ||
-      typeof maxX == "undefined" ||
-      typeof minY == "undefined" ||
-      typeof maxY == "undefined"
-    ) {
-      return;
-    }
-
-    //Calculates LED-Wall pixel width and height
-    const configWidth = maxX - minX;
-    const configHeight = maxY - minY;
-
-    //Finds the ratio between the allotted pixels on screen versus the config
-    const multiplierX = maxWidth / configWidth;
-    const multiplierY = maxHeight / configHeight;
-
-    //The dimension that takes up the largest portion of the allotted space is chosen
-    if (multiplierX > multiplierY) {
-      setSizeMultiplier(multiplierY);
-      //Sets the canvas dimensions so that it will take up as much space as possible
-      //without exceeding the maximum dimensions
-      setCanvasDimensions([
-        configWidth * multiplierY,
-        configHeight * multiplierY,
-      ]);
-      getConfig(multiplierY, 7070);
-      console.log(configState.elements.length);
-    } else {
-      setSizeMultiplier(multiplierX);
-      setCanvasDimensions([
-        configWidth * multiplierX,
-        configHeight * multiplierX,
-      ]);
-      getConfig(multiplierX, 7070);
-      console.log(configState.elements.length);
-    }
-  }
-
-
-  //Use effect for delete key
-    useEffect(() => {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        if(e.key === "Delete"){
-          dispatch(clearElement(configState.selectedElement));
-        }
-      };
-
-      document.addEventListener("keydown", handleKeyDown);
-
-      // cleanup when component unmounts
-      return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [configState.selectedElement]);
-
-
-
-  //Calls get_config when page loads
-  useEffect(() => {
-    setCanvas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  //Displays button controls, save button,
-  //and passes elements to the file upload where the canvas and elements will be
-  return (
-    <div>
-      <Canvas
-        canvasDimensions={canvasDimensions}
-        sizeMultiplier={sizeMultiplier}
-      ></Canvas>
-      <h1>LED Video Wall Controls</h1>
-      <Buttoncontrols getConfig={getConfig} sizeMultiplier={sizeMultiplier} />
-      <div style={{ position: "fixed", right: "0%", top: "0%" }}>
-        <DetailsPanel sizeMultiplier={sizeMultiplier}></DetailsPanel>
-        <ElementList sizeMultiplier={sizeMultiplier}></ElementList>
-      </div>
-    </div>
-  );
+type ResizeState =
+    | {
+    type: "side";
+    startX: number;
+    startWidth: number;
 }
-export default App;
+    | {
+    type: "vertical";
+    startY: number;
+    startHeight: number;
+};
+
+const MIN_SIDE_WIDTH = 205;
+const MIN_PANEL_HEIGHT = 100;
+
+export default function App() {
+    const workspaceRef = useRef<HTMLElement>(null);
+    const sideRegionRef = useRef<HTMLElement>(null);
+
+    const [sideWidth, setSideWidth] = useState(215);
+    const [topHeight, setTopHeight] = useState(46);
+    const [resize, setResize] = useState<ResizeState | null>(null);
+
+    function startSideResize(event: React.PointerEvent<HTMLDivElement>) {
+        const width = sideRegionRef.current?.getBoundingClientRect().width;
+        if (width === undefined) return;
+
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setResize({type: "side", startX: event.clientX, startWidth: width});
+    }
+
+    function startVerticalResize(event: React.PointerEvent<HTMLDivElement>) {
+        const height = sideRegionRef.current
+            ?.querySelector(".side-panel")
+            ?.getBoundingClientRect().height;
+
+        if (height === undefined) return;
+
+        event.currentTarget.setPointerCapture(event.pointerId);
+        setResize({type: "vertical", startY: event.clientY, startHeight: height});
+    }
+
+    function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+        if (!resize) return;
+
+        if (resize.type === "side") {
+            const workspaceWidth =
+                workspaceRef.current?.getBoundingClientRect().width ?? window.innerWidth;
+            const maxWidth = Math.max(MIN_SIDE_WIDTH, workspaceWidth - 250);
+            const width = resize.startWidth - (event.clientX - resize.startX);
+
+            setSideWidth(Math.max(MIN_SIDE_WIDTH, Math.min(width, maxWidth)));
+            return;
+        }
+
+        const sideHeight =
+            sideRegionRef.current?.getBoundingClientRect().height ?? 0;
+        if (!sideHeight) return;
+
+        const maxHeight = Math.max(MIN_PANEL_HEIGHT, sideHeight - MIN_PANEL_HEIGHT);
+        const height = resize.startHeight + (event.clientY - resize.startY);
+        const clampedHeight = Math.max(
+            MIN_PANEL_HEIGHT,
+            Math.min(height, maxHeight),
+        );
+
+        setTopHeight((clampedHeight / sideHeight) * 100);
+    }
+
+    const resizing = resize?.type ?? "";
+
+    return (
+        <div
+            className={`app ${resizing ? `resizing-${resizing}` : ""}`}
+            onPointerMove={handlePointerMove}
+            onPointerUp={() => setResize(null)}
+            onPointerCancel={() => setResize(null)}
+        >
+            <header className="page-header">
+                <Header/>
+            </header>
+
+            <main
+                className="workspace"
+                ref={workspaceRef}
+                style={{"--side-width": `${sideWidth}px`} as React.CSSProperties}
+            >
+                <section className="main-region">
+                    <div className="canvas-toolbar" aria-label="Canvas toolbar">
+                        <div className="canvas-toolbar-actions">
+                            <button type="button" className="canvas-tool-button" disabled title="Undo (coming soon)" aria-label="Undo">
+                                <Undo2 size={22}/>
+                            </button>
+                            <button type="button" className="canvas-tool-button" disabled title="Redo (coming soon)" aria-label="Redo">
+                                <Redo2 size={22}/>
+                            </button>
+                        </div>
+                        <div className="canvas-zoom-controls">
+                            <button type="button" className="zoom-level-button" disabled aria-label="Zoom level">
+                                100% <span className="zoom-caret"/>
+                            </button>
+                            <button type="button" className="canvas-tool-button" disabled title="Zoom in" aria-label="Zoom in">
+                                <ZoomIn size={22}/>
+                            </button>
+                            <button type="button" className="canvas-tool-button" disabled title="Zoom out" aria-label="Zoom out">
+                                <ZoomOut size={22}/>
+                            </button>
+                        </div>
+                    </div>
+                    <div className="panel-content canvas-content">
+                        <Canvas/>
+                    </div>
+                </section>
+
+                <div
+                    className="resize-handle resize-horizontal"
+                    role="separator"
+                    aria-label="Resize side region"
+                    aria-orientation="vertical"
+                    onPointerDown={startSideResize}
+                />
+
+                <aside
+                    className="side-region"
+                    ref={sideRegionRef}
+                    style={{"--top-height": `${topHeight}%`} as React.CSSProperties}
+                >
+                    <section className="side-panel">
+                        <div className="panel-header">Properties</div>
+                        <div className="panel-content" aria-label="Properties panel"/>
+                    </section>
+
+                    <div
+                        className="resize-handle resize-vertical"
+                        role="separator"
+                        aria-label="Resize top side region"
+                        aria-orientation="horizontal"
+                        onPointerDown={startVerticalResize}
+                    />
+
+                    <section className="side-panel">
+                        <Elements/>
+                    </section>
+                </aside>
+            </main>
+        </div>
+    );
+}

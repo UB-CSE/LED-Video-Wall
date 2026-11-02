@@ -52,8 +52,12 @@ enum Options {
   Prod,
   Interactive,
   CanvasConfig,
+  CanvasConfigsDir,
+  ResourcesDir,
+  LogsDir,
   RTMP_TLSCert,
-  RTMP_TLSKey
+  RTMP_TLSKey,
+  DisableGPU,
 };
 
 const CommandLine::Option cmdLineOptions[] = {
@@ -72,13 +76,34 @@ const CommandLine::Option cmdLineOptions[] = {
         .Names = {"interactive", "i"},
         .Help = "Show a command prompt for interacting with the canvas",
     },
-
     {
         .ID = Options::CanvasConfig,
         .Names = {"canvas-config", "canvas"},
         .RequiresValue = true,
-        .ValueName = "config-file",
+        .ValueName = "path",
         .Help = "Load a canvas config YAML file at start-up",
+    },
+    {
+        .ID = Options::CanvasConfigsDir,
+        .Names = {"canvas-configs-dir"},
+        .RequiresValue = true,
+        .ValueName = "path",
+        .Help = "Directory to look for canvas configs in",
+    },
+    {
+        .ID = Options::ResourcesDir,
+        .Names = {"resources-dir"},
+        .RequiresValue = true,
+        .ValueName = "path",
+        .Help =
+            "Directory to look for canvas resources (images, videos, etc.) in",
+    },
+    {
+        .ID = Options::LogsDir,
+        .Names = {"logs-dir"},
+        .RequiresValue = true,
+        .ValueName = "path",
+        .Help = "Directory to save log files to",
     },
     {
         .ID = Options::RTMP_TLSCert,
@@ -94,7 +119,17 @@ const CommandLine::Option cmdLineOptions[] = {
         .ValueName = "key-file",
         .Help = "Set the RTMP TLS Key (use with --rtmp-tls-cert)",
     },
+    {
+        // This option gets passed through to CEF
+        .ID = Options::DisableGPU,
+        .Names = {"disable-gpu"},
+        .Help = "Turn off usage of the GPU when rendering webpages",
+    },
 };
+
+std::filesystem::path canvasConfigsDirPath;
+std::filesystem::path resourcesDirPath;
+std::filesystem::path logsDirPath;
 
 std::filesystem::path matrixConfigFilePath;
 std::filesystem::path canvasConfigFilePath;
@@ -146,6 +181,24 @@ bool handleCommandLine(int argc, char **argv) {
     return false;
   }
 
+  if (cmdLine->Options.contains(Options::CanvasConfigsDir)) {
+    canvasConfigsDirPath = cmdLine->Options[Options::CanvasConfigsDir];
+  } else {
+    canvasConfigsDirPath = std::filesystem::current_path();
+  }
+
+  if (cmdLine->Options.contains(Options::ResourcesDir)) {
+    resourcesDirPath = cmdLine->Options[Options::ResourcesDir];
+  } else {
+    resourcesDirPath = std::filesystem::current_path() / "images";
+  }
+
+  if (cmdLine->Options.contains(Options::LogsDir)) {
+    logsDirPath = cmdLine->Options[Options::LogsDir];
+  } else {
+    logsDirPath = std::filesystem::current_path() / "logs";
+  }
+
   if (cmdLine->Options.contains(Options::CanvasConfig)) {
     canvasConfigFilePath = cmdLine->Options[Options::CanvasConfig];
   }
@@ -195,20 +248,16 @@ int main(int argc, char *argv[]) {
   CefSettings settings;
   settings.windowless_rendering_enabled = true;
 
-  const std::filesystem::path logsDirectory =
-      std::filesystem::current_path() / "logs";
-
   if (prodMode || interactiveMode) {
     const bool withStdout = (interactiveMode == false);
 
     std::filesystem::path mainLogFilePath =
-        InitializeLogging(withStdout, logsDirectory, DefaultMaxLogFiles);
+        InitializeLogging(withStdout, logsDirPath, DefaultMaxLogFiles);
 
     // We cannot capture CEF log messages and redirect them to our main log
     // file, so CEF gets its own file.
-    std::filesystem::path cefLogFilePath =
-        MakeLogFilePath(logsDirectory, "CEF");
-    CleanUpLogsDirectory(DefaultMaxLogFiles, logsDirectory, "CEF");
+    std::filesystem::path cefLogFilePath = MakeLogFilePath(logsDirPath, "CEF");
+    CleanUpLogsDirectory(DefaultMaxLogFiles, logsDirPath, "CEF");
     CefString(&settings.log_file).FromString(cefLogFilePath.string());
 
     // CEF logging is silly... even though you tell it to log to file, it will
@@ -261,7 +310,9 @@ int main(int argc, char *argv[]) {
   RTMPServer rtmpServer(matrixConfig.rtmpPort, "0.0.0.0", rtmpCertPath,
                         rtmpKeyPath);
 
-  VirtualCanvas vCanvas(matrixConfig.canvas_size, rtmpServer);
+  Element::SetResourcesDirPath(resourcesDirPath, prodMode);
+  VirtualCanvas vCanvas(matrixConfig.canvas_size, rtmpServer,
+                        canvasConfigsDirPath, prodMode);
 
   if (!canvasConfigFilePath.empty()) {
     if (!vCanvas.loadElementConfig(canvasConfigFilePath)) {
@@ -285,64 +336,67 @@ int main(int argc, char *argv[]) {
   const std::filesystem::path commandUnixSocketPath =
       std::format("/tmp/ledvw-cmd-{}", serverInstanceName);
 
-  UnixSocketCommandSource unixSocketCommandSource(commandUnixSocketPath);
+  {
+    UnixSocketCommandSource unixSocketCommandSource(commandUnixSocketPath);
 
-  spdlog::info("server {} started successfully", serverInstanceName);
+    spdlog::info("server {} started successfully", serverInstanceName);
 
-  if (interactiveMode) {
-    std::cout << "\nRun canvas commands here. Run the `help' command to see a "
-                 "list of all commands\n";
+    if (interactiveMode) {
+      std::cout
+          << "\nRun canvas commands here. Run the `help' command to see a "
+             "list of all commands\n";
 
-    PromptCommandSource::get().setPromptName(serverInstanceName);
-    PromptCommandSource::get().activate();
-  }
-
-  std::vector<CommandSource *> commandSources = {&unixSocketCommandSource,
-                                                 &PromptCommandSource::get()};
-
-  bool isPaused = false;
-  while (!stop_signal) {
-    CefDoMessageLoopWork();
-
-    for (CommandSource *cmdSource : commandSources) {
-      cmdSource->process();
+      PromptCommandSource::get().setPromptName(serverInstanceName);
+      PromptCommandSource::get().activate();
     }
 
-    std::string cmdString;
-    CommandSource *cmdSource = nullptr;
+    std::vector<CommandSource *> commandSources = {&unixSocketCommandSource,
+                                                   &PromptCommandSource::get()};
 
-    for (auto it = commandSources.begin(); it != commandSources.end(); ++it) {
-      cmdSource = *it;
-      cmdString = cmdSource->consumeLatestCommand();
-      if (!cmdString.empty()) {
-        break;
-      }
-    }
+    bool isPaused = false;
+    while (!stop_signal) {
+      CefDoMessageLoopWork();
 
-    if (!cmdString.empty() && cmdSource != nullptr) {
-      std::shared_ptr<spdlog::logger> cmdLogger =
-          cmdSource->getCommandOutputLogger();
-
-      bool isRunning = true;
-      nlohmann::json commandResult = ProcessCommand(
-          vCanvas, controller, cmdString, isPaused, isRunning, cmdLogger);
-      if (!commandResult.empty()) {
-        cmdLogger->info("result:\n{}", commandResult.dump(2));
-        cmdSource->handleResponse(commandResult);
+      for (CommandSource *cmdSource : commandSources) {
+        cmdSource->process();
       }
 
-      if (!isRunning) {
-        break;
+      std::string cmdString;
+      CommandSource *cmdSource = nullptr;
+
+      for (auto it = commandSources.begin(); it != commandSources.end(); ++it) {
+        cmdSource = *it;
+        cmdString = cmdSource->consumeLatestCommand();
+        if (!cmdString.empty()) {
+          break;
+        }
       }
 
-      if (interactiveMode) {
-        // Re-activate the command prompt
-        PromptCommandSource::get().activate();
-      }
-    }
+      if (!cmdString.empty() && cmdSource != nullptr) {
+        std::shared_ptr<spdlog::logger> cmdLogger =
+            cmdSource->getCommandOutputLogger();
 
-    if (!isPaused) {
-      controller.frameExec(!prodMode);
+        bool isRunning = true;
+        nlohmann::json commandResult = ProcessCommand(
+            vCanvas, controller, cmdString, isPaused, isRunning, cmdLogger);
+        if (!commandResult.empty()) {
+          cmdLogger->info("result:\n{}", commandResult.dump(2));
+          cmdSource->handleResponse(commandResult);
+        }
+
+        if (!isRunning) {
+          break;
+        }
+
+        if (interactiveMode) {
+          // Re-activate the command prompt
+          PromptCommandSource::get().activate();
+        }
+      }
+
+      if (!isPaused) {
+        controller.frameExec(!prodMode);
+      }
     }
   }
 
