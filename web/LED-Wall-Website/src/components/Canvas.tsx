@@ -2,7 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import {Layer, Rect, Stage} from "react-konva";
 import {Stage as KonvaStage} from "konva/lib/Stage";
 import type {KonvaEventObject} from "konva/lib/Node";
-import {useVideoWall} from "../context/VideoWallContext.tsx";
+import {type Location, useVideoWall} from "../context/VideoWallContext.tsx";
 
 type PanState = {
     startX: number;
@@ -19,7 +19,10 @@ export default function Canvas() {
         canvas,
         canvasLoading,
         canvasError,
+        moveCanvasElement,
     } = useVideoWall();
+
+    const layers = [...canvas];//.reverse();
 
     const containerRef = useRef<HTMLDivElement>(null);
     const [width, setWidth] = useState(0);
@@ -125,6 +128,20 @@ export default function Canvas() {
         stage.scale({x: newScale, y: newScale});
     }
 
+    function getCanvasPos(location: Location): Location {
+        return {
+            x: width / 2 + location.x - canvasSize.width / 2,
+            y: height / 2 + location.y - canvasSize.height / 2
+        };
+    }
+
+    function fromCanvasPos(x: number, y: number): Location {
+        return {
+            x: x - width / 2 + canvasSize.width / 2,
+            y: y - height / 2 + canvasSize.height / 2
+        };
+    }
+
     return (
         <>
             <div ref={containerRef} className="panel-content canvas-content" aria-busy={canvasLoading}>
@@ -134,7 +151,7 @@ export default function Canvas() {
                     <p className="empty-state">Loading canvas…</p>
                 ) : (
                     <>
-                        {canvasError && <p className="panel-error" role="alert">{canvasError}</p>}
+                    {canvasError && <p className="panel-error" role="alert">{canvasError}</p>}
                         <Stage
                             width={width}
                             height={height}
@@ -143,18 +160,48 @@ export default function Canvas() {
                             onMouseDown={handleMouseDown}
                         >
                             <Layer>
-                                {matrices.map((element,) => {
+                                {matrices.map((mat, index) => {
+                                    const pos = getCanvasPos(mat.location);
                                     return (
                                         <Rect
-                                            x={width / 2 + element.x - canvasSize.width / 2}
-                                            y={height / 2 + element.y - canvasSize.height / 2}
-                                            width={element.width}
-                                            height={element.height}
+                                            x={pos.x}
+                                            y={pos.y}
+                                            width={mat.size.width}
+                                            height={mat.size.height}
                                             fill="#2C2C2C"
+                                            key={index}
                                         />
                                     );
                                 })}
                             </Layer>
+
+                            {layers.map((element,) => {
+                                const pos = getCanvasPos(element.location);
+                                return (
+                                    <Layer>
+                                        <Rect
+                                            x={pos.x}
+                                            y={pos.y}
+                                            width={element.size.width}
+                                            height={element.size.height}
+                                            fill="#FF0000"
+                                            key={element.id}
+                                            draggable
+                                            onMouseEnter={() => {
+                                                document.body.style.cursor = 'pointer';
+                                            }}
+                                            onMouseLeave={() => {
+                                                document.body.style.cursor = 'default';
+                                            }}
+                                            onDragEnd={(e) => {
+                                                void moveCanvasElement(element.id, fromCanvasPos(e.target.x(), e.target.y()));
+                                            }}
+                                        />
+
+                                    </Layer>
+                                );
+                            })}
+
                         </Stage>
                     </>
                 )}

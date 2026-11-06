@@ -996,7 +996,7 @@ static void to_json(nlohmann::json &j,
   j["location"] = element->getRawLocation();
   j["rotation"] = element->getRotation();
   j["size"] = element->getSize();
-  j["preserve-aspect-ratio"] = element->getPreserveAspectRatio();
+  j["preserveAspectRatio"] = element->getPreserveAspectRatio();
 }
 
 nlohmann::json VirtualCanvas::elementsToJSON() const { return m_elements; }
