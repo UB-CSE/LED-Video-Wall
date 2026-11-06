@@ -1,22 +1,24 @@
-import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ReactNode,
-} from "react";
+import {createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState,} from "react";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
-export type CanvasElementId = string | number;
 
 export type CanvasElement = Record<string, unknown> & {
-    id: CanvasElementId;
+    id: string;
     name: string;
     type: string;
     // TODO
+};
+
+export type MatrixPos = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+export type Size = {
+    width: number;
+    height: number;
 };
 
 export interface VideoWallContextValue {
@@ -39,8 +41,10 @@ export interface VideoWallContextValue {
     canvasError: string | null;
     canvasRevision: number;
     refreshCanvas: () => Promise<CanvasElement[]>;
-    moveCanvasElement: (id: CanvasElementId, direction: "up" | "down") => Promise<void>;
-    renameCanvasElement: (id: CanvasElementId, newName: string) => Promise<void>;
+    moveCanvasElementZ: (id: string, direction: "up" | "down") => Promise<void>;
+    renameCanvasElement: (id: string, newName: string) => Promise<void>;
+    matrices: MatrixPos[];
+    canvasSize: Size;
 }
 
 interface PendingResponse {
@@ -90,7 +94,7 @@ function parseCanvas(response: unknown): CanvasElement[] {
     return response.canvas.flatMap((value, index): CanvasElement[] => {
         if (!isRecord(value)) return [];
         const id = value.id;
-        if (typeof id !== "string" && typeof id !== "number") return [];
+        if (typeof id !== "string") return [];
 
         return [{
             ...value,
@@ -103,7 +107,50 @@ function parseCanvas(response: unknown): CanvasElement[] {
     });
 }
 
-export function VideoWallProvider({ children }: { children: ReactNode }) {
+function parseMatrices(response: unknown): [Size, MatrixPos[]] {
+    if (!isRecord(response)) {
+        throw new Error("The video wall returned an invalid canvas region response.");
+    }
+    if (response.success === false) {
+        throw new Error(getResponseError(response) ?? "Could not retrieve the canvas region.");
+    }
+
+    if (!isRecord(response.size)) {
+        throw new Error(getResponseError(response) ?? "The response to canvas-get-region did not contain canvas size.");
+    }
+    const canvasWidth = response.size.width;
+    const canvasHeight = response.size.height;
+    if (typeof canvasWidth !== "number" || typeof canvasHeight !== "number") {
+        throw new Error(getResponseError(response) ?? "The response to canvas-get-region did not contain canvas size.");
+    }
+
+    const size = {width: canvasWidth, height: canvasHeight};
+
+    if (!Array.isArray(response.matrices)) {
+        throw new Error("The response to canvas-get-region did not contain a matrices array.");
+    }
+
+    const matrices = response.matrices.flatMap((value): MatrixPos[] => {
+        if (!isRecord(value)) return [];
+        const x = value.x;
+        if (typeof x !== "number") return [];
+
+        const y = value.y;
+        if (typeof y !== "number") return [];
+
+        const width = value.width;
+        if (typeof width !== "number") return [];
+
+        const height = value.height;
+        if (typeof height !== "number") return [];
+
+        return [{x, y, width, height}];
+    });
+
+    return [size, matrices];
+}
+
+export function VideoWallProvider({children}: { children: ReactNode }) {
     const socketRef = useRef<WebSocket | null>(null);
     const pendingResponseRef = useRef<PendingResponse | null>(null);
     // The server protocol has no request ID, so command/reply exchanges are serialized.
@@ -119,6 +166,8 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
     const [canvasLoading, setCanvasLoading] = useState(false);
     const [canvasError, setCanvasError] = useState<string | null>(null);
     const [canvasRevision, setCanvasRevision] = useState(0);
+    const [matrices, setMatrices] = useState<MatrixPos[]>([]);
+    const [canvasSize, setCanvasSize] = useState<Size>({width: 0, height: 0});
 
     const rejectPendingResponse = useCallback((message: string) => {
         const pending = pendingResponseRef.current;
@@ -144,6 +193,7 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         setLastMessage(null);
         setActiveConfig(null);
         setCanvas([]);
+        setMatrices([]);
         setCanvasLoading(false);
         setCanvasError(null);
     }, [rejectPendingResponse]);
@@ -170,6 +220,7 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         setLastMessage(null);
         setActiveConfig(null);
         setCanvas([]);
+        setMatrices([]);
         setCanvasLoading(false);
         setCanvasError(null);
 
@@ -258,7 +309,7 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
                     reject(new Error(message));
                 }, COMMAND_TIMEOUT_MS);
 
-                pendingResponseRef.current = { resolve, reject, timeoutId };
+                pendingResponseRef.current = {resolve, reject, timeoutId};
 
                 try {
                     socket.send(JSON.stringify({
@@ -302,6 +353,22 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         }
     }, [sendCommand]);
 
+    const refreshMatrices = useCallback(async (): Promise<MatrixPos[]> => {
+        try {
+            const response = await sendCommand("canvas-get-region");
+            const [nextCanvasSize, nextMatrices] = parseMatrices(response);
+
+            setCanvasSize(nextCanvasSize);
+            setMatrices(nextMatrices);
+            setCanvasError(null);
+            return nextMatrices;
+        } catch (error) {
+            const message = getErrorMessage(error);
+            setCanvasError(message);
+            throw error;
+        }
+    }, [sendCommand]);
+
     const saveCanvasAfterChange = useCallback(async () => {
         if (!autoSave || !activeConfig) return;
         try {
@@ -328,8 +395,8 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         await refreshCanvas();
     }, [refreshCanvas, sendCommand]);
 
-    const moveCanvasElement = useCallback(async (
-        id: CanvasElementId,
+    const moveCanvasElementZ = useCallback(async (
+        id: string,
         direction: "up" | "down",
     ) => {
         try {
@@ -344,7 +411,7 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         }
     }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
 
-    const renameCanvasElement = useCallback(async (id: CanvasElementId, newName: string) => {
+    const renameCanvasElement = useCallback(async (id: string, newName: string) => {
         const trimmedName = newName.trim();
         if (!trimmedName) throw new Error("An element name cannot be empty.");
 
@@ -362,9 +429,11 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (status === "connected") {
+            void refreshMatrices().catch(() => undefined);
             void refreshCanvas().catch(() => undefined);
         } else {
             setCanvas([]);
+            setMatrices([]);
             setCanvasLoading(false);
             setCanvasError(null);
         }
@@ -398,8 +467,10 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         canvasError,
         canvasRevision,
         refreshCanvas,
-        moveCanvasElement,
+        moveCanvasElementZ,
         renameCanvasElement,
+        matrices,
+        canvasSize,
     }), [
         status,
         activeWall,
@@ -417,8 +488,10 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         canvasError,
         canvasRevision,
         refreshCanvas,
-        moveCanvasElement,
+        moveCanvasElementZ,
         renameCanvasElement,
+        matrices,
+        canvasSize,
     ]);
 
     return (

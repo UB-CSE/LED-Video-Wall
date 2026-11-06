@@ -1,14 +1,15 @@
-import {useState, type KeyboardEvent} from "react";
-import {useVideoWall, type CanvasElement, type CanvasElementId} from "../context/VideoWallContext.tsx";
+import {type KeyboardEvent, useState} from "react";
+import {type CanvasElement, useVideoWall} from "../context/VideoWallContext.tsx";
 import {
-    ChevronDown,
-    ChevronUp,
     Box,
     Check,
+    ChevronDown,
+    ChevronUp,
     Copy,
     Globe,
     Image as ImageIcon,
     Images,
+    type LucideIcon as LucideIconType,
     Pencil,
     Plus,
     Radio,
@@ -16,11 +17,10 @@ import {
     Type,
     Video,
     X,
-    type LucideIcon as LucideIconType,
 } from "lucide-react";
 
 interface RenameState {
-    id: CanvasElementId;
+    id: string;
     originalName: string;
     draft: string;
 }
@@ -29,18 +29,21 @@ type ElementType = CanvasElement["type"];
 
 function elementIcon(type: ElementType): LucideIconType {
     switch (type) {
-        case "image": return ImageIcon;
-        case "video": return Video;
-        case "carousel": return Images;
-        case "rtmp": return Radio;
-        case "text": return Type;
-        case "web-browser": return Globe;
-        default: return Box;
+        case "image":
+            return ImageIcon;
+        case "video":
+            return Video;
+        case "carousel":
+            return Images;
+        case "rtmp":
+            return Radio;
+        case "text":
+            return Type;
+        case "web-browser":
+            return Globe;
+        default:
+            return Box;
     }
-}
-
-function elementKey(id: CanvasElementId): string {
-    return `${typeof id}:${String(id)}`;
 }
 
 export default function Elements() {
@@ -49,7 +52,7 @@ export default function Elements() {
         canvas,
         canvasLoading,
         canvasError,
-        moveCanvasElement,
+        moveCanvasElementZ,
         renameCanvasElement,
     } = useVideoWall();
     const [busy, setBusy] = useState(false);
@@ -62,7 +65,7 @@ export default function Elements() {
         setBusy(true);
         setLocalError(null);
         try {
-            await moveCanvasElement(element.id, direction);
+            await moveCanvasElementZ(element.id, direction);
         } catch {
             // The context owns and exposes the operation error for every consumer.
         } finally {
@@ -155,11 +158,10 @@ export default function Elements() {
                         ) : (
                             <ul className="item-list">
                                 {layers.map((element, index) => {
-                                    const isEditing = rename !== null
-                                        && elementKey(rename.id) === elementKey(element.id);
+                                    const isEditing = rename !== null && rename.id === element.id;
                                     const ElementIcon = elementIcon(element.type);
                                     return (
-                                        <li className="item-row" key={elementKey(element.id)}>
+                                        <li className="item-row" key={element.id}>
                                             <span className="item-type-icon" title={element.type}>
                                                 <ElementIcon size={20}/>
                                             </span>
@@ -177,7 +179,10 @@ export default function Elements() {
                                                         autoFocus
                                                         value={rename.draft}
                                                         disabled={busy}
-                                                        onChange={(event) => setRename((current) => current ? {...current, draft: event.target.value} : current)}
+                                                        onChange={(event) => setRename((current) => current ? {
+                                                            ...current,
+                                                            draft: event.target.value
+                                                        } : current)}
                                                         onKeyDown={handleRenameKeyDown}
                                                     />
                                                     <button
@@ -211,7 +216,11 @@ export default function Elements() {
                                                         disabled={busy}
                                                         onClick={() => {
                                                             setLocalError(null);
-                                                            setRename({id: element.id, originalName: element.name, draft: element.name});
+                                                            setRename({
+                                                                id: element.id,
+                                                                originalName: element.name,
+                                                                draft: element.name
+                                                            });
                                                         }}
                                                         title={`Rename ${element.name}`}
                                                         aria-label={`Rename ${element.name}`}

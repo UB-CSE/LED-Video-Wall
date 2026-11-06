@@ -1,7 +1,8 @@
 import {useEffect, useRef, useState} from "react";
-import {Circle, Layer, Stage} from "react-konva";
+import {Layer, Rect, Stage} from "react-konva";
 import {Stage as KonvaStage} from "konva/lib/Stage";
 import type {KonvaEventObject} from "konva/lib/Node";
+import {useVideoWall} from "../context/VideoWallContext.tsx";
 
 type PanState = {
     startX: number;
@@ -11,6 +12,15 @@ type PanState = {
 };
 
 export default function Canvas() {
+    const {
+        status,
+        matrices,
+        canvasSize,
+        canvas,
+        canvasLoading,
+        canvasError,
+    } = useVideoWall();
+
     const containerRef = useRef<HTMLDivElement>(null);
     const [width, setWidth] = useState(0);
     const [height, setHeight] = useState(0);
@@ -116,23 +126,39 @@ export default function Canvas() {
     }
 
     return (
-        <div ref={containerRef} className="canvas-content">
-            <Stage
-                width={width}
-                height={height}
-                ref={stageRef}
-                onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
-            >
-                <Layer>
-                    <Circle
-                        x={width / 2}
-                        y={height / 2}
-                        radius={50}
-                        fill="green"
-                    />
-                </Layer>
-            </Stage>
-        </div>
+        <>
+            <div ref={containerRef} className="panel-content canvas-content" aria-busy={canvasLoading}>
+                {status !== "connected" ? (
+                    <p className="empty-state">No video wall connected.</p>
+                ) : canvasLoading ? (
+                    <p className="empty-state">Loading canvas…</p>
+                ) : (
+                    <>
+                        {canvasError && <p className="panel-error" role="alert">{canvasError}</p>}
+                        <Stage
+                            width={width}
+                            height={height}
+                            ref={stageRef}
+                            onWheel={handleWheel}
+                            onMouseDown={handleMouseDown}
+                        >
+                            <Layer>
+                                {matrices.map((element,) => {
+                                    return (
+                                        <Rect
+                                            x={width / 2 + element.x - canvasSize.width / 2}
+                                            y={height / 2 + element.y - canvasSize.height / 2}
+                                            width={element.width}
+                                            height={element.height}
+                                            fill="#2C2C2C"
+                                        />
+                                    );
+                                })}
+                            </Layer>
+                        </Stage>
+                    </>
+                )}
+            </div>
+        </>
     );
 }
