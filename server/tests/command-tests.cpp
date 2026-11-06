@@ -168,15 +168,48 @@ namespace {
 
 class Commands : public Test {
 protected:
-  const cv::Size canvasSize{128, 128};
+  MatrixConfig matrixConfig = MakeTestMatrixConfig();
   RTMPServer rtmpServer;
-  VirtualCanvas canvas{canvasSize, rtmpServer, TestResourcesDir / "canvas-configs", false};
-  Controller controller{canvas, nullptr, 40000000};
+  VirtualCanvas canvas{matrixConfig, rtmpServer,
+                       TestResourcesDir / "canvas-configs", false};
+  Controller controller{canvas, nullptr, matrixConfig.ns_per_frame};
 
   nlohmann::json responseJSON;
 
+  static MatrixConfig MakeTestMatrixConfig() {
+    MatrixConfig c;
+    c.ledvwPort = c.rtmpPort = -1;
+
+    const cv::Size canvasSize(128, 128);
+
+    using namespace std::string_literals;
+    auto spec = std::make_shared<LEDMatrixSpec>("spec"s, 2.0F, canvasSize.width,
+                                                canvasSize.height);
+    auto mat =
+        std::make_shared<LEDMatrix>("mat"s, spec,
+                                    CanvasPos{
+                                        .x = 10,
+                                        .y = 10,
+                                        .width = static_cast<uint32_t>(canvasSize.width),
+                                        .height = static_cast<uint32_t>(canvasSize.height),
+                                        .rot = Rotation::DOWN,
+                                    });
+    MatricesConnection matConn{
+        .pin = -1,
+        .matrices = {mat},
+    };
+    auto client =
+        std::make_shared<Client>(0xAAAAAAAAAAAA, std::vector{matConn});
+    c.clients.push_back(client);
+    c.canvas_size = canvasSize;
+    c.ns_per_frame = 40000000;
+    c.brightness_percent = 100.0;
+    c.image_encoding = ImageEncoding::RGB_18;
+    return c;
+  }
+
 public:
-  Commands() = default;
+  Commands() {}
   ~Commands() override = default;
 
   static inline const std::filesystem::path CanvasConfigPath = "input.yaml";
@@ -226,6 +259,34 @@ public:
 
 } // namespace
 
+TEST_F(Commands, CanvasGetRegion) {
+  doCommand("canvas-get-region");
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(responseJSON.contains("matrices"), IsTrue());
+  const nlohmann::json matricesJSON = responseJSON["matrices"];
+
+  ASSERT_THAT(matricesJSON.is_array(), IsTrue());
+  ASSERT_THAT(matricesJSON.size(), Eq(1));
+  nlohmann::json matJSON = matricesJSON.at(0);
+
+  ASSERT_THAT(matJSON.contains("width"), IsTrue());
+  ASSERT_THAT(matJSON.at("width").is_number_integer(), IsTrue());
+  ASSERT_THAT(matJSON.at("width").get<uint32_t>(), Eq(128));
+
+  ASSERT_THAT(matJSON.contains("height"), IsTrue());
+  ASSERT_THAT(matJSON.at("height").is_number_integer(), IsTrue());
+  ASSERT_THAT(matJSON.at("height").get<uint32_t>(), Eq(128));
+
+  ASSERT_THAT(matJSON.contains("x"), IsTrue());
+  ASSERT_THAT(matJSON.at("x").is_number_integer(), IsTrue());
+  ASSERT_THAT(matJSON.at("x").get<uint32_t>(), Eq(10));
+
+  ASSERT_THAT(matJSON.contains("y"), IsTrue());
+  ASSERT_THAT(matJSON.at("y").is_number_integer(), IsTrue());
+  ASSERT_THAT(matJSON.at("y").get<uint32_t>(), Eq(10));
+}
+
 TEST_F(Commands, CanvasLoad) {
   const std::string commandLine =
       std::format(R"(canvas-load "{}")", CanvasConfigPath.string());
@@ -253,7 +314,9 @@ TEST_F(Commands, CanvasSave) {
   ASSERT_THAT(std::filesystem::exists(saveFilePath), IsTrue());
 
   // YAML::Node equality does not work so just compare the file contents
-  ASSERT_THAT(readFile(saveFilePath), StrEq(readFile(TestResourcesDir / "canvas-configs" / CanvasConfigPath)));
+  ASSERT_THAT(
+      readFile(saveFilePath),
+      StrEq(readFile(TestResourcesDir / "canvas-configs" / CanvasConfigPath)));
 }
 
 TEST_F(Commands, CanvasClear) {

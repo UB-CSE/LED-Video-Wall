@@ -120,8 +120,7 @@ std::pair<MatricesMap, cv::Size> matricesFromYAML(YAML::Node node,
 
     std::shared_ptr<LEDMatrixSpec> spec = matrixSpecs[specID];
     if (!spec) {
-      throw std::runtime_error(
-          std::format("no such matrix spec `{}'", specID));
+      throw std::runtime_error(std::format("no such matrix spec `{}'", specID));
     }
 
     uint32_t width = spec->width;
@@ -286,4 +285,25 @@ bool MatrixConfig::load(const std::filesystem::path &filepath) {
   spdlog::info("[Matrix] successfully loaded config");
 
   return true;
+}
+
+void to_json(nlohmann::json &j, const CanvasPos &pos) {
+  j["width"] = pos.width;
+  j["height"] = pos.height;
+  j["x"] = pos.x;
+  j["y"] = pos.y;
+}
+
+nlohmann::json MatrixConfig::canvasRegionToJSON() const {
+  nlohmann::json j;
+
+  for (const auto &client : clients) {
+    for (const auto &matConnection : client->matConnections) {
+      for (const auto &mat : matConnection.matrices) {
+        j.push_back(mat->pos);
+      }
+    }
+  }
+
+  return j;
 }
