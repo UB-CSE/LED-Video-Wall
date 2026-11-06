@@ -412,10 +412,25 @@ input {
     border-bottom: 1px solid #e7e7e7;
     color: #292929;
     font-size: 13px;
+    cursor: pointer;
 }
 
 .item-row:hover {
     background: #f5f8fc;
+}
+
+.item-row-selected {
+    background: #e8f2ff;
+    box-shadow: inset 3px 0 0 #0066d4;
+}
+
+.item-row-selected:hover {
+    background: #deecff;
+}
+
+.item-row:focus-visible {
+    outline: 2px solid #0066d4;
+    outline-offset: -2px;
 }
 
 .item-type-icon {

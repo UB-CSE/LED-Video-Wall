@@ -47,10 +47,13 @@ export interface VideoWallContextValue {
     canvasLoading: boolean;
     canvasError: string | null;
     canvasRevision: number;
+    selectedCanvasElementId: string | null;
+    selectCanvasElement: (id: string | null) => void;
     refreshCanvas: () => Promise<CanvasElement[]>;
     moveCanvasElement: (id: string, location: Location) => Promise<void>;
     moveCanvasElementZ: (id: string, direction: "up" | "down") => Promise<void>;
     renameCanvasElement: (id: string, newName: string) => Promise<void>;
+    transformCanvasElement: (id: string, size: Size, location: Location, degreesCCW: number) => Promise<void>;
     matrices: MatrixPos[];
     canvasSize: Size;
 }
@@ -227,6 +230,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
     const [canvasLoading, setCanvasLoading] = useState(false);
     const [canvasError, setCanvasError] = useState<string | null>(null);
     const [canvasRevision, setCanvasRevision] = useState(0);
+    const [selectedCanvasElementId, setSelectedCanvasElementId] = useState<string | null>(null);
     const [matrices, setMatrices] = useState<MatrixPos[]>([]);
     const [canvasSize, setCanvasSize] = useState<Size>({width: 0, height: 0});
 
@@ -254,6 +258,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         setLastMessage(null);
         setActiveConfig(null);
         setCanvas([]);
+        setSelectedCanvasElementId(null);
         setMatrices([]);
         setCanvasLoading(false);
         setCanvasError(null);
@@ -281,6 +286,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         setLastMessage(null);
         setActiveConfig(null);
         setCanvas([]);
+        setSelectedCanvasElementId(null);
         setMatrices([]);
         setCanvasLoading(false);
         setCanvasError(null);
@@ -402,6 +408,9 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
             const nextCanvas = parseCanvas(response);
             // Keep the server's bottom-to-top order in shared state.
             setCanvas(nextCanvas);
+            setSelectedCanvasElementId((selectedId) =>
+                selectedId && nextCanvas.some((element) => element.id === selectedId) ? selectedId : null
+            );
             setCanvasError(null);
             setCanvasRevision((revision) => revision + 1);
             return nextCanvas;
@@ -453,6 +462,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         }
 
         setActiveConfig(configName);
+        setSelectedCanvasElementId(null);
         await refreshCanvas();
     }, [refreshCanvas, sendCommand]);
 
@@ -469,7 +479,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
             setCanvasError(getErrorMessage(error));
             throw error;
         }
-    }, [saveCanvasAfterChange, sendCommand]);
+    }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
 
     const moveCanvasElementZ = useCallback(async (
         id: string,
@@ -503,12 +513,55 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         }
     }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
 
+
+    const transformCanvasElement = useCallback(async (
+        id: string,
+        size: Size,
+        location: Location,
+        degreesCCW: number,
+    ) => {
+        const element = canvas.find((candidate) => candidate.id === id);
+        if (!element) throw new Error("The selected canvas element no longer exists.");
+
+        const width = Math.max(1, Math.round(size.width));
+        const height = Math.max(1, Math.round(size.height));
+        const x = Math.round(location.x);
+        const y = Math.round(location.y);
+        const rotation = Number(degreesCCW.toFixed(3));
+
+        try {
+            if (width !== Math.round(element.size.width) || height !== Math.round(element.size.height)) {
+                const response = await sendCommand("element-resize", [id, String(width), String(height)]);
+                const responseError = getResponseError(response);
+                if (responseError) throw new Error(responseError);
+            }
+
+            if (rotation !== 0) {
+                const response = await sendCommand("element-rotate", [id, String(rotation)]);
+                const responseError = getResponseError(response);
+                if (responseError) throw new Error(responseError);
+            }
+
+            if (x !== Math.round(element.location.x) || y !== Math.round(element.location.y)) {
+                const response = await sendCommand("element-move", [id, String(x), String(y)]);
+                const responseError = getResponseError(response);
+                if (responseError) throw new Error(responseError);
+            }
+
+            await saveCanvasAfterChange();
+        } catch (error) {
+            setCanvasError(getErrorMessage(error));
+            throw error;
+        }
+    }, [canvas, saveCanvasAfterChange, sendCommand]);
+
     useEffect(() => {
         if (status === "connected") {
             void refreshMatrices().catch(() => undefined);
             void refreshCanvas().catch(() => undefined);
         } else {
             setCanvas([]);
+            setSelectedCanvasElementId(null);
             setMatrices([]);
             setCanvasLoading(false);
             setCanvasError(null);
@@ -542,10 +595,13 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         canvasLoading,
         canvasError,
         canvasRevision,
+        selectedCanvasElementId,
+        selectCanvasElement: setSelectedCanvasElementId,
         refreshCanvas,
         moveCanvasElement,
         moveCanvasElementZ,
         renameCanvasElement,
+        transformCanvasElement,
         matrices,
         canvasSize,
     }), [
@@ -564,10 +620,13 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         canvasLoading,
         canvasError,
         canvasRevision,
+        selectedCanvasElementId,
+        setSelectedCanvasElementId,
         refreshCanvas,
         moveCanvasElement,
         moveCanvasElementZ,
         renameCanvasElement,
+        transformCanvasElement,
         matrices,
         canvasSize,
     ]);

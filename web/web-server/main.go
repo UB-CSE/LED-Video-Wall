@@ -38,6 +38,11 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 		c.JSON(http.StatusOK, names)
 	})
 
+	r.GET("/api/resources/:resource", func(ctx *gin.Context) {
+		resourceName := ctx.Params.ByName("resource")
+		ctx.File(filepath.Join(serverConfig.UserResourceUploadsDir, resourceName))
+	})
+
 	r.GET("/api/list-config-files", func(c *gin.Context) {
 		entries, err := os.ReadDir(serverConfig.UserCanvasConfigsDir)
 		if err != nil {

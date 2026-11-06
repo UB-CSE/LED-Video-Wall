@@ -703,6 +703,7 @@ static void to_json(nlohmann::json &j, const TextElement &elem) {
 
   j = nlohmann::json{
       {"type", "text"},
+      {"text", elem.getText()},
       {"font-path", elem.getFontPath().string()},
       {"font-size", elem.getFontSize()},
       {"color", color},

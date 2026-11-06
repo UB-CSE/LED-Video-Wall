@@ -54,6 +54,8 @@ export default function Elements() {
         canvasError,
         moveCanvasElementZ,
         renameCanvasElement,
+        selectedCanvasElementId,
+        selectCanvasElement,
     } = useVideoWall();
     const [busy, setBusy] = useState(false);
     const [rename, setRename] = useState<RenameState | null>(null);
@@ -161,7 +163,20 @@ export default function Elements() {
                                     const isEditing = rename !== null && rename.id === element.id;
                                     const ElementIcon = elementIcon(element.type);
                                     return (
-                                        <li className="item-row" key={element.id}>
+                                        <li
+                                            className={`item-row${selectedCanvasElementId === element.id ? " item-row-selected" : ""}`}
+                                            key={element.id}
+                                            tabIndex={0}
+                                            aria-current={selectedCanvasElementId === element.id ? "true" : undefined}
+                                            onClick={() => selectCanvasElement(element.id)}
+                                            onKeyDown={(event) => {
+                                                if (event.target !== event.currentTarget) return;
+                                                if (event.key === "Enter" || event.key === " ") {
+                                                    event.preventDefault();
+                                                    selectCanvasElement(element.id);
+                                                }
+                                            }}
+                                        >
                                             <span className="item-type-icon" title={element.type}>
                                                 <ElementIcon size={20}/>
                                             </span>
