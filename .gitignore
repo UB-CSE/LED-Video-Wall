@@ -1,4 +1,5 @@
 .DS_Store
 config-yoshi-sync.sh
 .vscode
+.idea
 .venv

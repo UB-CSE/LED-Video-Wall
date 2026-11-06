@@ -107,6 +107,14 @@ struct CanvasGetElementsCommandResult {
       : base{.success = true}, elements(elements) {}
 };
 
+struct CanvasGetRegionCommandResult {
+  CommandResult base;
+  nlohmann::json region;
+
+  CanvasGetRegionCommandResult(const nlohmann::json &region)
+      : base{.success = true}, region(region) {}
+};
+
 CommandResult BadInvocationResult{.success = false, .badInvocation = true};
 CommandResult NoSuchElementResult{.success = false, .noSuchElement = true};
 
@@ -126,6 +134,24 @@ void to_json(nlohmann::json &j, const NewElementCommandResult &result) {
 void to_json(nlohmann::json &j, const CanvasGetElementsCommandResult &result) {
   j = result.base;
   j["canvas"] = result.elements;
+}
+
+void to_json(nlohmann::json &j, const CanvasGetRegionCommandResult &result) {
+  j = result.base;
+  j["matrices"] = result.region;
+}
+
+nlohmann::json doCanvasGetRegion(VirtualCanvas &vCanvas, Controller &controller,
+                                 std::span<std::string_view> args,
+                                 std::shared_ptr<spdlog::logger> logger) {
+  if (!args.empty()) {
+    return BadInvocationResult;
+  }
+  if (const MatrixConfig* matrixConfig = vCanvas.getMatrixConfig(); matrixConfig != nullptr) {
+    nlohmann::json matricesJSON = vCanvas.getMatrixConfig()->canvasRegionToJSON();
+    return CanvasGetRegionCommandResult(matricesJSON);
+  }
+  return BadInvocationResult;
 }
 
 nlohmann::json doCanvasLoad(VirtualCanvas &vCanvas, Controller &controller,
@@ -902,6 +928,13 @@ struct CommandInfo {
 
 std::map<std::string, CommandInfo> commands{
     // Canvas
+    {
+        "canvas-get-region",
+        CommandInfo{
+            .doCommandFunc = doCanvasGetRegion,
+            .usage = "",
+        },
+    },
     {
         "canvas-load",
         CommandInfo{

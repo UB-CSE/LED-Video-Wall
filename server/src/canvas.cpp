@@ -716,10 +716,20 @@ static void to_json(nlohmann::json &j, const TextElement &elem) {
 VirtualCanvas::VirtualCanvas(const cv::Size &size, RTMPServer &rtmpServer,
                              const std::filesystem::path &configsDirPath,
                              bool constrainConfigLoadPaths)
-    : m_rtmpServer(rtmpServer), m_configsDirPath(configsDirPath),
+    : m_matrixConfig(nullptr), m_rtmpServer(rtmpServer),
+      m_configsDirPath(configsDirPath),
       m_constrainConfigLoadPaths(constrainConfigLoadPaths), m_dim(size) {
   clearPixelMatrix();
   setGamma(1.0);
+}
+
+VirtualCanvas::VirtualCanvas(const MatrixConfig &matrixConfig,
+                             RTMPServer &rtmpServer,
+                             const std::filesystem::path &configsDirPath,
+                             bool constrainConfigLoadPaths)
+    : VirtualCanvas(matrixConfig.canvas_size, rtmpServer, configsDirPath,
+                    constrainConfigLoadPaths) {
+  m_matrixConfig = &matrixConfig;
 }
 
 void VirtualCanvas::setGamma(double gamma) {

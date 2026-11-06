@@ -1,5 +1,6 @@
 #pragma once
 
+#include "matrix-config.hpp"
 #include "rtmp.hpp"
 #include "web-browser.hpp"
 #include <filesystem>
@@ -40,7 +41,8 @@ class Element {
   void rotateFrame();
 
 protected:
-  static std::filesystem::path GetResourcePath(const std::filesystem::path& relativeResourcePath);
+  static std::filesystem::path
+  GetResourcePath(const std::filesystem::path &relativeResourcePath);
 
 public:
   virtual ~Element() = default;
@@ -48,8 +50,8 @@ public:
   Element(const Element &) = delete;
   Element &operator=(const Element &) = delete;
 
-  static void
-  SetResourcesDirPath(const std::filesystem::path &resourcesDirPath, bool constrainResourceLoadPaths) {
+  static void SetResourcesDirPath(const std::filesystem::path &resourcesDirPath,
+                                  bool constrainResourceLoadPaths) {
     s_resourcesDirPath = resourcesDirPath;
     s_constrainResourceLoadPaths = constrainResourceLoadPaths;
   }
@@ -381,6 +383,7 @@ private:
 };
 
 class VirtualCanvas final {
+  const MatrixConfig *m_matrixConfig;
   RTMPServer &m_rtmpServer;
 
   std::filesystem::path m_configsDirPath;
@@ -403,11 +406,15 @@ public:
   VirtualCanvas(const cv::Size &size, RTMPServer &rtmpServer,
                 const std::filesystem::path &configsDirPath,
                 bool constrainConfigLoadPaths);
+  VirtualCanvas(const MatrixConfig &matrixConfig, RTMPServer &rtmpServer,
+                const std::filesystem::path &configsDirPath,
+                bool constrainConfigLoadPaths);
   ~VirtualCanvas() = default;
 
   VirtualCanvas(const VirtualCanvas &) = delete;
   VirtualCanvas &operator=(const VirtualCanvas &) = delete;
 
+  const MatrixConfig *getMatrixConfig() const { return m_matrixConfig; }
   RTMPServer &getRTMPServer() const { return m_rtmpServer; }
 
   cv::Size getDimensions() const { return m_dim; }
