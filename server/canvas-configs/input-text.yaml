@@ -1,21 +1,26 @@
-#Beyond just the id, the id is also a weight to determine which images have layering priority
-#As of right now, we only support "image" and "text" -- "video" is planned.
 settings:
-  gamma: 1.0
+  gamma: 1
 elements:
-  "elem1":
-    order: 1
-    type: "image"
-    filepath: "rainbow.png"
-    location: [0, 0]
+  elem1:
+    order: 0
+    type: image
+    filepath: rainbow.png
+    location:
+      - 4
+      - 60
     size:
-      width: 64
-      height: 64
-  "elem2":
-    order: 2
-    type: "text"
+      width: 24
+      height: 24
+  elem2:
+    order: 1
+    type: text
+    text: WHATS UP GUYS!!1
+    font-path: ttf/Lobster-Regular.ttf
     font-size: 24
-    font-path: "ttf/Lobster-Regular.ttf"
-    text: "WHATS UP GUYS!!1"
     color: "#0025ff"
-    location: [5,0]
+    location:
+      - 5
+      - 0
+    size:
+      width: 97
+      height: 54

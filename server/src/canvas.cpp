@@ -703,6 +703,7 @@ static void to_json(nlohmann::json &j, const TextElement &elem) {
 
   j = nlohmann::json{
       {"type", "text"},
+      {"text", elem.getText()},
       {"font-path", elem.getFontPath().string()},
       {"font-size", elem.getFontSize()},
       {"color", color},
@@ -996,7 +997,7 @@ static void to_json(nlohmann::json &j,
   j["location"] = element->getRawLocation();
   j["rotation"] = element->getRotation();
   j["size"] = element->getSize();
-  j["preserve-aspect-ratio"] = element->getPreserveAspectRatio();
+  j["preserveAspectRatio"] = element->getPreserveAspectRatio();
 }
 
 nlohmann::json VirtualCanvas::elementsToJSON() const { return m_elements; }

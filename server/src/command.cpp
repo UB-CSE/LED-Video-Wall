@@ -1,6 +1,7 @@
 #include "command.hpp"
 #include "canvas.hpp"
 #include "text-render.hpp"
+#include "encoding-util.hpp"
 #include <cctype>
 #include <optional>
 #include <readline/history.h>
@@ -110,9 +111,10 @@ struct CanvasGetElementsCommandResult {
 struct CanvasGetRegionCommandResult {
   CommandResult base;
   nlohmann::json region;
+  cv::Size size;
 
-  CanvasGetRegionCommandResult(const nlohmann::json &region)
-      : base{.success = true}, region(region) {}
+  CanvasGetRegionCommandResult(const nlohmann::json &region, cv::Size size)
+      : base{.success = true}, region(region), size(size) {}
 };
 
 CommandResult BadInvocationResult{.success = false, .badInvocation = true};
@@ -139,6 +141,7 @@ void to_json(nlohmann::json &j, const CanvasGetElementsCommandResult &result) {
 void to_json(nlohmann::json &j, const CanvasGetRegionCommandResult &result) {
   j = result.base;
   j["matrices"] = result.region;
+  j["size"] = result.size;
 }
 
 nlohmann::json doCanvasGetRegion(VirtualCanvas &vCanvas, Controller &controller,
@@ -148,8 +151,8 @@ nlohmann::json doCanvasGetRegion(VirtualCanvas &vCanvas, Controller &controller,
     return BadInvocationResult;
   }
   if (const MatrixConfig* matrixConfig = vCanvas.getMatrixConfig(); matrixConfig != nullptr) {
-    nlohmann::json matricesJSON = vCanvas.getMatrixConfig()->canvasRegionToJSON();
-    return CanvasGetRegionCommandResult(matricesJSON);
+    nlohmann::json matricesJSON = matrixConfig->canvasRegionToJSON();
+    return CanvasGetRegionCommandResult(matricesJSON, matrixConfig->canvas_size);
   }
   return BadInvocationResult;
 }

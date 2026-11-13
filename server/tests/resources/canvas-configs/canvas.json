@@ -13,7 +13,7 @@
       "height": 0,
       "width": 0
     },
-    "preserve-aspect-ratio": true,
+    "preserveAspectRatio": true,
 
     "type": "text",
     "font-path": "../ttf/Lobster-Regular.ttf",
@@ -36,7 +36,7 @@
       "height": 64,
       "width": 64
     },
-    "preserve-aspect-ratio": true,
+    "preserveAspectRatio": true,
 
     "type": "video",
     "filepath": "alan/alan_ca_4_64x64.mp4",
@@ -54,7 +54,7 @@
       "height": 64,
       "width": 64
     },
-    "preserve-aspect-ratio": true,
+    "preserveAspectRatio": true,
 
     "type": "image",
     "filepath": "treefrog.jpg"

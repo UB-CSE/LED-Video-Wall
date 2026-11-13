@@ -3,7 +3,6 @@ import "./App.css";
 import Header from "./components/Header.tsx"
 import Elements from "./components/Elements.tsx";
 import Canvas from "./components/Canvas.tsx";
-import {Redo2, Undo2, ZoomIn, ZoomOut} from "lucide-react";
 
 type ResizeState =
     | {
@@ -94,25 +93,6 @@ export default function App() {
             >
                 <section className="main-region">
                     <div className="canvas-toolbar" aria-label="Canvas toolbar">
-                        <div className="canvas-toolbar-actions">
-                            <button type="button" className="canvas-tool-button" disabled title="Undo (coming soon)" aria-label="Undo">
-                                <Undo2 size={22}/>
-                            </button>
-                            <button type="button" className="canvas-tool-button" disabled title="Redo (coming soon)" aria-label="Redo">
-                                <Redo2 size={22}/>
-                            </button>
-                        </div>
-                        <div className="canvas-zoom-controls">
-                            <button type="button" className="zoom-level-button" disabled aria-label="Zoom level">
-                                100% <span className="zoom-caret"/>
-                            </button>
-                            <button type="button" className="canvas-tool-button" disabled title="Zoom in" aria-label="Zoom in">
-                                <ZoomIn size={22}/>
-                            </button>
-                            <button type="button" className="canvas-tool-button" disabled title="Zoom out" aria-label="Zoom out">
-                                <ZoomOut size={22}/>
-                            </button>
-                        </div>
                     </div>
                     <div className="panel-content canvas-content">
                         <Canvas/>

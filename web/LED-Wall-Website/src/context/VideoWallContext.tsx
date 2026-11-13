@@ -1,22 +1,31 @@
-import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
-    type ReactNode,
-} from "react";
+import {createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState,} from "react";
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
-export type CanvasElementId = string | number;
+
+export type Location = {
+    x: number;
+    y: number;
+};
+
+export type Size = {
+    width: number;
+    height: number;
+};
 
 export type CanvasElement = Record<string, unknown> & {
-    id: CanvasElementId;
+    id: string;
     name: string;
     type: string;
+    location: Location;
+    rotation: number;
+    size: Size;
+    preserveAspectRatio: boolean;
     // TODO
+};
+
+export type MatrixPos = {
+    location: Location;
+    size: Size;
 };
 
 export interface VideoWallContextValue {
@@ -38,9 +47,15 @@ export interface VideoWallContextValue {
     canvasLoading: boolean;
     canvasError: string | null;
     canvasRevision: number;
+    selectedCanvasElementId: string | null;
+    selectCanvasElement: (id: string | null) => void;
     refreshCanvas: () => Promise<CanvasElement[]>;
-    moveCanvasElement: (id: CanvasElementId, direction: "up" | "down") => Promise<void>;
-    renameCanvasElement: (id: CanvasElementId, newName: string) => Promise<void>;
+    moveCanvasElement: (id: string, location: Location) => Promise<void>;
+    moveCanvasElementZ: (id: string, direction: "up" | "down") => Promise<void>;
+    renameCanvasElement: (id: string, newName: string) => Promise<void>;
+    transformCanvasElement: (id: string, size: Size, location: Location, degreesCCW: number) => Promise<void>;
+    matrices: MatrixPos[];
+    canvasSize: Size;
 }
 
 interface PendingResponse {
@@ -76,6 +91,32 @@ function getResponseError(response: unknown): string | null {
     return details.length > 0 ? details.join(" ") : "The command failed.";
 }
 
+function parseLocation(raw: unknown): Location {
+    if (!isRecord(raw)) {
+        throw new Error("Invalid location.");
+    }
+    const x = raw.x;
+    const y = raw.y;
+    if (typeof x !== "number" || typeof y !== "number") {
+        throw new Error("Invalid location.");
+    }
+
+    return {x, y};
+}
+
+function parseSize(raw: unknown): Size {
+    if (!isRecord(raw)) {
+        throw new Error("Invalid size.");
+    }
+    const width = raw.width;
+    const height = raw.height;
+    if (typeof width !== "number" || typeof height !== "number") {
+        throw new Error("Invalid size.");
+    }
+
+    return {width, height};
+}
+
 function parseCanvas(response: unknown): CanvasElement[] {
     if (!isRecord(response)) {
         throw new Error("The video wall returned an invalid canvas response.");
@@ -90,20 +131,90 @@ function parseCanvas(response: unknown): CanvasElement[] {
     return response.canvas.flatMap((value, index): CanvasElement[] => {
         if (!isRecord(value)) return [];
         const id = value.id;
-        if (typeof id !== "string" && typeof id !== "number") return [];
+        if (typeof id !== "string") return [];
+
+        const name = value.name;
+        if (typeof name !== "string") return [];
+
+        const type = value.type;
+        if (typeof type !== "string") return [];
+
+        let location;
+        try {
+            location = parseLocation(value.location)
+        } catch (error) {
+            return [];
+        }
+
+        const rotation = value.rotation;
+        if (typeof rotation !== "number") return [];
+
+        let size;
+        try {
+            size = parseSize(value.size)
+        } catch (error) {
+            return [];
+        }
+
+        const preserveAspectRatio = value.preserveAspectRatio;
+        if (typeof preserveAspectRatio !== "boolean") return [];
 
         return [{
             ...value,
-            id,
-            name: typeof value.name === "string" && value.name.trim()
-                ? value.name
-                : `Untitled element ${index + 1}`,
-            type: typeof value.type === "string" ? value.type : "unknown",
+            id: id,
+            name: name.trim() ? name : `Untitled element ${index + 1}`,
+            type: type,
+            location: location,
+            rotation: rotation,
+            size: size,
+            preserveAspectRatio: preserveAspectRatio,
         }];
     });
 }
 
-export function VideoWallProvider({ children }: { children: ReactNode }) {
+function parseMatrices(response: unknown): [Size, MatrixPos[]] {
+    if (!isRecord(response)) {
+        throw new Error("The video wall returned an invalid canvas region response.");
+    }
+    if (response.success === false) {
+        throw new Error(getResponseError(response) ?? "Could not retrieve the canvas region.");
+    }
+
+    let size;
+    try {
+        size = parseSize(response.size)
+    } catch (error) {
+        throw new Error("The response to canvas-get-region did not contain canvas size.");
+    }
+
+    if (!Array.isArray(response.matrices)) {
+        throw new Error("The response to canvas-get-region did not contain a matrices array.");
+    }
+
+    const matrices = response.matrices.flatMap((value): MatrixPos[] => {
+        if (!isRecord(value)) return [];
+        const x = value.x;
+        if (typeof x !== "number") return [];
+
+        const y = value.y;
+        if (typeof y !== "number") return [];
+
+        const width = value.width;
+        if (typeof width !== "number") return [];
+
+        const height = value.height;
+        if (typeof height !== "number") return [];
+
+        const location: Location = {x, y}
+        const size: Size = {width, height};
+
+        return [{location, size}];
+    });
+
+    return [size, matrices];
+}
+
+export function VideoWallProvider({children}: { children: ReactNode }) {
     const socketRef = useRef<WebSocket | null>(null);
     const pendingResponseRef = useRef<PendingResponse | null>(null);
     // The server protocol has no request ID, so command/reply exchanges are serialized.
@@ -119,6 +230,9 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
     const [canvasLoading, setCanvasLoading] = useState(false);
     const [canvasError, setCanvasError] = useState<string | null>(null);
     const [canvasRevision, setCanvasRevision] = useState(0);
+    const [selectedCanvasElementId, setSelectedCanvasElementId] = useState<string | null>(null);
+    const [matrices, setMatrices] = useState<MatrixPos[]>([]);
+    const [canvasSize, setCanvasSize] = useState<Size>({width: 0, height: 0});
 
     const rejectPendingResponse = useCallback((message: string) => {
         const pending = pendingResponseRef.current;
@@ -144,6 +258,8 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         setLastMessage(null);
         setActiveConfig(null);
         setCanvas([]);
+        setSelectedCanvasElementId(null);
+        setMatrices([]);
         setCanvasLoading(false);
         setCanvasError(null);
     }, [rejectPendingResponse]);
@@ -170,6 +286,8 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         setLastMessage(null);
         setActiveConfig(null);
         setCanvas([]);
+        setSelectedCanvasElementId(null);
+        setMatrices([]);
         setCanvasLoading(false);
         setCanvasError(null);
 
@@ -258,7 +376,7 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
                     reject(new Error(message));
                 }, COMMAND_TIMEOUT_MS);
 
-                pendingResponseRef.current = { resolve, reject, timeoutId };
+                pendingResponseRef.current = {resolve, reject, timeoutId};
 
                 try {
                     socket.send(JSON.stringify({
@@ -290,6 +408,9 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
             const nextCanvas = parseCanvas(response);
             // Keep the server's bottom-to-top order in shared state.
             setCanvas(nextCanvas);
+            setSelectedCanvasElementId((selectedId) =>
+                selectedId && nextCanvas.some((element) => element.id === selectedId) ? selectedId : null
+            );
             setCanvasError(null);
             setCanvasRevision((revision) => revision + 1);
             return nextCanvas;
@@ -299,6 +420,22 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
             throw error;
         } finally {
             setCanvasLoading(false);
+        }
+    }, [sendCommand]);
+
+    const refreshMatrices = useCallback(async (): Promise<MatrixPos[]> => {
+        try {
+            const response = await sendCommand("canvas-get-region");
+            const [nextCanvasSize, nextMatrices] = parseMatrices(response);
+
+            setCanvasSize(nextCanvasSize);
+            setMatrices(nextMatrices);
+            setCanvasError(null);
+            return nextMatrices;
+        } catch (error) {
+            const message = getErrorMessage(error);
+            setCanvasError(message);
+            throw error;
         }
     }, [sendCommand]);
 
@@ -325,11 +462,27 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         }
 
         setActiveConfig(configName);
+        setSelectedCanvasElementId(null);
         await refreshCanvas();
     }, [refreshCanvas, sendCommand]);
 
     const moveCanvasElement = useCallback(async (
-        id: CanvasElementId,
+        id: string,
+        location: Location
+    ) => {
+        try {
+            const response = await sendCommand(`element-move`, [id, String(Math.trunc(location.x)), String(Math.trunc(location.y))]);
+            const responseError = getResponseError(response);
+            if (responseError) throw new Error(responseError);
+            await saveCanvasAfterChange();
+        } catch(error) {
+            setCanvasError(getErrorMessage(error));
+            throw error;
+        }
+    }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
+
+    const moveCanvasElementZ = useCallback(async (
+        id: string,
         direction: "up" | "down",
     ) => {
         try {
@@ -344,7 +497,7 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         }
     }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
 
-    const renameCanvasElement = useCallback(async (id: CanvasElementId, newName: string) => {
+    const renameCanvasElement = useCallback(async (id: string, newName: string) => {
         const trimmedName = newName.trim();
         if (!trimmedName) throw new Error("An element name cannot be empty.");
 
@@ -360,11 +513,56 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         }
     }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
 
+
+    const transformCanvasElement = useCallback(async (
+        id: string,
+        size: Size,
+        location: Location,
+        degreesCCW: number,
+    ) => {
+        const element = canvas.find((candidate) => candidate.id === id);
+        if (!element) throw new Error("The selected canvas element no longer exists.");
+
+        const width = Math.max(1, Math.round(size.width));
+        const height = Math.max(1, Math.round(size.height));
+        const x = Math.round(location.x);
+        const y = Math.round(location.y);
+        const rotation = Number(degreesCCW.toFixed(3));
+
+        try {
+            if (width !== Math.round(element.size.width) || height !== Math.round(element.size.height)) {
+                const response = await sendCommand("element-resize", [id, String(width), String(height)]);
+                const responseError = getResponseError(response);
+                if (responseError) throw new Error(responseError);
+            }
+
+            if (rotation !== 0) {
+                const response = await sendCommand("element-rotate", [id, String(rotation)]);
+                const responseError = getResponseError(response);
+                if (responseError) throw new Error(responseError);
+            }
+
+            if (x !== Math.round(element.location.x) || y !== Math.round(element.location.y)) {
+                const response = await sendCommand("element-move", [id, String(x), String(y)]);
+                const responseError = getResponseError(response);
+                if (responseError) throw new Error(responseError);
+            }
+
+            await saveCanvasAfterChange();
+        } catch (error) {
+            setCanvasError(getErrorMessage(error));
+            throw error;
+        }
+    }, [canvas, saveCanvasAfterChange, sendCommand]);
+
     useEffect(() => {
         if (status === "connected") {
+            void refreshMatrices().catch(() => undefined);
             void refreshCanvas().catch(() => undefined);
         } else {
             setCanvas([]);
+            setSelectedCanvasElementId(null);
+            setMatrices([]);
             setCanvasLoading(false);
             setCanvasError(null);
         }
@@ -397,9 +595,15 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         canvasLoading,
         canvasError,
         canvasRevision,
+        selectedCanvasElementId,
+        selectCanvasElement: setSelectedCanvasElementId,
         refreshCanvas,
         moveCanvasElement,
+        moveCanvasElementZ,
         renameCanvasElement,
+        transformCanvasElement,
+        matrices,
+        canvasSize,
     }), [
         status,
         activeWall,
@@ -416,9 +620,15 @@ export function VideoWallProvider({ children }: { children: ReactNode }) {
         canvasLoading,
         canvasError,
         canvasRevision,
+        selectedCanvasElementId,
+        setSelectedCanvasElementId,
         refreshCanvas,
         moveCanvasElement,
+        moveCanvasElementZ,
         renameCanvasElement,
+        transformCanvasElement,
+        matrices,
+        canvasSize,
     ]);
 
     return (
