@@ -1,4 +1,5 @@
 import {type KeyboardEvent, useState} from "react";
+import CreateElementModal from "./CreateElementModal.tsx";
 import {type CanvasElement, useVideoWall} from "../context/VideoWallContext.tsx";
 import {
     Box,
@@ -58,6 +59,7 @@ export default function Elements() {
     const [busy, setBusy] = useState(false);
     const [rename, setRename] = useState<RenameState | null>(null);
     const [localError, setLocalError] = useState<string | null>(null);
+    const [createModalOpen, setCreateModalOpen] = useState(false);
 
     const layers = [...canvas];//.reverse();
 
@@ -118,9 +120,10 @@ export default function Elements() {
                     <button
                         className="panel-header-button"
                         type="button"
-                        disabled
-                        title="Add an element (coming soon)"
-                        aria-label="Add an element"
+                        disabled={status !== "connected"}
+                        onClick={() => setCreateModalOpen(true)}
+                        title="Create a new element"
+                        aria-label="Create a new element"
                     >
                         <Plus size={18}/>
                     </button>
@@ -275,6 +278,7 @@ export default function Elements() {
                     </>
                 )}
             </div>
+            <CreateElementModal open={createModalOpen} onClose={() => setCreateModalOpen(false)}/>
         </>
     );
 }
