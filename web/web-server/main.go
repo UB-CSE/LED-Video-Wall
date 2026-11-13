@@ -43,6 +43,27 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 		ctx.File(filepath.Join(serverConfig.UserResourceUploadsDir, resourceName))
 	})
 
+	r.GET("/api/font/:font", func(ctx *gin.Context) {
+		fontName := ctx.Params.ByName("font")
+		ctx.File(filepath.Join(serverConfig.FontsDir, fontName))
+	})
+
+	r.GET("/api/list-fonts", func(c *gin.Context) {
+		entries, err := os.ReadDir(serverConfig.FontsDir)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var names []string
+		for _, entry := range entries {
+			if !entry.IsDir() && strings.EqualFold(filepath.Ext(entry.Name()), ".ttf") {
+				names = append(names, entry.Name())
+			}
+		}
+
+		c.JSON(http.StatusOK, names)
+	})
+
 	r.GET("/api/list-config-files", func(c *gin.Context) {
 		entries, err := os.ReadDir(serverConfig.UserCanvasConfigsDir)
 		if err != nil {

@@ -1,62 +1,70 @@
-#Beyond just the id, the id is also a weight to determine which images have layering priority
-
-#Gamma - Less than 1 -> lighter, More than 1 -> Darker
-
 settings:
   gamma: 1
 elements:
-  "elem1":
+  elem1:
     order: 0
-    name: "Horse"
-    type: "image"
-    filepath: "horse.jpg"
-    location: [ 0, 0 ]
+    type: image
+    filepath: horse.jpg
+    name: Horse
+    location:
+      - 14
+      - 5
     size:
-      width: 64
-      height: 64
-  "elem2":
+      width: 73
+      height: 68
+    preserve-aspect-ratio: false
+  elem2:
     order: 1
-    name: "Butterfly"
-    type: "image"
-    filepath: "butterfly.jpg"
-    location: [ 0, 64 ]
+    type: image
+    filepath: butterfly.jpg
+    name: Butterfly
+    location:
+      - -1
+      - 55
     size:
       width: 64
       height: 64
-  "elem3":
+  elem3:
     order: 2
-    name: "Parrot"
-    type: "image"
-    filepath: "parrot.jpg"
-    location: [ 0, 128 ]
+    type: image
+    filepath: parrot.jpg
+    name: Parrot
+    location:
+      - 5
+      - 96
     size:
       width: 64
       height: 64
-  "elem4":
+  elem4:
     order: 3
-    name: "Clownfish"
-    type: "image"
-    filepath: "clownfish.jpg"
-    location: [ 0, 192 ]
+    type: image
+    filepath: clownfish.jpg
+    name: Clownfish
+    location:
+      - 0
+      - 192
     size:
       width: 64
       height: 64
-  "elem5":
+  elem5:
     order: 4
-    name: "Tree frog"
-    type: "image"
-    filepath: "treefrog.jpg"
-    location: [ 0, 256 ]
+    type: image
+    filepath: treefrog.jpg
+    name: Tree frog
+    location:
+      - 0
+      - 256
     size:
       width: 64
       height: 64
-  "elem6":
+  elem6:
     order: 5
-    name: "Rainbow"
-    type: "image"
-    filepath: "rainbow.png"
-    location: [ 0, 320 ]
+    type: image
+    filepath: rainbow.png
+    name: Rainbow
+    location:
+      - 0
+      - 320
     size:
       width: 64
       height: 64
-

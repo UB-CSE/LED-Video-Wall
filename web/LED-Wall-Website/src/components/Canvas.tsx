@@ -1,10 +1,18 @@
 import {useCallback, useEffect, useRef, useState} from "react";
-import {Image as KonvaImage, Layer, Rect, Stage, Text, Transformer} from "react-konva";
+import {Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer} from "react-konva";
 import type {Stage as KonvaStage} from "konva/lib/Stage";
 import type {Transformer as KonvaTransformer} from "konva/lib/shapes/Transformer";
 import type {Node as KonvaNode} from "konva/lib/Node";
+import type {Image as KonvaImageNode} from "konva/lib/shapes/Image";
+import type {Rect as KonvaRectNode} from "konva/lib/shapes/Rect";
 import type {KonvaEventObject} from "konva/lib/Node";
-import {type CanvasElement, type Location, type Size, useVideoWall} from "../context/VideoWallContext.tsx";
+import {
+    type CanvasElement,
+    type ImageCanvasElement,
+    type Location,
+    type Size,
+    useVideoWall
+} from "../context/VideoWallContext.tsx";
 
 type PanState = {
     startX: number;
@@ -14,27 +22,41 @@ type PanState = {
 };
 
 type ImageElementProps = {
-    element: CanvasElement;
+    element: ImageCanvasElement;
     x: number;
     y: number;
     onSelect: () => void;
     onDragEnd: (node: KonvaNode) => void;
-    onTransformEnd: (node: KonvaNode) => void;
-    registerNode: (id: string, node: KonvaNode | null) => void;
+    onTransformEnd: (node: KonvaNode, afterReset?: (size: Size) => void) => void;
+    registerNode: (element: CanvasElement, node: KonvaNode | null) => void;
 };
 
-function getImageUrl(filepath: string): string {
+function getImageURL(filepath: string): string {
     const normalized = filepath.replace(/^\/+/, "");
     const encoded = normalized.split("/").map((segment) => encodeURIComponent(segment)).join("/");
     return `/api/resources/${encoded}`;
 }
 
+function getContainedImageSize(imageWidth: number, imageHeight: number, box: Size): Size {
+    if (imageWidth <= 0 || imageHeight <= 0 || box.width <= 0 || box.height <= 0) {
+        return {width: 0, height: 0};
+    }
+
+    const scale = Math.min(box.width / imageWidth, box.height / imageHeight);
+    return {
+        width: imageWidth * scale,
+        height: imageHeight * scale,
+    };
+}
+
 function CanvasImageElement({element, x, y, onSelect, onDragEnd, onTransformEnd, registerNode}: ImageElementProps) {
     const [image, setImage] = useState<HTMLImageElement | null>(null);
-    const filepath = typeof element.filepath === "string" ? element.filepath : "";
+    const boundsRef = useRef<KonvaRectNode>(null);
+    const imageRef = useRef<KonvaImageNode>(null);
+    const groupRef = useRef<KonvaNode>(null);
 
     useEffect(() => {
-        if (!filepath) {
+        if (!element.filepath) {
             setImage(null);
             return;
         }
@@ -47,47 +69,117 @@ function CanvasImageElement({element, x, y, onSelect, onDragEnd, onTransformEnd,
         loadedImage.onerror = () => {
             if (active) setImage(null);
         };
-        loadedImage.src = getImageUrl(filepath);
+        loadedImage.src = getImageURL(element.filepath);
 
         return () => {
             active = false;
             loadedImage.onload = null;
             loadedImage.onerror = null;
         };
-    }, [filepath]);
+    }, [element.filepath]);
 
-    const sharedProps = {
-        x,
-        y,
-        width: element.size.width,
-        height: element.size.height,
-        offsetX: element.size.width / 2,
-        offsetY: element.size.height / 2,
-        rotation: -element.rotation,
-        draggable: true,
-        onClick: onSelect,
-        onTap: onSelect,
-        onDragStart: onSelect,
-        onDragEnd: (event: KonvaEventObject<DragEvent>) => onDragEnd(event.target),
-        onTransformEnd: (event: KonvaEventObject<Event>) => onTransformEnd(event.target),
+    const getRenderedImageSize = (box: Size): Size => {
+        if (!image || !element.preserveAspectRatio) return box;
+        return getContainedImageSize(image.naturalWidth || image.width, image.naturalHeight || image.height, box);
     };
 
-    if (!image) {
-        return (
-            <Rect
-                ref={(node) => registerNode(element.id, node)}
-                {...sharedProps}
-                fill="#ff0000"
-            />
+    const syncImageToBounds = (box: Size) => {
+        const imageNode = imageRef.current;
+        if (!imageNode || !image) return;
+
+        const renderedSize = getRenderedImageSize(box);
+        imageNode.setAttrs({
+            x: 0,
+            y: 0,
+            width: renderedSize.width,
+            height: renderedSize.height,
+            image: image,
+        });
+        imageNode.getLayer()?.batchDraw();
+    };
+
+    const syncImageDuringTransform = () => {
+        if (!image || !element.preserveAspectRatio) return;
+        const group = groupRef.current;
+        const imageNode = imageRef.current;
+        if (!group || !imageNode) return;
+
+        const scaleX = Math.max(0.0001, Math.abs(group.scaleX()));
+        const scaleY = Math.max(0.0001, Math.abs(group.scaleY()));
+        const transformedBounds = {
+            width: group.width() * scaleX,
+            height: group.height() * scaleY,
+        };
+        const renderedSize = getContainedImageSize(
+            image.naturalWidth || image.width,
+            image.naturalHeight || image.height,
+            transformedBounds,
         );
-    }
+        // The group itself is scaled by Konva's Transformer. Counter-scale the
+        // image's local geometry so the pixels remain uniformly scaled on screen.
+        const localSize = {
+            width: renderedSize.width / scaleX,
+            height: renderedSize.height / scaleY,
+        };
+
+        imageNode.setAttrs({
+            x: 0,
+            y: 0,
+            width: localSize.width,
+            height: localSize.height,
+            image: image,
+        });
+        imageNode.getLayer()?.batchDraw();
+    };
+
+    const initialImageSize = getRenderedImageSize(element.size);
 
     return (
-        <KonvaImage
-            ref={(node) => registerNode(element.id, node)}
-            {...sharedProps}
-            image={image}
-        />
+        <Group
+            ref={(node) => {
+                groupRef.current = node;
+                registerNode(element, node);
+            }}
+            x={x}
+            y={y}
+            width={element.size.width}
+            height={element.size.height}
+            offsetX={element.size.width / 2}
+            offsetY={element.size.height / 2}
+            rotation={-element.rotation}
+            draggable
+            onClick={onSelect}
+            onTap={onSelect}
+            onDragStart={onSelect}
+            onDragEnd={(event) => onDragEnd(event.target)}
+            onTransform={syncImageDuringTransform}
+            onTransformEnd={(event) => onTransformEnd(event.target, (size) => {
+                boundsRef.current?.size(size);
+                syncImageToBounds(size);
+            })}
+        >
+            {/* The transparent rectangle is the element's logical bounds. It remains
+                the selection/resize target even when the contained image has margins. */}
+            <Rect
+                ref={boundsRef}
+                x={0}
+                y={0}
+                width={element.size.width}
+                height={element.size.height}
+                fill={image ? "rgba(0, 0, 0, 0.001)" : "#ff0000"}
+            />
+            {image && (
+                <KonvaImage
+                    ref={imageRef}
+                    image={image}
+                    x={0}
+                    y={0}
+                    width={initialImageSize.width}
+                    height={initialImageSize.height}
+                    listening={false}
+                />
+            )}
+        </Group>
     );
 }
 
@@ -113,13 +205,16 @@ export default function Canvas() {
     const panRef = useRef<PanState | null>(null);
     const elementNodesRef = useRef<Map<string, KonvaNode>>(new Map());
 
-    const registerNode = useCallback((id: string, node: KonvaNode | null) => {
-        if (node) elementNodesRef.current.set(id, node);
-        else elementNodesRef.current.delete(id);
+    const layers = [...canvas].reverse();
 
-        if (selectedCanvasElementId === id && transformerRef.current) {
+    const registerNode = useCallback((element: CanvasElement, node: KonvaNode | null) => {
+        if (node) elementNodesRef.current.set(element.id, node);
+        else elementNodesRef.current.delete(element.id);
+
+        if (selectedCanvasElementId === element.id && transformerRef.current) {
             transformerRef.current.nodes(node ? [node] : []);
             transformerRef.current.getLayer()?.batchDraw();
+            transformerRef.current.resizeEnabled(element.type != "text");
         }
     }, [selectedCanvasElementId]);
 
@@ -169,7 +264,7 @@ export default function Canvas() {
             : undefined;
         transformer.nodes(selectedNode ? [selectedNode] : []);
         transformer.getLayer()?.batchDraw();
-    }, [selectedCanvasElementId, canvas, canvasLoading, width, height]);
+    }, [selectedCanvasElementId, layers, canvasLoading, width, height]);
 
     function handleMouseDown(e: KonvaEventObject<MouseEvent>) {
         const evt = e.evt;
@@ -246,16 +341,16 @@ export default function Canvas() {
         void moveCanvasElement(element.id, location);
     }
 
-    function handleElementTransformEnd(element: CanvasElement, node: KonvaNode) {
+    function handleElementTransformEnd(
+        element: CanvasElement,
+        node: KonvaNode,
+        afterReset?: (size: Size) => void,
+    ) {
         const nextSize: Size = {
-            width: Math.max(1, node.width() * node.scaleX()),
-            height: Math.max(1, node.height() * node.scaleY()),
+            width: Math.max(1, node.width() * Math.abs(node.scaleX())),
+            height: Math.max(1, node.height() * Math.abs(node.scaleY())),
         };
         const nextRotationCCW = -node.rotation();
-        const nextLocation = fromCanvasPos(
-            node.x() - nextSize.width / 2,
-            node.y() - nextSize.height / 2,
-        );
 
         node.width(nextSize.width);
         node.height(nextSize.height);
@@ -263,12 +358,13 @@ export default function Canvas() {
         node.scaleY(1);
         node.offsetX(nextSize.width / 2);
         node.offsetY(nextSize.height / 2);
+        afterReset?.(nextSize);
         node.getLayer()?.batchDraw();
 
-        void transformCanvasElement(element.id, nextSize, nextLocation, nextRotationCCW);
+        void transformCanvasElement(element.id, nextSize, nextRotationCCW);
     }
 
-    const selectedElement = canvas.find((element) => element.id === selectedCanvasElementId);
+    const selectedElement = layers.find((element) => element.id === selectedCanvasElementId);
 
     return (
         <div ref={containerRef} className="panel-content canvas-content" aria-busy={canvasLoading}>
@@ -309,7 +405,7 @@ export default function Canvas() {
                         </Layer>
 
                         <Layer>
-                            {canvas.map((element) => {
+                            {layers.map((element) => {
                                 const topLeft = getCanvasPos(element.location);
                                 const centerX = topLeft.x + element.size.width / 2;
                                 const centerY = topLeft.y + element.size.height / 2;
@@ -325,37 +421,43 @@ export default function Canvas() {
                                             y={centerY}
                                             onSelect={onSelect}
                                             onDragEnd={onDragEnd}
-                                            onTransformEnd={(node) => handleElementTransformEnd(element, node)}
+                                            onTransformEnd={(node, afterReset) => handleElementTransformEnd(element, node, afterReset)}
                                             registerNode={registerNode}
                                         />
                                     );
                                 }
 
                                 if (element.type === "text") {
-                                    const content = typeof element.text === "string" ? element.text : "";
+                                    const hexColor =
+                                        "#" + [element.color.r, element.color.g, element.color.b]
+                                            .map((value: number) => value.toString(16).padStart(2, "0"))
+                                            .join("");
+
                                     return (
                                         <Text
                                             key={element.id}
-                                            ref={(node) => registerNode(element.id, node)}
+                                            ref={(node) => registerNode(element, node)}
                                             x={centerX}
                                             y={centerY}
-                                            width={element.size.width}
-                                            height={element.size.height}
+                                            //width={element.size.width}
+                                            //height={element.size.height}
                                             offsetX={element.size.width / 2}
                                             offsetY={element.size.height / 2}
                                             rotation={-element.rotation}
-                                            text={content}
-                                            fontSize={18}
-                                            fill="#171717"
-                                            align="center"
-                                            verticalAlign="middle"
-                                            wrap="word"
+                                            text={element.text}
+                                            fontSize={element.fontSize}
+                                            fill={hexColor}
+                                            align="left"
+                                            verticalAlign="top"
+                                            fontFamily={`"${element.fontPath}"`}
+                                            wrap="none"
+                                            padding={0}
                                             draggable
                                             onClick={onSelect}
                                             onTap={onSelect}
                                             onDragStart={onSelect}
                                             onDragEnd={(event) => onDragEnd(event.target)}
-                                            onTransformEnd={(event) => handleElementTransformEnd(element, event.target)}
+                                            //onTransformEnd={(event) => handleElementTransformEnd(element, event.target)}
                                         />
                                     );
                                 }
@@ -363,7 +465,7 @@ export default function Canvas() {
                                 return (
                                     <Rect
                                         key={element.id}
-                                        ref={(node) => registerNode(element.id, node)}
+                                        ref={(node) => registerNode(element, node)}
                                         x={centerX}
                                         y={centerY}
                                         width={element.size.width}

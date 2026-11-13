@@ -212,6 +212,7 @@ func (m *LEDVWServerManager) StartServer(name string, serverConfig *ServerConfig
 		args = append(args, "--prod")
 	}
 	args = append(args, "--canvas-configs-dir", serverConfig.UserCanvasConfigsDir)
+	args = append(args, "--fonts-dir", serverConfig.FontsDir)
 	args = append(args, "--resources-dir", serverConfig.UserResourceUploadsDir)
 	args = append(args, "--logs-dir", serverConfig.LogsDir)
 
