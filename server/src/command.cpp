@@ -372,6 +372,11 @@ nlohmann::json doImageNew(VirtualCanvas &vCanvas, Controller &controller,
   auto element = std::make_shared<ImageElement>(uid, filepath);
   vCanvas.addElement(element);
 
+  // Set initial size
+  cv::Size size = vCanvas.getMatrixConfig()->canvas_size / 2;
+  size.width = size.height = std::min(size.width, size.height);
+  element->setSize(size);
+
   return NewElementCommandResult(uid);
 }
 

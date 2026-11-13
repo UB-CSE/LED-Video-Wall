@@ -104,6 +104,8 @@ export interface VideoWallContextValue {
     moveCanvasElementZ: (id: string, direction: "up" | "down") => Promise<void>;
     renameCanvasElement: (id: string, newName: string) => Promise<void>;
     transformCanvasElement: (id: string, size: Size, degreesCCW: number) => Promise<void>;
+    createImageElement: (filepath: string) => Promise<void>;
+    createTextElement: (content: string, fontPath: string, fontSize: number, color: RGB) => Promise<void>;
     matrices: MatrixPos[];
     canvasSize: Size;
 }
@@ -602,6 +604,48 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
     }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
 
 
+    const createElement = useCallback(async (commandName: string, args: unknown[]) => {
+        try {
+            const response = await sendCommand(commandName, args);
+            const responseError = getResponseError(response);
+            if (responseError) throw new Error(responseError);
+            await refreshCanvas();
+            await saveCanvasAfterChange();
+        } catch (error) {
+            setCanvasError(getErrorMessage(error));
+            throw error;
+        }
+    }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
+
+    const createImageElement = useCallback(async (filepath: string) => {
+        const trimmedPath = filepath.trim();
+        if (!trimmedPath) throw new Error("Choose an image before creating the element.");
+        await createElement("image-new", [trimmedPath]);
+    }, [createElement]);
+
+    const createTextElement = useCallback(async (
+        content: string,
+        fontPath: string,
+        fontSize: number,
+        color: RGB,
+    ) => {
+        if (!content.trim()) throw new Error("Text content cannot be empty.");
+        if (!fontPath.trim()) throw new Error("Choose a font before creating the element.");
+        if (!Number.isFinite(fontSize) || fontSize <= 0) throw new Error("Font size must be greater than zero.");
+        const channels = [color.r, color.g, color.b];
+        if (channels.some((channel) => !Number.isInteger(channel) || channel < 0 || channel > 255)) {
+            throw new Error("RGB values must be integers between 0 and 255.");
+        }
+        await createElement("text-new", [
+            content,
+            fontPath,
+            String(fontSize),
+            String(color.r),
+            String(color.g),
+            String(color.b),
+        ]);
+    }, [createElement]);
+
     const transformCanvasElement = useCallback(async (
         id: string,
         size: Size,
@@ -686,6 +730,8 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         moveCanvasElementZ,
         renameCanvasElement,
         transformCanvasElement,
+        createImageElement,
+        createTextElement,
         matrices,
         canvasSize,
     }), [
@@ -712,6 +758,8 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         moveCanvasElementZ,
         renameCanvasElement,
         transformCanvasElement,
+        createImageElement,
+        createTextElement,
         matrices,
         canvasSize,
     ]);

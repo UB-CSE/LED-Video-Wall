@@ -248,10 +248,11 @@ func (m *LEDVWServerManager) RunCommand(command *LEDVWCommand, name string) (str
 		commandString.WriteString(" \"" + arg + "\"")
 	}
 
-	// TODO: Validate arguments for the command and adjust filesystem paths to point to be relative to resource locations
-
+	//log.Println(commandString.String())
 	server.SendChannel <- commandString.String()
 
 	response := <-server.ReceiveChannel // TODO: Don't wait forever for a response!
+	//log.Println(response)
+
 	return response, true
 }
