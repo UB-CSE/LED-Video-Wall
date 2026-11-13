@@ -5,7 +5,9 @@
 #include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <opencv2/opencv.hpp>
+#include <string>
 #include <vector>
 
 struct MatrixConfig {
@@ -24,4 +26,10 @@ struct MatrixConfig {
    * @return True if successful, false otherwise.
    */
   bool load(const std::filesystem::path &filepath);
+
+  /**
+   * Encodes the canvas region to JSON.
+   * @return JSON of all matrix sizes and positions.
+   */
+  nlohmann::json canvasRegionToJSON() const;
 };
