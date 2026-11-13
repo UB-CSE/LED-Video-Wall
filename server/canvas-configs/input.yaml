@@ -7,11 +7,12 @@ elements:
     filepath: horse.jpg
     name: Horse
     location:
-      - 9
-      - 21
+      - 14
+      - 5
     size:
-      width: 64
-      height: 64
+      width: 73
+      height: 68
+    preserve-aspect-ratio: false
   elem2:
     order: 1
     type: image

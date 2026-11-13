@@ -40,7 +40,7 @@ elements:
     order: 3
     type: text
     text: Hello
-    font-path: Lobster-Regular
+    font-path: Lobster-Regular.ttf
     font-size: 24
     color: "#0025ff"
     location:

@@ -6,12 +6,12 @@ elements:
     type: image
     filepath: rainbow.png
     location:
-      - 17
-      - 18
-    rotation: 0.176
+      - 13
+      - 26
+    rotation: -0.025
     size:
-      width: 45
-      height: 51
+      width: 38
+      height: 50
   elem2:
     order: 1
     type: text
