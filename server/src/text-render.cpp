@@ -29,8 +29,7 @@ FontManager::~FontManager() {
 
 std::filesystem::path
 FontManager::getFontPath(const std::string &fontName) const {
-  return std::filesystem::weakly_canonical(m_fontsDirPath /
-                                           (fontName + ".ttf"));
+  return std::filesystem::weakly_canonical(m_fontsDirPath / fontName);
 }
 
 cv::Mat FontManager::renderText(std::string_view text,

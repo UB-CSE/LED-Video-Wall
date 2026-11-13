@@ -92,8 +92,8 @@ export interface VideoWallContextValue {
     setAutoSave: (enabled: boolean) => void;
     saveCanvas: (configName?: string) => Promise<unknown>;
     loadCanvas: (configName: string | null) => Promise<void>;
-    /** Canvas elements in the server's native bottom-to-top stacking order. */
-    canvas: CanvasElement[];
+    fontNames: string[];
+    canvas: CanvasElement[]; // bottom to top
     canvasLoading: boolean;
     canvasError: string | null;
     canvasRevision: number;
@@ -103,7 +103,7 @@ export interface VideoWallContextValue {
     moveCanvasElement: (id: string, location: Location) => Promise<void>;
     moveCanvasElementZ: (id: string, direction: "up" | "down") => Promise<void>;
     renameCanvasElement: (id: string, newName: string) => Promise<void>;
-    transformCanvasElement: (id: string, size: Size, location: Location, degreesCCW: number) => Promise<void>;
+    transformCanvasElement: (id: string, size: Size, degreesCCW: number) => Promise<void>;
     matrices: MatrixPos[];
     canvasSize: Size;
 }
@@ -284,6 +284,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
     const [lastMessage, setLastMessage] = useState<unknown>(null);
     const [activeConfig, setActiveConfig] = useState<string | null>(null);
     const [autoSave, setAutoSave] = useState(true);
+    const [fontNames, setFontNames] = useState<string[]>([]);
     const [canvas, setCanvas] = useState<CanvasElement[]>([]);
     const [canvasLoading, setCanvasLoading] = useState(false);
     const [canvasError, setCanvasError] = useState<string | null>(null);
@@ -510,6 +511,35 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         }
     }, [activeConfig, autoSave, saveCanvas]);
 
+    const loadFonts = useCallback(async () => {
+        const response = await fetch("/api/list-fonts");
+        if (!response.ok) throw new Error("Could not load font list");
+
+        const names = await response.json();
+        setFontNames(names);
+
+        const results = await Promise.allSettled(
+            names.map(async (name: string) => {
+                const url = `/api/font/${encodeURIComponent(name)}`;
+                const face = new FontFace(name, `url("${url}")`);
+
+                document.fonts.add(face);
+                await face.load();
+
+                return name;
+            }),
+        );
+
+        const failed = results.flatMap((result, i) =>
+            result.status === "rejected" ? [names[i]] : [],
+        );
+
+        if (failed.length) {
+            setCanvasError("Could not load these fonts");
+            throw new Error("Could not load fonts")
+        }
+    }, []);
+
     const loadCanvas = useCallback(async (configName: string | null) => {
         const response = configName
             ? await sendCommand("canvas-load", [configName])
@@ -575,7 +605,6 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
     const transformCanvasElement = useCallback(async (
         id: string,
         size: Size,
-        location: Location,
         degreesCCW: number,
     ) => {
         const element = canvas.find((candidate) => candidate.id === id);
@@ -583,8 +612,6 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
 
         const width = Math.max(1, Math.round(size.width));
         const height = Math.max(1, Math.round(size.height));
-        const x = Math.round(location.x);
-        const y = Math.round(location.y);
         const rotation = Number(degreesCCW.toFixed(3));
 
         try {
@@ -596,12 +623,6 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
 
             if (rotation !== 0) {
                 const response = await sendCommand("element-rotate", [id, String(rotation)]);
-                const responseError = getResponseError(response);
-                if (responseError) throw new Error(responseError);
-            }
-
-            if (x !== Math.round(element.location.x) || y !== Math.round(element.location.y)) {
-                const response = await sendCommand("element-move", [id, String(x), String(y)]);
                 const responseError = getResponseError(response);
                 if (responseError) throw new Error(responseError);
             }
@@ -626,6 +647,10 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         }
     }, [status, refreshCanvas]);
 
+    useEffect(() => {
+        void loadFonts().catch(() => undefined);
+    }, []);
+
     useEffect(() => () => {
         const socket = socketRef.current;
         socketRef.current = null;
@@ -649,6 +674,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         setAutoSave,
         saveCanvas,
         loadCanvas,
+        fontNames,
         canvas,
         canvasLoading,
         canvasError,
@@ -674,6 +700,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         autoSave,
         saveCanvas,
         loadCanvas,
+        fontNames,
         canvas,
         canvasLoading,
         canvasError,
