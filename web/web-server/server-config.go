@@ -11,6 +11,7 @@ type ServerConfig struct {
 	VWServerPath           string
 	LogsDir                string
 	MatrixConfigsDir       string
+	FontsDir               string
 	UserCanvasConfigsDir   string
 	UserResourceUploadsDir string
 	DisableGPU             bool
@@ -35,6 +36,10 @@ func GetServerConfig() *ServerConfig {
 	serverConfig.MatrixConfigsDir, ok = os.LookupEnv("LEDVW_MATRIX_CONFIGS_DIR")
 	if !ok {
 		log.Fatal("environment variable LEDVW_MATRIX_CONFIGS_DIR not set")
+	}
+	serverConfig.FontsDir, ok = os.LookupEnv("LEDVW_FONTS_DIR")
+	if !ok {
+		log.Fatal("environment variable LEDVW_FONTS_DIR not set")
 	}
 	serverConfig.UserCanvasConfigsDir, ok = os.LookupEnv("LEDVW_USER_CANVAS_CONFIGS_DIR")
 	if !ok {

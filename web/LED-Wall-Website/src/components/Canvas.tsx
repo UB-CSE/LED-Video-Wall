@@ -4,7 +4,7 @@ import type {Stage as KonvaStage} from "konva/lib/Stage";
 import type {Transformer as KonvaTransformer} from "konva/lib/shapes/Transformer";
 import type {Node as KonvaNode} from "konva/lib/Node";
 import type {KonvaEventObject} from "konva/lib/Node";
-import {type CanvasElement, type Location, type Size, useVideoWall} from "../context/VideoWallContext.tsx";
+import {type CanvasElement, type ImageCanvasElement, type CarouselCanvasElement, type VideoCanvasElement, type RTMPCanvasElement, type WebBrowserCanvasElement, type TextCanvasElement, type Location, type Size, useVideoWall} from "../context/VideoWallContext.tsx";
 
 type PanState = {
     startX: number;
@@ -14,7 +14,7 @@ type PanState = {
 };
 
 type ImageElementProps = {
-    element: CanvasElement;
+    element: ImageCanvasElement;
     x: number;
     y: number;
     onSelect: () => void;
@@ -23,7 +23,7 @@ type ImageElementProps = {
     registerNode: (id: string, node: KonvaNode | null) => void;
 };
 
-function getImageUrl(filepath: string): string {
+function getImageURL(filepath: string): string {
     const normalized = filepath.replace(/^\/+/, "");
     const encoded = normalized.split("/").map((segment) => encodeURIComponent(segment)).join("/");
     return `/api/resources/${encoded}`;
@@ -31,10 +31,9 @@ function getImageUrl(filepath: string): string {
 
 function CanvasImageElement({element, x, y, onSelect, onDragEnd, onTransformEnd, registerNode}: ImageElementProps) {
     const [image, setImage] = useState<HTMLImageElement | null>(null);
-    const filepath = typeof element.filepath === "string" ? element.filepath : "";
 
     useEffect(() => {
-        if (!filepath) {
+        if (!element.filepath) {
             setImage(null);
             return;
         }
@@ -47,14 +46,14 @@ function CanvasImageElement({element, x, y, onSelect, onDragEnd, onTransformEnd,
         loadedImage.onerror = () => {
             if (active) setImage(null);
         };
-        loadedImage.src = getImageUrl(filepath);
+        loadedImage.src = getImageURL(element.filepath);
 
         return () => {
             active = false;
             loadedImage.onload = null;
             loadedImage.onerror = null;
         };
-    }, [filepath]);
+    }, [element.filepath]);
 
     const sharedProps = {
         x,
@@ -113,6 +112,8 @@ export default function Canvas() {
     const panRef = useRef<PanState | null>(null);
     const elementNodesRef = useRef<Map<string, KonvaNode>>(new Map());
 
+    const layers = [...canvas].reverse();
+
     const registerNode = useCallback((id: string, node: KonvaNode | null) => {
         if (node) elementNodesRef.current.set(id, node);
         else elementNodesRef.current.delete(id);
@@ -169,7 +170,7 @@ export default function Canvas() {
             : undefined;
         transformer.nodes(selectedNode ? [selectedNode] : []);
         transformer.getLayer()?.batchDraw();
-    }, [selectedCanvasElementId, canvas, canvasLoading, width, height]);
+    }, [selectedCanvasElementId, layers, canvasLoading, width, height]);
 
     function handleMouseDown(e: KonvaEventObject<MouseEvent>) {
         const evt = e.evt;
@@ -268,7 +269,7 @@ export default function Canvas() {
         void transformCanvasElement(element.id, nextSize, nextLocation, nextRotationCCW);
     }
 
-    const selectedElement = canvas.find((element) => element.id === selectedCanvasElementId);
+    //const selectedElement = layers.find((element) => element.id === selectedCanvasElementId);
 
     return (
         <div ref={containerRef} className="panel-content canvas-content" aria-busy={canvasLoading}>
@@ -309,7 +310,7 @@ export default function Canvas() {
                         </Layer>
 
                         <Layer>
-                            {canvas.map((element) => {
+                            {layers.map((element) => {
                                 const topLeft = getCanvasPos(element.location);
                                 const centerX = topLeft.x + element.size.width / 2;
                                 const centerY = topLeft.y + element.size.height / 2;
@@ -332,24 +333,29 @@ export default function Canvas() {
                                 }
 
                                 if (element.type === "text") {
-                                    const content = typeof element.text === "string" ? element.text : "";
+                                    const hexColor =
+                                        "#" + [element.color.r, element.color.g, element.color.b]
+                                            .map((value: number) => value.toString(16).padStart(2, "0"))
+                                            .join("");
+
                                     return (
                                         <Text
                                             key={element.id}
                                             ref={(node) => registerNode(element.id, node)}
                                             x={centerX}
                                             y={centerY}
-                                            width={element.size.width}
-                                            height={element.size.height}
+                                            //width={element.size.width}
+                                            //height={element.size.height}
                                             offsetX={element.size.width / 2}
                                             offsetY={element.size.height / 2}
                                             rotation={-element.rotation}
-                                            text={content}
-                                            fontSize={18}
-                                            fill="#171717"
-                                            align="center"
-                                            verticalAlign="middle"
-                                            wrap="word"
+                                            text={element.text}
+                                            fontSize={element.fontSize}
+                                            fill={hexColor}
+                                            align="left"
+                                            verticalAlign="top"
+                                            wrap="none"
+                                            padding={0}
                                             draggable
                                             onClick={onSelect}
                                             onTap={onSelect}
@@ -387,7 +393,7 @@ export default function Canvas() {
                             <Transformer
                                 ref={transformerRef}
                                 rotateEnabled
-                                keepRatio={selectedElement?.preserveAspectRatio ?? false}
+                                //keepRatio={selectedElement?.preserveAspectRatio ?? false}
                                 flipEnabled={false}
                                 rotateAnchorOffset={28}
                                 boundBoxFunc={(oldBox, newBox) => {

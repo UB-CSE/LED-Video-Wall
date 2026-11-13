@@ -161,6 +161,10 @@ void Element::rotateBy(double rotationDegrees) {
 }
 
 void Element::setSize(cv::Size size) {
+  if (dynamic_cast<TextElement *>(this)) { // use font size instead
+    return;
+  }
+
   // For some reason this is signed...
   if (size.width < 0)
     size.width = 0;
@@ -308,7 +312,7 @@ CarouselElementToYAML(std::shared_ptr<CarouselElement> carouselElement,
 static void to_json(nlohmann::json &j, const CarouselElement &elem) {
   j = nlohmann::json{
       {"type", "carousel"},
-      {"filepaths", elem.getImageFilePaths()},
+      {"filePaths", elem.getImageFilePaths()},
       {"framerate", elem.getFrameRate()},
   };
 }
@@ -430,7 +434,7 @@ static void RTMPElementToYAML(std::shared_ptr<RTMPStreamElement> rtmpElement,
 static void to_json(nlohmann::json &j, const RTMPStreamElement &elem) {
   j = nlohmann::json{
       {"type", "rtmp"},
-      {"stream-name", elem.getStreamName()},
+      {"streamName", elem.getStreamName()},
       {"framerate", elem.getFrameRate()},
   };
 }
@@ -588,13 +592,13 @@ static void to_json(nlohmann::json &j, const WebBrowserElement &elem) {
 
     switch (cookie.same_site) {
     case CEF_COOKIE_SAME_SITE_NO_RESTRICTION:
-      cookieNode["sameSite"] = "None";
+      cookieNode["sameSite"] = "none";
       break;
     case CEF_COOKIE_SAME_SITE_LAX_MODE:
-      cookieNode["sameSite"] = "Lax";
+      cookieNode["sameSite"] = "lax";
       break;
     case CEF_COOKIE_SAME_SITE_STRICT_MODE:
-      cookieNode["sameSite"] = "Strict";
+      cookieNode["sameSite"] = "strict";
       break;
     default:
       break;
@@ -607,7 +611,7 @@ static void to_json(nlohmann::json &j, const WebBrowserElement &elem) {
       {"type", "web-browser"},
       {"url", elem.getURL()},
       {"framerate", elem.getFrameRate()},
-      {"view-size", elem.getViewSize()},
+      {"viewSize", elem.getViewSize()},
       {"cookies", cookies},
   };
 }
@@ -704,8 +708,8 @@ static void to_json(nlohmann::json &j, const TextElement &elem) {
   j = nlohmann::json{
       {"type", "text"},
       {"text", elem.getText()},
-      {"font-path", elem.getFontPath().string()},
-      {"font-size", elem.getFontSize()},
+      {"fontPath", elem.getFontPath().string()},
+      {"fontSize", elem.getFontSize()},
       {"color", color},
   };
 }
@@ -760,14 +764,16 @@ static void CommonElementPropsFromYAML(YAML::Node node, Element &element) {
     element.setRotation(rotation);
   }
 
-  if (node["size"]) {
-    const auto size = node["size"].as<cv::Size>();
-    element.setSize(size);
-  }
+  if (!dynamic_cast<TextElement *>(&element)) { // Set font size instead.
+    if (node["size"]) {
+      const auto size = node["size"].as<cv::Size>();
+      element.setSize(size);
+    }
 
-  if (node["preserve-aspect-ratio"]) {
-    const auto preserveAspectRatio = node["preserve-aspect-ratio"].as<bool>();
-    element.setPreserveAspectRatio(preserveAspectRatio);
+    if (node["preserve-aspect-ratio"]) {
+      const auto preserveAspectRatio = node["preserve-aspect-ratio"].as<bool>();
+      element.setPreserveAspectRatio(preserveAspectRatio);
+    }
   }
 }
 
@@ -784,13 +790,16 @@ static void CommonElementPropsToYAML(std::shared_ptr<Element> element,
     node["rotation"] = rotation;
   }
 
-  cv::Size size = element->getSize();
-  if (!size.empty()) {
-    node["size"] = size;
-  }
+  if (!std::dynamic_pointer_cast<TextElement>(
+          element)) { // Set font size instead.
+    cv::Size size = element->getSize();
+    if (!size.empty()) {
+      node["size"] = size;
+    }
 
-  if (element->wasPreserveAspectRatioChanged()) {
-    node["preserve-aspect-ratio"] = element->getPreserveAspectRatio();
+    if (element->wasPreserveAspectRatioChanged()) {
+      node["preserve-aspect-ratio"] = element->getPreserveAspectRatio();
+    }
   }
 }
 
@@ -1115,7 +1124,8 @@ void VirtualCanvas::pushElementsToPixelMatrix() {
 
   for (const auto &elemPtr : std::views::reverse(m_elements)) {
     const cv::Point elemLoc = elemPtr->getLocation();
-    cv::Mat elemMat = elemPtr->getPixelMatrix().clone(); // Current frame of the element
+    cv::Mat elemMat =
+        elemPtr->getPixelMatrix().clone(); // Current frame of the element
 
     const cv::Size elemSize = elemMat.size();
     if (elemSize.width <= 0 || elemSize.height <= 0) {
@@ -1123,7 +1133,7 @@ void VirtualCanvas::pushElementsToPixelMatrix() {
     }
 
     const cv::Rect elemRect(elemLoc, elemSize);
-    const cv::Rect canvasRect(cv::Point(0,0), m_dim);
+    const cv::Rect canvasRect(cv::Point(0, 0), m_dim);
 
     const cv::Rect overlapRect = elemRect & canvasRect;
 
@@ -1134,7 +1144,9 @@ void VirtualCanvas::pushElementsToPixelMatrix() {
     */
 
     if (!overlapRect.empty()) {
-      elemMat = elemMat(cv::Rect(overlapRect.x - elemLoc.x, overlapRect.y - elemLoc.y, overlapRect.width, overlapRect.height));
+      elemMat =
+          elemMat(cv::Rect(overlapRect.x - elemLoc.x, overlapRect.y - elemLoc.y,
+                           overlapRect.width, overlapRect.height));
 
       // Apply the gamma LUT here - OpenCV DOES support in place lutting
       cv::LUT(elemMat, m_canvasLUT, elemMat);

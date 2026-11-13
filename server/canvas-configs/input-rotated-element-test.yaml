@@ -1,38 +1,52 @@
 settings:
   gamma: 1.05
 elements:
-  "elem1":
-    order: 1
-    type: "video"
-    filepath: "alan/alan_ca_4_64x64.mp4"
-    location: [0, 0]
+  elem1:
+    order: 0
+    type: video
+    filepath: alan/alan_ca_4_64x64.mp4
     framerate: 30
+    location:
+      - 0
+      - 0
     rotation: 180
-  "elem2":
+    size:
+      width: 64
+      height: 64
+  elem2:
+    order: 1
+    type: image
+    filepath: treefrog.jpg
+    location:
+      - 40
+      - 10
+    rotation: 30
+    size:
+      width: 20
+      height: 20
+  elem3:
     order: 2
-    type: "image"
-    filepath: "treefrog.jpg"
-    location: [40,10]
-    size:
-      width: 20
-      height: 20
-    rotation: 30.0
-  "elem3":
-    order: 3
-    type: "rtmp"
-    stream-name: "test"
+    type: rtmp
+    stream-name: test
     framerate: 60
-    location: [0,44]
+    location:
+      - 0
+      - 44
+    rotation: -45
     size:
       width: 20
       height: 20
-    rotation: -45
-  "elem4":
-    order: 4
-    type: "text"
-    font-path: "ttf/Lobster-Regular.ttf"
+  elem4:
+    order: 3
+    type: text
+    text: Hello
+    font-path: Lobster-Regular
     font-size: 24
-    text: "Hello"
     color: "#0025ff"
-    location: [5,30]
-    rotation: -15.0
+    location:
+      - 19
+      - 35
+    rotation: -21.36
+    size:
+      width: 55
+      height: 24

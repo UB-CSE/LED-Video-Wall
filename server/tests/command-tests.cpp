@@ -270,21 +270,29 @@ TEST_F(Commands, CanvasGetRegion) {
   ASSERT_THAT(matricesJSON.size(), Eq(1));
   nlohmann::json matJSON = matricesJSON.at(0);
 
-  ASSERT_THAT(matJSON.contains("width"), IsTrue());
-  ASSERT_THAT(matJSON.at("width").is_number_integer(), IsTrue());
-  ASSERT_THAT(matJSON.at("width").get<uint32_t>(), Eq(128));
+  ASSERT_THAT(matJSON.contains("size"), IsTrue());
+  ASSERT_THAT(matJSON.at("size").is_object(), IsTrue());
 
-  ASSERT_THAT(matJSON.contains("height"), IsTrue());
-  ASSERT_THAT(matJSON.at("height").is_number_integer(), IsTrue());
-  ASSERT_THAT(matJSON.at("height").get<uint32_t>(), Eq(128));
+  nlohmann::json sizeJSON = matJSON["size"];
+  ASSERT_THAT(sizeJSON.contains("width"), IsTrue());
+  ASSERT_THAT(sizeJSON.at("width").is_number_integer(), IsTrue());
+  ASSERT_THAT(sizeJSON.at("width").get<uint32_t>(), Eq(128));
 
-  ASSERT_THAT(matJSON.contains("x"), IsTrue());
-  ASSERT_THAT(matJSON.at("x").is_number_integer(), IsTrue());
-  ASSERT_THAT(matJSON.at("x").get<uint32_t>(), Eq(10));
+  ASSERT_THAT(sizeJSON.contains("height"), IsTrue());
+  ASSERT_THAT(sizeJSON.at("height").is_number_integer(), IsTrue());
+  ASSERT_THAT(sizeJSON.at("height").get<uint32_t>(), Eq(128));
 
-  ASSERT_THAT(matJSON.contains("y"), IsTrue());
-  ASSERT_THAT(matJSON.at("y").is_number_integer(), IsTrue());
-  ASSERT_THAT(matJSON.at("y").get<uint32_t>(), Eq(10));
+  ASSERT_THAT(matJSON.contains("location"), IsTrue());
+  ASSERT_THAT(matJSON.at("location").is_object(), IsTrue());
+
+  nlohmann::json locJSON = matJSON["location"];
+  ASSERT_THAT(locJSON.contains("x"), IsTrue());
+  ASSERT_THAT(locJSON.at("x").is_number_integer(), IsTrue());
+  ASSERT_THAT(locJSON.at("x").get<uint32_t>(), Eq(10));
+
+  ASSERT_THAT(locJSON.contains("y"), IsTrue());
+  ASSERT_THAT(locJSON.at("y").is_number_integer(), IsTrue());
+  ASSERT_THAT(locJSON.at("y").get<uint32_t>(), Eq(10));
 }
 
 TEST_F(Commands, CanvasLoad) {

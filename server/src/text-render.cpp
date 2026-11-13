@@ -27,6 +27,12 @@ FontManager::~FontManager() {
   FT_Done_FreeType(m_ft);
 }
 
+std::filesystem::path
+FontManager::getFontPath(const std::string &fontName) const {
+  return std::filesystem::weakly_canonical(m_fontsDirPath /
+                                           (fontName + ".ttf"));
+}
+
 cv::Mat FontManager::renderText(std::string_view text,
                                 const std::filesystem::path &fontPath,
                                 int fontSize, cv::Scalar textColor) {
@@ -149,14 +155,14 @@ cv::Mat FontManager::renderText(std::string_view text,
   return result;
 }
 
-FT_Face FontManager::loadFont(const std::filesystem::path &path) {
+FT_Face FontManager::loadFont(const std::string &name) {
   if (!m_isInitialized) {
     return nullptr;
   }
 
-  std::filesystem::path absPath = std::filesystem::absolute(path);
+  const std::filesystem::path absPath = getFontPath(name);
   if (!std::filesystem::exists(absPath)) {
-    spdlog::error("[Fonts] no such font `{}'", path.string());
+    spdlog::error("[Fonts] no such font `{}'", name);
     return nullptr;
   }
 
@@ -167,12 +173,12 @@ FT_Face FontManager::loadFont(const std::filesystem::path &path) {
   FT_Face face;
   if (FT_Error error = FT_New_Face(m_ft, absPath.c_str(), 0, &face);
       error != FT_Err_Ok) {
-    spdlog::error("[Fonts] failed to load font `{}': {}", path.string(),
+    spdlog::error("[Fonts] failed to load font `{}': {}", name,
                   FT_Error_String(error));
     return nullptr;
   }
 
   m_faces[absPath] = face;
-  spdlog::info("[Fonts] successfully loaded font `{}'", path.string());
+  spdlog::info("[Fonts] successfully loaded font `{}'", name);
   return face;
 }

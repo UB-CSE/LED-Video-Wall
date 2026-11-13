@@ -6,6 +6,7 @@
 #include "matrix-config.hpp"
 #include "rtmp.hpp"
 #include "tcp.hpp"
+#include "text-render.hpp"
 #include "unix-socket-msg-channel-tests.hpp"
 #include <OptionParser.hpp>
 #include <cef_app.h>
@@ -54,6 +55,7 @@ enum Options {
   CanvasConfig,
   CanvasConfigsDir,
   ResourcesDir,
+  FontsDir,
   LogsDir,
   RTMP_TLSCert,
   RTMP_TLSKey,
@@ -99,6 +101,13 @@ const CommandLine::Option cmdLineOptions[] = {
             "Directory to look for canvas resources (images, videos, etc.) in",
     },
     {
+        .ID = Options::FontsDir,
+        .Names = {"fonts-dir"},
+        .RequiresValue = true,
+        .ValueName = "path",
+        .Help = "Directory to look for font ttf files in",
+    },
+    {
         .ID = Options::LogsDir,
         .Names = {"logs-dir"},
         .RequiresValue = true,
@@ -129,6 +138,7 @@ const CommandLine::Option cmdLineOptions[] = {
 
 std::filesystem::path canvasConfigsDirPath;
 std::filesystem::path resourcesDirPath;
+std::filesystem::path fontsDirPath;
 std::filesystem::path logsDirPath;
 
 std::filesystem::path matrixConfigFilePath;
@@ -191,6 +201,12 @@ bool handleCommandLine(int argc, char **argv) {
     resourcesDirPath = cmdLine->Options[Options::ResourcesDir];
   } else {
     resourcesDirPath = std::filesystem::current_path() / "images";
+  }
+
+  if (cmdLine->Options.contains(Options::FontsDir)) {
+    fontsDirPath = cmdLine->Options[Options::FontsDir];
+  } else {
+    fontsDirPath = std::filesystem::current_path() / "ttf";
   }
 
   if (cmdLine->Options.contains(Options::LogsDir)) {
@@ -306,6 +322,7 @@ int main(int argc, char *argv[]) {
   RTMPServer rtmpServer(matrixConfig.rtmpPort, "0.0.0.0", rtmpCertPath,
                         rtmpKeyPath);
 
+  FontManager::get().setFontsDirPath(fontsDirPath);
   Element::SetResourcesDirPath(resourcesDirPath, prodMode);
   VirtualCanvas vCanvas(matrixConfig, rtmpServer, canvasConfigsDirPath,
                         prodMode);

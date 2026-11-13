@@ -2,17 +2,11 @@ import {createContext, type ReactNode, useCallback, useContext, useEffect, useMe
 
 export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
 
-export type Location = {
-    x: number;
-    y: number;
-};
+export type Location = { x: number; y: number; };
+export type Size = { width: number; height: number; };
+export type RGB = { r: number; g: number; b: number };
 
-export type Size = {
-    width: number;
-    height: number;
-};
-
-export type CanvasElement = Record<string, unknown> & {
+type CanvasElementBase = {
     id: string;
     name: string;
     type: string;
@@ -20,8 +14,64 @@ export type CanvasElement = Record<string, unknown> & {
     rotation: number;
     size: Size;
     preserveAspectRatio: boolean;
-    // TODO
 };
+
+export type ImageCanvasElement = CanvasElementBase & {
+    type: "image";
+    filepath: string;
+};
+
+export type CarouselCanvasElement = CanvasElementBase & {
+    type: "carousel";
+    filePaths: string[];
+    framerate: number;
+};
+
+export type VideoCanvasElement = CanvasElementBase & {
+    type: "video";
+    filepath: string;
+    framerate: number;
+};
+
+export type RTMPCanvasElement = CanvasElementBase & {
+    type: "rtmp";
+    streamName: string;
+    framerate: number;
+};
+
+export type WebBrowserCookie = {
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    secure: boolean;
+    httpOnly: boolean;
+    sameSite: CookieSameSite
+};
+
+export type WebBrowserCanvasElement = CanvasElementBase & {
+    type: "web-browser";
+    url: string;
+    framerate: number;
+    viewSize: Size;
+    cookies: WebBrowserCookie[];
+};
+
+export type TextCanvasElement = CanvasElementBase & {
+    type: "text";
+    text: string;
+    fontPath: string;
+    fontSize: number;
+    color: RGB;
+};
+
+export type CanvasElement =
+    | ImageCanvasElement
+    | CarouselCanvasElement
+    | VideoCanvasElement
+    | RTMPCanvasElement
+    | WebBrowserCanvasElement
+    | TextCanvasElement;
 
 export type MatrixPos = {
     location: Location;
@@ -75,6 +125,100 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isNumber(value: unknown): value is number {
+    return typeof value === "number";
+}
+
+function isString(value: unknown): value is string {
+    return typeof value === "string";
+}
+
+function isLocation(value: unknown): value is Location {
+    return isRecord(value) && isNumber(value.x) && isNumber(value.y);
+}
+
+function isSize(value: unknown): value is Size {
+    return isRecord(value) &&
+        isNumber(value.width) &&
+        isNumber(value.height);
+}
+
+function isRGB(value: unknown): value is RGB {
+    return isRecord(value) &&
+        isNumber(value.r) &&
+        isNumber(value.g) &&
+        isNumber(value.b);
+}
+
+function isCookieSameSite(value: unknown): value is CookieSameSite {
+    return value === "strict" || value === "lax" || value === "none";
+}
+
+function isWebBrowserCookie(value: unknown): value is WebBrowserCookie {
+    return isRecord(value) &&
+        isString(value.name) &&
+        isString(value.value) &&
+        isString(value.domain) &&
+        isString(value.path) &&
+        typeof value.secure === "boolean" &&
+        typeof value.httpOnly === "boolean" &&
+        isCookieSameSite(value.sameSite);
+}
+
+function hasCanvasElementBaseFields(value: Record<string, unknown>): boolean {
+    return isString(value.id) &&
+        isString(value.name) &&
+        isString(value.type) &&
+        isLocation(value.location) &&
+        isNumber(value.rotation) &&
+        isSize(value.size) &&
+        typeof value.preserveAspectRatio === "boolean";
+}
+
+function isCanvasElement(value: unknown): value is CanvasElement {
+    if (!isRecord(value) || !hasCanvasElementBaseFields(value)) return false;
+
+    switch (value.type) {
+        case "image":
+            return isString(value.filepath);
+
+        case "carousel":
+            return Array.isArray(value.filePaths) &&
+                value.filePaths.every(isString) &&
+                isNumber(value.framerate);
+
+        case "video":
+            return isString(value.filepath) &&
+                isNumber(value.framerate);
+
+        case "rtmp":
+            return isString(value.streamName) &&
+                isNumber(value.framerate);
+
+        case "web-browser":
+            return isString(value.url) &&
+                isNumber(value.framerate) &&
+                isSize(value.viewSize) &&
+                Array.isArray(value.cookies) &&
+                value.cookies.every(isWebBrowserCookie);
+
+        case "text":
+            return isString(value.text) &&
+                isString(value.fontPath) &&
+                isNumber(value.fontSize) &&
+                isRGB(value.color);
+
+        default:
+            return false;
+    }
+}
+
+function isMatrixPos(value: unknown): value is MatrixPos {
+    return isRecord(value) &&
+        isLocation(value.location) &&
+        isSize(value.size);
+}
+
 function getResponseError(response: unknown): string | null {
     if (!isRecord(response)) return "The video wall returned an invalid response.";
     if (response.success === true) return null;
@@ -91,31 +235,6 @@ function getResponseError(response: unknown): string | null {
     return details.length > 0 ? details.join(" ") : "The command failed.";
 }
 
-function parseLocation(raw: unknown): Location {
-    if (!isRecord(raw)) {
-        throw new Error("Invalid location.");
-    }
-    const x = raw.x;
-    const y = raw.y;
-    if (typeof x !== "number" || typeof y !== "number") {
-        throw new Error("Invalid location.");
-    }
-
-    return {x, y};
-}
-
-function parseSize(raw: unknown): Size {
-    if (!isRecord(raw)) {
-        throw new Error("Invalid size.");
-    }
-    const width = raw.width;
-    const height = raw.height;
-    if (typeof width !== "number" || typeof height !== "number") {
-        throw new Error("Invalid size.");
-    }
-
-    return {width, height};
-}
 
 function parseCanvas(response: unknown): CanvasElement[] {
     if (!isRecord(response)) {
@@ -128,48 +247,11 @@ function parseCanvas(response: unknown): CanvasElement[] {
         throw new Error("The response to canvas-get-elements did not contain a canvas array.");
     }
 
-    return response.canvas.flatMap((value, index): CanvasElement[] => {
-        if (!isRecord(value)) return [];
-        const id = value.id;
-        if (typeof id !== "string") return [];
+    if (!Array.isArray(response.canvas) || !response.canvas.every(isCanvasElement)) {
+        throw new Error("Invalid canvas elements.");
+    }
 
-        const name = value.name;
-        if (typeof name !== "string") return [];
-
-        const type = value.type;
-        if (typeof type !== "string") return [];
-
-        let location;
-        try {
-            location = parseLocation(value.location)
-        } catch (error) {
-            return [];
-        }
-
-        const rotation = value.rotation;
-        if (typeof rotation !== "number") return [];
-
-        let size;
-        try {
-            size = parseSize(value.size)
-        } catch (error) {
-            return [];
-        }
-
-        const preserveAspectRatio = value.preserveAspectRatio;
-        if (typeof preserveAspectRatio !== "boolean") return [];
-
-        return [{
-            ...value,
-            id: id,
-            name: name.trim() ? name : `Untitled element ${index + 1}`,
-            type: type,
-            location: location,
-            rotation: rotation,
-            size: size,
-            preserveAspectRatio: preserveAspectRatio,
-        }];
-    });
+    return response.canvas;
 }
 
 function parseMatrices(response: unknown): [Size, MatrixPos[]] {
@@ -180,38 +262,14 @@ function parseMatrices(response: unknown): [Size, MatrixPos[]] {
         throw new Error(getResponseError(response) ?? "Could not retrieve the canvas region.");
     }
 
-    let size;
-    try {
-        size = parseSize(response.size)
-    } catch (error) {
-        throw new Error("The response to canvas-get-region did not contain canvas size.");
+    if (!isSize(response.size)) {
+        throw new Error("The response to canvas-get-region did not contain a valid canvas size.");
+    }
+    if (!Array.isArray(response.matrices) || !response.matrices.every(isMatrixPos)) {
+        throw new Error("The response to canvas-get-region did not contain a valid matrices array.");
     }
 
-    if (!Array.isArray(response.matrices)) {
-        throw new Error("The response to canvas-get-region did not contain a matrices array.");
-    }
-
-    const matrices = response.matrices.flatMap((value): MatrixPos[] => {
-        if (!isRecord(value)) return [];
-        const x = value.x;
-        if (typeof x !== "number") return [];
-
-        const y = value.y;
-        if (typeof y !== "number") return [];
-
-        const width = value.width;
-        if (typeof width !== "number") return [];
-
-        const height = value.height;
-        if (typeof height !== "number") return [];
-
-        const location: Location = {x, y}
-        const size: Size = {width, height};
-
-        return [{location, size}];
-    });
-
-    return [size, matrices];
+    return [response.size, response.matrices];
 }
 
 export function VideoWallProvider({children}: { children: ReactNode }) {
@@ -475,7 +533,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
             const responseError = getResponseError(response);
             if (responseError) throw new Error(responseError);
             await saveCanvasAfterChange();
-        } catch(error) {
+        } catch (error) {
             setCanvasError(getErrorMessage(error));
             throw error;
         }

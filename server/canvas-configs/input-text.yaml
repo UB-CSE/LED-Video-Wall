@@ -6,8 +6,8 @@ elements:
     type: image
     filepath: rainbow.png
     location:
-      - 4
-      - 60
+      - 1
+      - 26
     size:
       width: 24
       height: 24
@@ -15,12 +15,13 @@ elements:
     order: 1
     type: text
     text: WHATS UP GUYS!!1
-    font-path: ttf/Lobster-Regular.ttf
+    font-path: Lobster-Regular
     font-size: 24
-    color: "#0025ff"
+    color: "#ff0000"
+    name: hi
     location:
-      - 5
-      - 0
+      - 2
+      - 3
     size:
-      width: 97
-      height: 54
+      width: 150
+      height: 55

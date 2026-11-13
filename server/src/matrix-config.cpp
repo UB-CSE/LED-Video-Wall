@@ -288,10 +288,8 @@ bool MatrixConfig::load(const std::filesystem::path &filepath) {
 }
 
 void to_json(nlohmann::json &j, const CanvasPos &pos) {
-  j["width"] = pos.width;
-  j["height"] = pos.height;
-  j["x"] = pos.x;
-  j["y"] = pos.y;
+  j["size"] = cv::Size(pos.width, pos.height);
+  j["location"] = cv::Point(pos.x, pos.y);
 }
 
 nlohmann::json MatrixConfig::canvasRegionToJSON() const {

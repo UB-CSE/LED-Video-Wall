@@ -25,9 +25,7 @@ interface RenameState {
     draft: string;
 }
 
-type ElementType = CanvasElement["type"];
-
-function elementIcon(type: ElementType): LucideIconType {
+function elementIcon(type: string): LucideIconType {
     switch (type) {
         case "image":
             return ImageIcon;
