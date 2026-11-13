@@ -665,7 +665,7 @@ static cv::Scalar hexColorToScalar(const std::string &hexColor) {
   int r, g, b;
   sscanf(hexColor.c_str(), "#%02x%02x%02x", &r, &g, &b);
 
-  return cv::Scalar(b, g, r);
+  return cv::Scalar(b, g, r, 255);
 }
 
 static std::shared_ptr<Element> TextElementFromYAML(const std::string &uid,
@@ -1114,16 +1114,18 @@ void VirtualCanvas::pushElementsToPixelMatrix() {
   clearPixelMatrix();
 
   for (const auto &elemPtr : std::views::reverse(m_elements)) {
-    cv::Point loc = elemPtr->getLocation();
+    const cv::Point elemLoc = elemPtr->getLocation();
+    cv::Mat elemMat = elemPtr->getPixelMatrix().clone(); // Current frame of the element
 
-    // Gets the current frame of the element object referenced by elemPtr
-    cv::Mat elemMat = elemPtr->getPixelMatrix().clone();
-
-    cv::Size elemSize = elemMat.size();
-
+    const cv::Size elemSize = elemMat.size();
     if (elemSize.width <= 0 || elemSize.height <= 0) {
       continue;
     }
+
+    const cv::Rect elemRect(elemLoc, elemSize);
+    const cv::Rect canvasRect(cv::Point(0,0), m_dim);
+
+    const cv::Rect overlapRect = elemRect & canvasRect;
 
     /*
     Overwite a region of interest with the image. If the image does not fit on
@@ -1131,25 +1133,13 @@ void VirtualCanvas::pushElementsToPixelMatrix() {
     transferring it to the canvas.
     */
 
-    if ((loc.x <= m_dim.width) && (loc.y <= m_dim.height)) {
-
-      if (loc.x + elemSize.width > m_dim.width) {
-        elemSize.width = m_dim.width - loc.x;
-      }
-
-      if (loc.y + elemSize.height > m_dim.height) {
-        elemSize.height = m_dim.height - loc.y;
-      }
-
-      elemMat = elemMat(cv::Rect(0, 0, elemSize.width, elemSize.height));
+    if (!overlapRect.empty()) {
+      elemMat = elemMat(cv::Rect(overlapRect.x - elemLoc.x, overlapRect.y - elemLoc.y, overlapRect.width, overlapRect.height));
 
       // Apply the gamma LUT here - OpenCV DOES support in place lutting
       cv::LUT(elemMat, m_canvasLUT, elemMat);
 
-      overlayImage(elemMat, cv::Rect(loc, elemSize));
-    } else {
-      spdlog::warn("[Element] {}: out of bounds, not rendered",
-                   elemPtr->getUID(), elemPtr->getName());
+      overlayImage(elemMat, overlapRect);
     }
   }
 }

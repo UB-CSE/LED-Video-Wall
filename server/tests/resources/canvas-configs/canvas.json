@@ -16,6 +16,7 @@
     "preserveAspectRatio": true,
 
     "type": "text",
+    "text": "Hello",
     "font-path": "../ttf/Lobster-Regular.ttf",
     "font-size": 24,
     "color": {
