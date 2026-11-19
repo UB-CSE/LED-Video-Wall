@@ -9,12 +9,48 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{}
+
+const (
+	wsWriteWait  = 10 * time.Second
+	wsPongWait   = 20 * time.Second
+	wsPingPeriod = (wsPongWait * 9) / 10
+)
+
+func startWebsocketKeepalive(wsConn *websocket.Conn) func() {
+	_ = wsConn.SetReadDeadline(time.Now().Add(wsPongWait))
+	wsConn.SetPongHandler(func(string) error {
+		return wsConn.SetReadDeadline(time.Now().Add(wsPongWait))
+	})
+
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(wsPingPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				err := wsConn.WriteControl(websocket.PingMessage, nil, time.Now().Add(wsWriteWait))
+				if err != nil {
+					log.Println("ping:", err)
+					_ = wsConn.Close()
+					return
+				}
+			}
+		}
+	}()
+
+	return func() { close(done) }
+}
+
 var vwServerManager = NewLEDVWServerManager()
 
 func newUUID() (string, error) {
@@ -260,6 +296,9 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 			return
 		}
 
+		stopKeepalive := startWebsocketKeepalive(wsConn)
+		defer stopKeepalive()
+
 		for {
 			command := &LEDVWCommand{}
 			err := wsConn.ReadJSON(command)
@@ -273,6 +312,10 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 				log.Println("failed to run command on wall", wallName)
 				break
 			}
+
+			// Pongs aren't processed while blocked on a command, so give the client a
+			// fresh window once the command completes.
+			_ = wsConn.SetReadDeadline(time.Now().Add(wsPongWait))
 
 			err = wsConn.WriteMessage(websocket.TextMessage, []byte(response))
 			if err != nil {
@@ -289,6 +332,12 @@ func main() {
 	log.SetPrefix("[LEDVW-Web-Server] ")
 
 	serverConfig := GetServerConfig()
+	if serverConfig.DebugMode {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := setupRouter(serverConfig)
 
 	_ = r.Run(":5000")
