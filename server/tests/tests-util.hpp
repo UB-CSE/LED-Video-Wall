@@ -25,17 +25,17 @@ using namespace testing;
 #pragma region Resource File Paths
 
 static const std::filesystem::path RainbowTestImagePath =
-    TestImagesDir / "rainbow.png";
+    TestImagesDir / "223924eb4e7f1b971ecc1466c0f3030ebfa20eb7e73e56ee30fd9d00caf62421.png";
 static constexpr int RainbowTestImageWidth = 512;
 static constexpr int RainbowTestImageHeight = 320;
 
 static const std::filesystem::path ParrotTestImagePath =
-    TestImagesDir / "parrot.jpg";
+    TestImagesDir / "84d6da9b5559a803213bac93a03a9bc82465b64b558fd61866acc550b3ba697f.jpg";
 static constexpr int ParrotTestImageWidth = 150;
 static constexpr int ParrotTestImageHeight = 200;
 
 static const std::filesystem::path ButterflyTestImagePath =
-    TestImagesDir / "butterfly.jpg";
+    TestImagesDir / "c0a7a30d78b23cf5f60d393d601dfc823ce2650118978aa01bcf4e5dedbd1e28.jpg";
 static constexpr int ButterflyTestImageWidth = 256;
 static constexpr int ButterflyTestImageHeight = 256;
 
