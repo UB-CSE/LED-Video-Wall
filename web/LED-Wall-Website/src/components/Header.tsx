@@ -1,4 +1,4 @@
-import {useEffect, useState} from "react";
+import {useCallback, useEffect, useMemo, useState} from "react";
 import {useVideoWall} from "../context/VideoWallContext.tsx";
 import {Check, MoreHorizontal} from "lucide-react";
 
@@ -62,6 +62,12 @@ function getResponseError(response: unknown): string | null {
     return "The server did not confirm that the configuration was saved.";
 }
 
+async function fetchConfigFiles(signal?: AbortSignal): Promise<ConfigFile[]> {
+    const response = await fetch("/api/list-config-files", {signal});
+    if (!response.ok) throw new Error(`Could not load configuration files (${response.status}).`);
+    return parseConfigFiles(await response.json());
+}
+
 export default function Header() {
     const [walls, setWalls] = useState<string[]>([]);
     const [selectedWall, setSelectedWall] = useState("");
@@ -86,6 +92,22 @@ export default function Header() {
         loadCanvas,
     } = useVideoWall();
 
+    const refreshConfigFiles = useCallback(async () => {
+        try {
+            setConfigFiles(await fetchConfigFiles());
+            setConfigListError(null);
+        } catch (error) {
+            if (error instanceof Error && error.name !== "AbortError") setConfigListError(error.message);
+        }
+    }, []);
+
+    // Always offer the active config, even before the file list includes it (e.g. right after saving a new file), so the dropdown can display it.
+    const configOptions = useMemo(() => {
+        if (!activeConfig || configFiles.some((config) => config.value === activeConfig)) return configFiles;
+        return [...configFiles, {value: activeConfig, label: displayConfigName(activeConfig)}]
+            .sort((a, b) => a.value.localeCompare(b.value));
+    }, [activeConfig, configFiles]);
+
     useEffect(() => {
         const controller = new AbortController();
 
@@ -106,11 +128,7 @@ export default function Header() {
 
         async function loadConfigFiles() {
             try {
-                const response = await fetch("/api/list-config-files", {signal: controller.signal});
-                if (!response.ok) throw new Error(`Could not load configuration files (${response.status}).`);
-                const data: unknown = await response.json();
-                const files = parseConfigFiles(data);
-                setConfigFiles(files);
+                setConfigFiles(await fetchConfigFiles(controller.signal));
                 setConfigListError(null);
             } catch (error) {
                 if (error instanceof Error && error.name !== "AbortError") setConfigListError(error.message);
@@ -153,27 +171,16 @@ export default function Header() {
         }
     }
 
-    async function handleSave() {
-        if (status !== "connected" || saving) return;
-        let configName = activeConfig;
-        if (configName === null) {
-            configName = window.prompt("Enter a name for this configuration:");
-            if (configName === null) return;
-            configName += ".yaml";
-        }
-        const trimmedName = configName.trim();
-        if (!trimmedName) {
-            setFeedback({kind: "error", text: "A configuration name is required."});
-            return;
-        }
+    async function saveTo(configName: string) {
         setSaving(true);
         setFeedback(null);
         try {
-            const response = await saveCanvas(trimmedName);
+            const response = await saveCanvas(configName);
             const error = getResponseError(response);
             if (error) throw new Error(error);
-            setActiveConfig(trimmedName);
+            setActiveConfig(configName);
             setFeedback({kind: "success", text: "Saved"});
+            void refreshConfigFiles();
         } catch (error) {
             setFeedback({
                 kind: "error",
@@ -182,6 +189,40 @@ export default function Header() {
         } finally {
             setSaving(false);
         }
+    }
+
+    async function handleSave() {
+        if (status !== "connected" || saving || !activeConfig) return;
+        await saveTo(activeConfig);
+    }
+
+    async function handleSaveAs() {
+        if (status !== "connected" || saving) return;
+
+        const input = window.prompt(
+            "Enter a name for the new configuration:",
+            activeConfig ? displayConfigName(activeConfig) : "",
+        );
+        if (input === null) return;
+
+        const baseName = input.trim().replace(/\.yaml$/i, "").trim();
+        if (!baseName) {
+            setFeedback({kind: "error", text: "A configuration name is required."});
+            return;
+        }
+        if (/[\\/]/.test(baseName)) {
+            setFeedback({kind: "error", text: "Configuration names can't contain slashes."});
+            return;
+        }
+
+        const configName = `${baseName}.yaml`;
+        const exists = configFiles.some((config) => config.value === configName);
+        if (exists && configName !== activeConfig &&
+            !window.confirm(`"${baseName}" already exists. Replace it?`)) {
+            return;
+        }
+
+        await saveTo(configName);
     }
 
     const statusLabel = status === "connected"
@@ -245,7 +286,7 @@ export default function Header() {
                     title={configListError ?? undefined}
                 >
                     <option value="">No configuration</option>
-                    {configFiles.map((config) => (
+                    {configOptions.map((config) => (
                             <option key={config.value} value={config.value}>{config.label}</option>
                         ))}
                 </select>
@@ -253,9 +294,18 @@ export default function Header() {
                     className="header-save-button"
                     type="button"
                     onClick={() => void handleSave()}
-                    disabled={status !== "connected" || saving}
+                    disabled={status !== "connected" || saving || !activeConfig}
+                    title={activeConfig ? undefined : "No configuration is loaded; use Save As"}
                 >
                     {saving ? "Saving…" : "Save"}
+                </button>
+                <button
+                    className="header-save-button"
+                    type="button"
+                    onClick={() => void handleSaveAs()}
+                    disabled={status !== "connected" || saving}
+                >
+                    Save As
                 </button>
                 <label className="autosave-control" title="Save the selected configuration after canvas changes">
                     <input
