@@ -371,6 +371,29 @@ type LEDVWCommand struct {
 	Args []string `json:"args"`
 }
 
+// commandTokenEscaper escapes the characters that are special inside a
+// double-quoted token for the LEDVW server's command parser.
+var commandTokenEscaper = strings.NewReplacer(`\`, `\\`, `"`, `\"`)
+
+func quoteCommandToken(token string) string {
+	return `"` + commandTokenEscaper.Replace(token) + `"`
+}
+
+// String encodes the command as a command line for the LEDVW server. Every
+// token is quoted and escaped, so the server parses back exactly the original
+// name and arguments regardless of whitespace, quotes or backslashes.
+func (c *LEDVWCommand) String() string {
+	var commandString strings.Builder
+	commandString.WriteString(quoteCommandToken(c.Name))
+
+	for _, arg := range c.Args {
+		commandString.WriteString(" ")
+		commandString.WriteString(quoteCommandToken(arg))
+	}
+
+	return commandString.String()
+}
+
 // RunCommand sends a command to the named LEDVW server and waits for its
 // response, failing if none arrives within commandResponseTimeout.
 func (m *LEDVWServerManager) RunCommand(command *LEDVWCommand, name string) (string, error) {
@@ -389,14 +412,7 @@ func (m *LEDVWServerManager) RunCommand(command *LEDVWCommand, name string) (str
 		return "", err
 	}
 
-	var commandString strings.Builder
-	commandString.WriteString(command.Name)
-
-	for _, arg := range command.Args {
-		commandString.WriteString(" \"" + arg + "\"")
-	}
-
-	responseChannel, err := connection.send(commandString.String())
+	responseChannel, err := connection.send(command.String())
 	if err != nil {
 		return "", err
 	}
