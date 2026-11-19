@@ -33,7 +33,12 @@ Clear the virtual canvas and load elements from the specified configuration.
 
 Save the current canvas state to the specified configuration file.
 ### canvas-get-elements
-Responds with a JSON containing all the current canvas elements.
+Responds with a JSON containing all the current canvas elements (`canvas`) and the name of the
+current canvas configuration (`config-name`).
+
+`config-name` is the file path given to the most recent successful `canvas-load` or `canvas-save`
+(or at server startup), exactly as it was given. It is `null` if no configuration is loaded, i.e.
+after `canvas-clear` or a failed `canvas-load`.
 ### element-delete \<id\>
 ##### Arguments:
 1. __id__: The ID of the element to delete

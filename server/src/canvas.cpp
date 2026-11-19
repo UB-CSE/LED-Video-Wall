@@ -890,10 +890,11 @@ bool VirtualCanvas::loadElementConfig(const std::filesystem::path &path) {
 
   spdlog::info("[Canvas] successfully loaded config");
 
+  m_configName = path.string();
   return true;
 }
 
-bool VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
+bool VirtualCanvas::saveElementConfig(const std::filesystem::path &path) {
   std::filesystem::path configPath(path);
 
   if (configPath.has_root_path()) {
@@ -969,6 +970,7 @@ bool VirtualCanvas::saveElementConfig(const std::filesystem::path &path) const {
   if (ofs) {
     ofs << configNode;
     spdlog::info("[Canvas] saved config to `{}'", configPath.string());
+    m_configName = path.string();
     return true;
   }
 
@@ -1014,6 +1016,7 @@ nlohmann::json VirtualCanvas::elementsToJSON() const { return m_elements; }
 void VirtualCanvas::clearElements() {
   m_elements.clear();
   m_elementPositions.clear();
+  m_configName.clear();
 }
 
 std::shared_ptr<Element> VirtualCanvas::getElement(const std::string &uid) {
