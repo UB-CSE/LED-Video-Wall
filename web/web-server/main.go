@@ -3,6 +3,8 @@ package main
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -307,10 +309,18 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 				break
 			}
 
-			response, ok := vwServerManager.RunCommand(command, wallName)
-			if !ok {
-				log.Println("failed to run command on wall", wallName)
-				break
+			response, err := vwServerManager.RunCommand(command, wallName)
+			serverStopped := errors.Is(err, ErrServerNotRunning)
+			if err != nil {
+				log.Printf("failed to run command %q on wall %s: %v", command.Name, wallName, err)
+
+				// Still send exactly one response per command so the client doesn't
+				// mismatch later responses.
+				errorResponse, _ := json.Marshal(map[string]any{
+					"success": false,
+					"error":   err.Error(),
+				})
+				response = string(errorResponse)
 			}
 
 			// Pongs aren't processed while blocked on a command, so give the client a
@@ -320,6 +330,10 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 			err = wsConn.WriteMessage(websocket.TextMessage, []byte(response))
 			if err != nil {
 				log.Println("write:", err)
+				break
+			}
+
+			if serverStopped {
 				break
 			}
 		}
