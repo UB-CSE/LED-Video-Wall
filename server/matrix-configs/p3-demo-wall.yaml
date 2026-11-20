@@ -26,27 +26,27 @@ matrices:
   mat_p3_1:
     spec: "p3:64x64"
     pos: [0, 0]
-    rot: down
+    rot: up
   mat_p3_2:
     spec: "p3:64x64"
-    pos: [0, 64]
-    rot: down
+    pos: [64, 0]
+    rot: up
   mat_p3_3:
     spec: "p3:64x64"
-    pos: [0, 128]
-    rot: down
+    pos: [128, 0]
+    rot: up
   mat_p3_4:
     spec: "p3:64x64"
-    pos: [0, 192]
-    rot: down
+    pos: [192, 0]
+    rot: up
   mat_p3_5:
     spec: "p3:64x64"
-    pos: [0, 256]
-    rot: down
+    pos: [256, 0]
+    rot: up
   mat_p3_6:
     spec: "p3:64x64"
-    pos: [0, 320]
-    rot: down
+    pos: [320, 0]
+    rot: up
   
 clients:
   D8-85-AC-89-56-6C:
