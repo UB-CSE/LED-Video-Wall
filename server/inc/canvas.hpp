@@ -25,6 +25,7 @@ class Element {
   std::string m_name;
 
   cv::Point m_location{0, 0};
+  cv::Point m_locationOffsetScale{0, 0};
   cv::Point m_locationOffsetRotation{0, 0};
   int m_frameRate;
   double m_angleDegrees = 0.0;
@@ -35,7 +36,8 @@ class Element {
   cv::Mat m_originalPixelMatrix; // Before rotation
   cv::Mat m_finalPixelMatrix;    // After rotation
 
-  // Scales m_finalPixelMatrix to m_size
+  // Scales m_finalPixelMatrix to fit m_size, centering it within the m_size
+  // bounding box when the aspect ratio is preserved
   void scaleFrame();
   // Rotates m_finalPixelMatrix by m_rotationDegrees
   void rotateFrame();
@@ -77,16 +79,19 @@ public:
   void setName(std::string_view name) { m_name = name; }
 
   /**
-   * Get the position of the element's top left corner on the canvas.
+   * Get the position of the top left corner of the element's final pixel
+   * matrix on the canvas, after the scale centering and rotation offsets are
+   * applied.
    * @return Location
    */
   cv::Point getLocation() const {
-    return m_location + m_locationOffsetRotation;
+    return m_location + m_locationOffsetScale + m_locationOffsetRotation;
   };
 
   /**
-   * Get the raw position of the element's top left corner on the canvas, before
-   * rotation offset is applied.
+   * Get the raw position of the element's top left corner (the top left of its
+   * bounding box) on the canvas, before scale centering and rotation offsets
+   * are applied.
    *
    * @return Location
    */

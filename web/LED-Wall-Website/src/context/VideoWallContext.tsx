@@ -589,6 +589,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
             const response = await sendCommand(`element-move`, [id, String(Math.trunc(location.x)), String(Math.trunc(location.y))]);
             const responseError = getResponseError(response);
             if (responseError) throw new Error(responseError);
+            await refreshCanvas();
             await saveCanvasAfterChange();
         } catch (error) {
             setCanvasError(getErrorMessage(error));
@@ -684,24 +685,29 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         const rotation = Number(degreesCCW.toFixed(3));
 
         try {
-            if (width !== Math.round(element.size.width) || height !== Math.round(element.size.height)) {
+            // Text elements have no size property (their size comes from the font size)
+            const sizeChanged = element.type !== "text" &&
+                (width !== Math.round(element.size.width) || height !== Math.round(element.size.height));
+            if (sizeChanged) {
                 const response = await sendCommand("element-resize", [id, String(width), String(height)]);
                 const responseError = getResponseError(response);
                 if (responseError) throw new Error(responseError);
             }
 
-            if (rotation !== 0) {
+            // element-rotate sets the absolute rotation, so compare against the current rotation
+            if (rotation !== Number(element.rotation.toFixed(3))) {
                 const response = await sendCommand("element-rotate", [id, String(rotation)]);
                 const responseError = getResponseError(response);
                 if (responseError) throw new Error(responseError);
             }
 
+            await refreshCanvas();
             await saveCanvasAfterChange();
         } catch (error) {
             setCanvasError(getErrorMessage(error));
             throw error;
         }
-    }, [canvas, saveCanvasAfterChange, sendCommand]);
+    }, [canvas, refreshCanvas, saveCanvasAfterChange, sendCommand]);
 
     useEffect(() => {
         if (status === "connected") {

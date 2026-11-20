@@ -19,10 +19,10 @@ Each element has the following common properties available:
 - The unique ID of the element
 - `order`: The order of the element (0 is bottom)
 - `name`: A user-friendly display name for the element
-- `location`: Pixel location of the element
-- `rotation`: Rotation of the element, in degrees. Positive is counter-clockwise.
-- `size`: The pixel size of the element
-- `preserve-aspect-ratio`: When `true`, the element will try to preserve its original aspect ratio and not stretch when `size` is set to a different aspect ratio. Instead, `size` will instead as a "bounding box" for the element.
+- `location`: Pixel location of the top-left corner of the element's bounding box
+- `rotation`: Rotation of the element, in degrees. Positive is counter-clockwise. Rotation occurs about the center of the bounding box (or the center of the text for `text` elements, which have no `size`).
+- `size`: The pixel size of the element's bounding box
+- `preserve-aspect-ratio`: When `true`, the element will try to preserve its original aspect ratio and not stretch when `size` is set to a different aspect ratio. Instead, `size` acts as a "bounding box" for the element, and the element is scaled to fit within it and centered both horizontally and vertically. When `false`, the element is stretched to fill the bounding box.
 
 The `type` property specifies the element's type:
 - [`image`](#image)

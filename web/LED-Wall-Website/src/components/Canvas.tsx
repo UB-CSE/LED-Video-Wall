@@ -1,16 +1,18 @@
-import {useCallback, useEffect, useRef, useState} from "react";
+import {useCallback, useEffect, useLayoutEffect, useRef, useState} from "react";
 import {Group, Image as KonvaImage, Layer, Rect, Stage, Text, Transformer} from "react-konva";
 import type {Stage as KonvaStage} from "konva/lib/Stage";
 import type {Transformer as KonvaTransformer} from "konva/lib/shapes/Transformer";
 import type {Node as KonvaNode} from "konva/lib/Node";
 import type {Image as KonvaImageNode} from "konva/lib/shapes/Image";
 import type {Rect as KonvaRectNode} from "konva/lib/shapes/Rect";
+import type {Text as KonvaTextNode} from "konva/lib/shapes/Text";
 import type {KonvaEventObject} from "konva/lib/Node";
 import {
     type CanvasElement,
     type ImageCanvasElement,
     type Location,
     type Size,
+    type TextCanvasElement,
     useVideoWall
 } from "../context/VideoWallContext.tsx";
 
@@ -89,8 +91,8 @@ function CanvasImageElement({element, x, y, onSelect, onDragEnd, onTransformEnd,
 
         const renderedSize = getRenderedImageSize(box);
         imageNode.setAttrs({
-            x: 0,
-            y: 0,
+            x: (box.width - renderedSize.width) / 2,
+            y: (box.height - renderedSize.height) / 2,
             width: renderedSize.width,
             height: renderedSize.height,
             image: image,
@@ -123,8 +125,8 @@ function CanvasImageElement({element, x, y, onSelect, onDragEnd, onTransformEnd,
         };
 
         imageNode.setAttrs({
-            x: 0,
-            y: 0,
+            x: (group.width() - localSize.width) / 2,
+            y: (group.height() - localSize.height) / 2,
             width: localSize.width,
             height: localSize.height,
             image: image,
@@ -172,14 +174,85 @@ function CanvasImageElement({element, x, y, onSelect, onDragEnd, onTransformEnd,
                 <KonvaImage
                     ref={imageRef}
                     image={image}
-                    x={0}
-                    y={0}
+                    x={(element.size.width - initialImageSize.width) / 2}
+                    y={(element.size.height - initialImageSize.height) / 2}
                     width={initialImageSize.width}
                     height={initialImageSize.height}
                     listening={false}
                 />
             )}
         </Group>
+    );
+}
+
+type TextElementProps = {
+    element: TextCanvasElement;
+    // Top-left corner of the unrotated text
+    x: number;
+    y: number;
+    onSelect: () => void;
+    onDragEnd: (node: KonvaNode) => void;
+    onRotateEnd: (node: KonvaNode) => void;
+    registerNode: (element: CanvasElement, node: KonvaNode | null) => void;
+    fontLoaded: boolean;
+};
+
+function CanvasTextElement({element, x, y, onSelect, onDragEnd, onRotateEnd, registerNode, fontLoaded}: TextElementProps) {
+    const textRef = useRef<KonvaTextNode>(null);
+    // Text elements have no size property, so measure the rendered text to find
+    // its center, which is used as the rotation origin.
+    const [textSize, setTextSize] = useState<Size>({width: 0, height: 0});
+
+    useLayoutEffect(() => {
+        const measure = () => {
+            const node = textRef.current;
+            if (!node) return;
+            // Konva caches text metrics, so recompute them in case a font finished loading.
+            node._setTextData();
+            const width = node.width();
+            const height = node.height();
+            setTextSize((prev) =>
+                prev.width === width && prev.height === height ? prev : {width, height});
+        };
+
+        measure();
+        document.fonts.addEventListener("loadingdone", measure);
+        return () => document.fonts.removeEventListener("loadingdone", measure);
+    }, [element.text, element.fontPath, element.fontSize, fontLoaded]);
+
+    const hexColor =
+        "#" + [element.color.r, element.color.g, element.color.b]
+            .map((value: number) => value.toString(16).padStart(2, "0"))
+            .join("");
+
+    return (
+        <Text
+            ref={(node) => {
+                textRef.current = node;
+                registerNode(element, node);
+            }}
+            x={x + textSize.width / 2}
+            y={y + textSize.height / 2}
+            offsetX={textSize.width / 2}
+            offsetY={textSize.height / 2}
+            rotation={-element.rotation}
+            text={element.text}
+            fontSize={element.fontSize}
+            fill={hexColor}
+            align="left"
+            verticalAlign="top"
+            // Fall back until the font file arrives; switching the
+            // family afterwards makes Konva re-measure and redraw.
+            fontFamily={fontLoaded ? `"${element.fontPath}"` : "sans-serif"}
+            wrap="none"
+            padding={0}
+            draggable
+            onClick={onSelect}
+            onTap={onSelect}
+            onDragStart={onSelect}
+            onDragEnd={(event) => onDragEnd(event.target)}
+            onTransformEnd={(event) => onRotateEnd(event.target)}
+        />
     );
 }
 
@@ -346,9 +419,11 @@ export default function Canvas() {
     }
 
     function handleElementDragEnd(element: CanvasElement, node: KonvaNode) {
+        // Nodes are positioned by their center (the rotation origin), with the
+        // offset being the distance from the top-left corner to the center.
         const location = fromCanvasPos(
-            node.x() - element.size.width / 2,
-            node.y() - element.size.height / 2,
+            node.x() - node.offsetX(),
+            node.y() - node.offsetY(),
         );
         void moveCanvasElement(element.id, location);
     }
@@ -374,6 +449,11 @@ export default function Canvas() {
         node.getLayer()?.batchDraw();
 
         void transformCanvasElement(element.id, nextSize, nextRotationCCW);
+    }
+
+    function handleTextRotateEnd(element: CanvasElement, node: KonvaNode) {
+        // Resizing is disabled for text, so only the rotation can change.
+        void transformCanvasElement(element.id, element.size, -node.rotation());
     }
 
     const selectedElement = layers.find((element) => element.id === selectedCanvasElementId);
@@ -440,38 +520,17 @@ export default function Canvas() {
                                 }
 
                                 if (element.type === "text") {
-                                    const hexColor =
-                                        "#" + [element.color.r, element.color.g, element.color.b]
-                                            .map((value: number) => value.toString(16).padStart(2, "0"))
-                                            .join("");
-
                                     return (
-                                        <Text
+                                        <CanvasTextElement
                                             key={element.id}
-                                            ref={(node) => registerNode(element, node)}
-                                            x={centerX}
-                                            y={centerY}
-                                            //width={element.size.width}
-                                            //height={element.size.height}
-                                            offsetX={element.size.width / 2}
-                                            offsetY={element.size.height / 2}
-                                            rotation={-element.rotation}
-                                            text={element.text}
-                                            fontSize={element.fontSize}
-                                            fill={hexColor}
-                                            align="left"
-                                            verticalAlign="top"
-                                            // Fall back until the font file arrives; switching the
-                                            // family afterwards makes Konva re-measure and redraw.
-                                            fontFamily={loadedFonts.has(element.fontPath) ? `"${element.fontPath}"` : "sans-serif"}
-                                            wrap="none"
-                                            padding={0}
-                                            draggable
-                                            onClick={onSelect}
-                                            onTap={onSelect}
-                                            onDragStart={onSelect}
-                                            onDragEnd={(event) => onDragEnd(event.target)}
-                                            //onTransformEnd={(event) => handleElementTransformEnd(element, event.target)}
+                                            element={element}
+                                            x={topLeft.x}
+                                            y={topLeft.y}
+                                            onSelect={onSelect}
+                                            onDragEnd={onDragEnd}
+                                            onRotateEnd={(node) => handleTextRotateEnd(element, node)}
+                                            registerNode={registerNode}
+                                            fontLoaded={loadedFonts.has(element.fontPath)}
                                         />
                                     );
                                 }
