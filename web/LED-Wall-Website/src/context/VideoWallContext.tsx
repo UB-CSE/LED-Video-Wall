@@ -78,6 +78,11 @@ export type MatrixPos = {
     size: Size;
 };
 
+export interface RefreshCanvasOptions {
+    /** Also adopt the server's current config name as the active configuration. */
+    syncActiveConfig?: boolean;
+}
+
 export interface VideoWallContextValue {
     status: ConnectionStatus;
     activeWall: string | null;
@@ -103,7 +108,7 @@ export interface VideoWallContextValue {
     canvasRevision: number;
     selectedCanvasElementId: string | null;
     selectCanvasElement: (id: string | null) => void;
-    refreshCanvas: () => Promise<CanvasElement[]>;
+    refreshCanvas: (options?: RefreshCanvasOptions) => Promise<CanvasElement[]>;
     moveCanvasElement: (id: string, location: Location) => Promise<void>;
     moveCanvasElementZ: (id: string, direction: "up" | "down") => Promise<void>;
     renameCanvasElement: (id: string, newName: string) => Promise<void>;
@@ -242,7 +247,13 @@ function getResponseError(response: unknown): string | null {
 }
 
 
-function parseCanvas(response: unknown): CanvasElement[] {
+type CanvasState = {
+    elements: CanvasElement[];
+    /** Name of the config the server last loaded or saved, or null if none. */
+    configName: string | null;
+};
+
+function parseCanvas(response: unknown): CanvasState {
     if (!isRecord(response)) {
         throw new Error("The video wall returned an invalid canvas response.");
     }
@@ -257,7 +268,11 @@ function parseCanvas(response: unknown): CanvasElement[] {
         throw new Error("Invalid canvas elements.");
     }
 
-    return response.canvas;
+    const configName = response["config-name"];
+    return {
+        elements: response.canvas,
+        configName: isString(configName) && configName.length > 0 ? configName : null,
+    };
 }
 
 function parseMatrices(response: unknown): [Size, MatrixPos[]] {
@@ -469,11 +484,12 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         return sendCommand("canvas-save", [name]);
     }, [activeConfig, sendCommand]);
 
-    const refreshCanvas = useCallback(async (): Promise<CanvasElement[]> => {
+    const refreshCanvas = useCallback(async (options?: RefreshCanvasOptions): Promise<CanvasElement[]> => {
         setCanvasLoading(true);
         try {
             const response = await sendCommand("canvas-get-elements");
-            const nextCanvas = parseCanvas(response);
+            const {elements: nextCanvas, configName} = parseCanvas(response);
+            if (options?.syncActiveConfig) setActiveConfig(configName);
             // Keep the server's bottom-to-top order in shared state.
             setCanvas(nextCanvas);
             setSelectedCanvasElementId((selectedId) =>
@@ -690,7 +706,8 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
     useEffect(() => {
         if (status === "connected") {
             void refreshMatrices().catch(() => undefined);
-            void refreshCanvas().catch(() => undefined);
+            // Pick up whichever config the wall already has loaded.
+            void refreshCanvas({syncActiveConfig: true}).catch(() => undefined);
         } else {
             setCanvas([]);
             setSelectedCanvasElementId(null);

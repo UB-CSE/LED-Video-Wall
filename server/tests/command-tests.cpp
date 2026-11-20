@@ -423,6 +423,39 @@ TEST_F(Commands, CanvasGetElements) {
   ASSERT_THAT(elementsJSON, Eq(expectedElementsJSON));
 }
 
+TEST_F(Commands, CanvasGetElementsConfigName) {
+  // No config loaded.
+  doCommand("canvas-get-elements");
+  validateCommonResponseJSON();
+  ASSERT_THAT(responseJSON.contains("config-name"), IsTrue());
+  ASSERT_THAT(responseJSON["config-name"].is_null(), IsTrue());
+
+  // Loaded config.
+  doCommand(std::format(R"(canvas-load "{}")", CanvasConfigPath.string()));
+  validateCommonResponseJSON();
+  doCommand("canvas-get-elements");
+  ASSERT_THAT(responseJSON["config-name"], Eq(CanvasConfigPath.string()));
+
+  // Saving under a new name makes it the current config.
+  const std::filesystem::path savePath =
+      getTestOutputDirPath() / "config-name.yaml";
+  doCommand(std::format(R"(canvas-save "{}")", savePath.string()));
+  validateCommonResponseJSON();
+  doCommand("canvas-get-elements");
+  ASSERT_THAT(responseJSON["config-name"], Eq(savePath.string()));
+
+  // Clearing forgets it.
+  doCommand("canvas-clear");
+  doCommand("canvas-get-elements");
+  ASSERT_THAT(responseJSON["config-name"].is_null(), IsTrue());
+
+  // A failed load leaves no config name.
+  doCommand(std::format(R"(canvas-load "{}")", savePath.string()));
+  doCommand(R"(canvas-load "does-not-exist.yaml")");
+  doCommand("canvas-get-elements");
+  ASSERT_THAT(responseJSON["config-name"].is_null(), IsTrue());
+}
+
 TEST_F(Commands, ElementRename) {
   auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
   elem->setName("Cool Parrot");

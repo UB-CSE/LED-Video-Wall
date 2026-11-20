@@ -123,9 +123,11 @@ struct NewElementCommandResult {
 struct CanvasGetElementsCommandResult {
   CommandResult base;
   nlohmann::json elements;
+  std::string configName; // Empty if no config is loaded.
 
-  CanvasGetElementsCommandResult(const nlohmann::json &elements)
-      : base{.success = true}, elements(elements) {}
+  CanvasGetElementsCommandResult(const nlohmann::json &elements,
+                                 const std::string &configName)
+      : base{.success = true}, elements(elements), configName(configName) {}
 };
 
 struct CanvasGetRegionCommandResult {
@@ -156,6 +158,9 @@ void to_json(nlohmann::json &j, const NewElementCommandResult &result) {
 void to_json(nlohmann::json &j, const CanvasGetElementsCommandResult &result) {
   j = result.base;
   j["canvas"] = result.elements;
+  j["config-name"] = result.configName.empty()
+                         ? nlohmann::json(nullptr)
+                         : nlohmann::json(result.configName);
 }
 
 void to_json(nlohmann::json &j, const CanvasGetRegionCommandResult &result) {
@@ -224,7 +229,7 @@ nlohmann::json doCanvasGetElements(VirtualCanvas &vCanvas,
     return BadInvocationResult;
   }
   nlohmann::json elementsJSON = vCanvas.elementsToJSON();
-  return CanvasGetElementsCommandResult(elementsJSON);
+  return CanvasGetElementsCommandResult(elementsJSON, vCanvas.getConfigName());
 }
 
 nlohmann::json doElementRename(VirtualCanvas &vCanvas, Controller &controller,

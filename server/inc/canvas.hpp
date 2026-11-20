@@ -389,6 +389,8 @@ class VirtualCanvas final {
   std::filesystem::path m_configsDirPath;
   bool m_constrainConfigLoadPaths;
 
+  std::string m_configName;
+
   cv::Mat m_pixelMatrix;
   double m_gamma = 1.0;
   cv::Mat m_canvasLUT = cv::Mat(1, 256, CV_8UC1);
@@ -427,6 +429,9 @@ public:
 
   /**
    * Populates canvas elements from a canvas configuration YAML file.
+   *
+   * On success, the path becomes the canvas's config name. On failure, the
+   * canvas is left empty with no config name.
    * @param path Config file path.
    * @param rtmpServer RTMP server used for constructing RTMP stream elements.
    * @return True if successful, false otherwise.
@@ -435,10 +440,18 @@ public:
 
   /**
    * Write the current canvas state to a YAML configuration file.
+   *
+   * On success, the path becomes the canvas's config name.
    * @param path Config file path.
    * @return True if successful, false otherwise.
    */
-  bool saveElementConfig(const std::filesystem::path &path) const;
+  bool saveElementConfig(const std::filesystem::path &path);
+
+  /**
+   * Name of the canvas config last loaded or saved.
+   * @return The config path as given, or an empty string if none is loaded.
+   */
+  const std::string &getConfigName() const { return m_configName; }
 
   /**
    * Encodes the canvas to JSON.
@@ -447,7 +460,7 @@ public:
   nlohmann::json elementsToJSON() const;
 
   /**
-   * Remove all elements from the canvas.
+   * Remove all elements from the canvas and forget the config name.
    */
   void clearElements();
 
