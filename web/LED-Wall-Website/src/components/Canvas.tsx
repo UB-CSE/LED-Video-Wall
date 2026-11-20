@@ -16,6 +16,8 @@ import {
     useVideoWall
 } from "../context/VideoWallContext.tsx";
 
+const ZOOM_TO_FIT_FILL = 0.9;
+
 type PanState = {
     startX: number;
     startY: number;
@@ -279,6 +281,7 @@ export default function Canvas() {
     const transformerRef = useRef<KonvaTransformer>(null);
     const panRef = useRef<PanState | null>(null);
     const elementNodesRef = useRef<Map<string, KonvaNode>>(new Map());
+    const fittedMatricesRef = useRef<typeof matrices | null>(null);
 
     const layers = [...canvas].reverse();
 
@@ -350,6 +353,23 @@ export default function Canvas() {
         transformer.nodes(selectedNode ? [selectedNode] : []);
         transformer.getLayer()?.batchDraw();
     }, [selectedCanvasElementId, layers, canvasLoading, width, height]);
+
+    // Zoom to fit the canvas
+    useEffect(() => {
+        const stage = stageRef.current;
+        if (!stage) {
+            fittedMatricesRef.current = null;
+            return;
+        }
+        if (matrices.length === 0 || fittedMatricesRef.current === matrices) return;
+        if (width <= 0 || height <= 0 || canvasSize.width <= 0 || canvasSize.height <= 0) return;
+
+        const scale = ZOOM_TO_FIT_FILL * Math.min(width / canvasSize.width, height / canvasSize.height);
+        stage.scale({x: scale, y: scale});
+        stage.position({x: (width / 2) * (1 - scale), y: (height / 2) * (1 - scale)});
+        stage.batchDraw();
+        fittedMatricesRef.current = matrices;
+    }, [matrices, canvasSize, width, height, status, canvasLoading]);
 
     function handleMouseDown(e: KonvaEventObject<MouseEvent>) {
         const evt = e.evt;
@@ -461,7 +481,7 @@ export default function Canvas() {
         void transformCanvasElement(element.id, element.location, element.size, -node.rotation());
     }
 
-    const selectedElement = layers.find((element) => element.id === selectedCanvasElementId);
+    //const selectedElement = layers.find((element) => element.id === selectedCanvasElementId);
 
     return (
         <div ref={containerRef} className="panel-content canvas-content" aria-busy={canvasLoading}>
@@ -567,7 +587,7 @@ export default function Canvas() {
                             <Transformer
                                 ref={transformerRef}
                                 rotateEnabled
-                                keepRatio={selectedElement?.preserveAspectRatio ?? false}
+                                keepRatio={false}
                                 flipEnabled={false}
                                 rotateAnchorOffset={28}
                                 boundBoxFunc={(oldBox, newBox) => {
