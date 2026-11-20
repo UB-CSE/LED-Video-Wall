@@ -112,7 +112,7 @@ export interface VideoWallContextValue {
     moveCanvasElement: (id: string, location: Location) => Promise<void>;
     moveCanvasElementZ: (id: string, direction: "up" | "down") => Promise<void>;
     renameCanvasElement: (id: string, newName: string) => Promise<void>;
-    transformCanvasElement: (id: string, size: Size, degreesCCW: number) => Promise<void>;
+    transformCanvasElement: (id: string, location: Location, size: Size, degreesCCW: number) => Promise<void>;
     createImageElement: (filepath: string) => Promise<void>;
     createTextElement: (content: string, fontPath: string, fontSize: number, color: RGB) => Promise<void>;
     matrices: MatrixPos[];
@@ -709,6 +709,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
 
     const transformCanvasElement = useCallback(async (
         id: string,
+        location: Location,
         size: Size,
         degreesCCW: number,
     ) => {
@@ -717,31 +718,46 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
 
         const width = Math.max(1, Math.round(size.width));
         const height = Math.max(1, Math.round(size.height));
+        const nextLocation = {x: Math.round(location.x), y: Math.round(location.y)};
         const rotation = Number(degreesCCW.toFixed(3));
 
+        const changes: Partial<Omit<CanvasElementBase, "id" | "type">> = {};
+
+        const send = async (commandName: string, args: string[]) => {
+            const response = await sendCommand(commandName, args);
+            const responseError = getResponseError(response);
+            if (responseError) throw new Error(responseError);
+        };
+
         try {
+            const locationChanged = nextLocation.x !== element.location.x || nextLocation.y !== element.location.y;
             // Text elements have no size property (their size comes from the font size)
             const sizeChanged = element.type !== "text" &&
                 (width !== Math.round(element.size.width) || height !== Math.round(element.size.height));
+
             if (sizeChanged) {
-                const response = await sendCommand("element-resize", [id, String(width), String(height)]);
-                const responseError = getResponseError(response);
-                if (responseError) throw new Error(responseError);
-                updateCanvasElement(id, {size: {width, height}});
+                const args = [id, String(width), String(height)];
+                if (locationChanged) args.push(String(nextLocation.x), String(nextLocation.y));
+                await send("element-resize", args);
+                changes.size = {width, height};
+                if (locationChanged) changes.location = nextLocation;
+            } else if (locationChanged) {
+                await send("element-move", [id, String(nextLocation.x), String(nextLocation.y)]);
+                changes.location = nextLocation;
             }
 
             // element-rotate sets the absolute rotation, so compare against the current rotation
             if (rotation !== Number(element.rotation.toFixed(3))) {
-                const response = await sendCommand("element-rotate", [id, String(rotation)]);
-                const responseError = getResponseError(response);
-                if (responseError) throw new Error(responseError);
-                updateCanvasElement(id, {rotation});
+                await send("element-rotate", [id, String(rotation)]);
+                changes.rotation = rotation;
             }
 
             await saveCanvasAfterChange();
         } catch (error) {
             setCanvasError(getErrorMessage(error));
             throw error;
+        } finally {
+            if (Object.keys(changes).length > 0) updateCanvasElement(id, changes);
         }
     }, [canvas, saveCanvasAfterChange, sendCommand, updateCanvasElement]);
 

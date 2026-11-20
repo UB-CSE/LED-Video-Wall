@@ -508,6 +508,37 @@ TEST_F(Commands, ElementRotate) {
   ASSERT_THAT(elem->getRotation(), DoubleEq(newRotation));
 }
 
+TEST_F(Commands, ElementResize) {
+  auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+  elem->setLocation(cv::Point(10, 15));
+
+  canvas.addElement(elem);
+
+  doCommand("element-resize parrot 32 40");
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getSize().width, Eq(32));
+  ASSERT_THAT(elem->getSize().height, Eq(40));
+  // Location is unchanged when not specified
+  ASSERT_THAT(elem->getRawLocation().x, Eq(10));
+  ASSERT_THAT(elem->getRawLocation().y, Eq(15));
+}
+
+TEST_F(Commands, ElementResizeWithLocation) {
+  auto elem = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
+  elem->setLocation(cv::Point(10, 15));
+
+  canvas.addElement(elem);
+
+  doCommand("element-resize parrot 32 40 -5 7");
+  validateCommonResponseJSON();
+
+  ASSERT_THAT(elem->getSize().width, Eq(32));
+  ASSERT_THAT(elem->getSize().height, Eq(40));
+  ASSERT_THAT(elem->getRawLocation().x, Eq(-5));
+  ASSERT_THAT(elem->getRawLocation().y, Eq(7));
+}
+
 TEST_F(Commands, ElementMoveUp) {
   auto elem1 = std::make_shared<ImageElement>("parrot", ParrotTestImagePath);
   auto elem2 =

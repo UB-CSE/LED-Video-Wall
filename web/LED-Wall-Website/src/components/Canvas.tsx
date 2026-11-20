@@ -434,8 +434,8 @@ export default function Canvas() {
         afterReset?: (size: Size) => void,
     ) {
         const nextSize: Size = {
-            width: Math.max(1, node.width() * Math.abs(node.scaleX())),
-            height: Math.max(1, node.height() * Math.abs(node.scaleY())),
+            width: Math.max(1, Math.round(node.width() * Math.abs(node.scaleX()))),
+            height: Math.max(1, Math.round(node.height() * Math.abs(node.scaleY()))),
         };
         const nextRotationCCW = -node.rotation();
 
@@ -448,12 +448,17 @@ export default function Canvas() {
         afterReset?.(nextSize);
         node.getLayer()?.batchDraw();
 
-        void transformCanvasElement(element.id, nextSize, nextRotationCCW);
+        const location = fromCanvasPos(
+            node.x() - nextSize.width / 2,
+            node.y() - nextSize.height / 2,
+        );
+
+        void transformCanvasElement(element.id, location, nextSize, nextRotationCCW);
     }
 
     function handleTextRotateEnd(element: CanvasElement, node: KonvaNode) {
         // Resizing is disabled for text, so only the rotation can change.
-        void transformCanvasElement(element.id, element.size, -node.rotation());
+        void transformCanvasElement(element.id, element.location, element.size, -node.rotation());
     }
 
     const selectedElement = layers.find((element) => element.id === selectedCanvasElementId);

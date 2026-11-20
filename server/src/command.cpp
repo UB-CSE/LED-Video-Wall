@@ -304,14 +304,19 @@ nlohmann::json doElementRotate(VirtualCanvas &vCanvas, Controller &controller,
 nlohmann::json doElementResize(VirtualCanvas &vCanvas, Controller &controller,
                                std::span<std::string_view> args,
                                std::shared_ptr<spdlog::logger> logger) {
-  if (args.size() != 3) {
+  if (args.size() != 3 && args.size() != 5) {
     return BadInvocationResult;
   }
   const std::string id(args[0]);
-  unsigned x, y;
+  unsigned width, height;
+  std::optional<cv::Point> newLocation;
   try {
-    x = std::stoul(std::string(args[1]));
-    y = std::stoul(std::string(args[2]));
+    width = std::stoul(std::string(args[1]));
+    height = std::stoul(std::string(args[2]));
+    if (args.size() == 5) {
+      newLocation = cv::Point(std::stoi(std::string(args[3])),
+                              std::stoi(std::string(args[4])));
+    }
   } catch (...) {
     return BadInvocationResult;
   }
@@ -320,7 +325,11 @@ nlohmann::json doElementResize(VirtualCanvas &vCanvas, Controller &controller,
   if (!element) {
     return NoSuchElementResult;
   }
-  element->setSize(cv::Size(x, y));
+
+  if (newLocation) {
+    element->setLocation(*newLocation);
+  }
+  element->setSize(cv::Size(width, height));
   return CommandResult{.success = true};
 }
 
@@ -1029,7 +1038,7 @@ std::map<std::string, CommandInfo> commands{
         "element-resize",
         CommandInfo{
             .doCommandFunc = doElementResize,
-            .usage = "<id> <width> <height>",
+            .usage = "<id> <width> <height> [<x> <y>]",
         },
     },
     {
