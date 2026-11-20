@@ -115,9 +115,10 @@ struct CommandResult {
 struct NewElementCommandResult {
   CommandResult base;
   std::string uid;
+  nlohmann::json element;
 
-  NewElementCommandResult(const std::string &uid)
-      : base{.success = true}, uid(uid) {}
+  NewElementCommandResult(const std::shared_ptr<Element> &element)
+      : base{.success = true}, uid(element->getUID()), element(element) {}
 };
 
 struct CanvasGetElementsCommandResult {
@@ -153,6 +154,7 @@ void to_json(nlohmann::json &j, const CommandResult &result) {
 void to_json(nlohmann::json &j, const NewElementCommandResult &result) {
   j = result.base;
   j["id"] = result.uid;
+  j["element"] = result.element;
 }
 
 void to_json(nlohmann::json &j, const CanvasGetElementsCommandResult &result) {
@@ -195,7 +197,12 @@ nlohmann::json doCanvasLoad(VirtualCanvas &vCanvas, Controller &controller,
   // Controller needs to initialize events for all the new elements
   controller.reinitializeCanvasEvents();
 
-  return CommandResult{.success = success};
+  if (!success) {
+    return CommandResult{.success = false};
+  }
+
+  nlohmann::json elementsJSON = vCanvas.elementsToJSON();
+  return CanvasGetElementsCommandResult(elementsJSON, vCanvas.getConfigName());
 }
 
 nlohmann::json doCanvasSave(VirtualCanvas &vCanvas, Controller &controller,
@@ -402,7 +409,7 @@ nlohmann::json doImageNew(VirtualCanvas &vCanvas, Controller &controller,
   size.width = size.height = std::min(size.width, size.height);
   element->setSize(size);
 
-  return NewElementCommandResult(uid);
+  return NewElementCommandResult(element);
 }
 
 nlohmann::json doImageSetFile(VirtualCanvas &vCanvas, Controller &controller,
@@ -446,7 +453,7 @@ nlohmann::json doCarouselNew(VirtualCanvas &vCanvas, Controller &controller,
   auto element = std::make_shared<CarouselElement>(uid, filepaths, frameRate);
   vCanvas.addElement(element);
 
-  return NewElementCommandResult(uid);
+  return NewElementCommandResult(element);
 }
 
 nlohmann::json doCarouselSetFiles(VirtualCanvas &vCanvas,
@@ -520,7 +527,7 @@ nlohmann::json doVideoNew(VirtualCanvas &vCanvas, Controller &controller,
   auto element = std::make_shared<VideoElement>(uid, filepath, frameRate);
   vCanvas.addElement(element);
 
-  return NewElementCommandResult(uid);
+  return NewElementCommandResult(element);
 }
 
 nlohmann::json doVideoSetFile(VirtualCanvas &vCanvas, Controller &controller,
@@ -591,7 +598,7 @@ nlohmann::json doRTMPNew(VirtualCanvas &vCanvas, Controller &controller,
       uid, vCanvas.getRTMPServer(), streamName, frameRate);
   vCanvas.addElement(element);
 
-  return NewElementCommandResult(uid);
+  return NewElementCommandResult(element);
 }
 
 nlohmann::json doRTMPSetStreamName(VirtualCanvas &vCanvas,
@@ -667,7 +674,7 @@ nlohmann::json doWebBrowserNew(VirtualCanvas &vCanvas, Controller &controller,
       uid, url, frameRate, cv::Size(viewSizeWidth, viewSizeHeight));
   vCanvas.addElement(element);
 
-  return NewElementCommandResult(uid);
+  return NewElementCommandResult(element);
 }
 
 nlohmann::json doWebBrowserSetURL(VirtualCanvas &vCanvas,
@@ -854,7 +861,7 @@ nlohmann::json doTextNew(VirtualCanvas &vCanvas, Controller &controller,
                                                cv::Scalar(b, g, r));
   vCanvas.addElement(element);
 
-  return NewElementCommandResult(uid);
+  return NewElementCommandResult(element);
 }
 
 nlohmann::json doTextSetContent(VirtualCanvas &vCanvas, Controller &controller,

@@ -987,8 +987,7 @@ bool VirtualCanvas::saveElementConfig(const std::filesystem::path &path) {
   return false;
 }
 
-static void to_json(nlohmann::json &j,
-                    const std::shared_ptr<Element> &element) {
+void to_json(nlohmann::json &j, const std::shared_ptr<Element> &element) {
   if (auto imageElement = std::dynamic_pointer_cast<ImageElement>(element)) {
     j = *imageElement;
   } else if (auto carouselElement =

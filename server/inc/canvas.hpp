@@ -13,6 +13,13 @@
 #include <unordered_map>
 #include <vector>
 
+class Element;
+
+/**
+ * Encode an element as JSON (as returned by the canvas-get-elements command).
+ */
+void to_json(nlohmann::json &j, const std::shared_ptr<Element> &element);
+
 /**
  * Base class for all canvas elements.
  */
