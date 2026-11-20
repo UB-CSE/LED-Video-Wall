@@ -1,0 +1,13 @@
+settings:
+  gamma: 1
+elements:
+  k0Zok5F4Bb:
+    order: 0
+    type: text
+    text: LED Video Wall
+    font-path: Lobster-Regular.ttf
+    font-size: 48
+    color: "#ff0000"
+    location:
+      - 42
+      - 5

@@ -112,7 +112,7 @@ export interface VideoWallContextValue {
     moveCanvasElement: (id: string, location: Location) => Promise<void>;
     moveCanvasElementZ: (id: string, direction: "up" | "down") => Promise<void>;
     renameCanvasElement: (id: string, newName: string) => Promise<void>;
-    transformCanvasElement: (id: string, size: Size, degreesCCW: number) => Promise<void>;
+    transformCanvasElement: (id: string, location: Location, size: Size, degreesCCW: number) => Promise<void>;
     createImageElement: (filepath: string) => Promise<void>;
     createTextElement: (content: string, fontPath: string, fontSize: number, color: RGB) => Promise<void>;
     matrices: MatrixPos[];
@@ -261,7 +261,7 @@ function parseCanvas(response: unknown): CanvasState {
         throw new Error(getResponseError(response) ?? "Could not retrieve the canvas.");
     }
     if (!Array.isArray(response.canvas)) {
-        throw new Error("The response to canvas-get-elements did not contain a canvas array.");
+        throw new Error("The video wall's response did not contain a canvas array.");
     }
 
     if (!Array.isArray(response.canvas) || !response.canvas.every(isCanvasElement)) {
@@ -273,6 +273,15 @@ function parseCanvas(response: unknown): CanvasState {
         elements: response.canvas,
         configName: isString(configName) && configName.length > 0 ? configName : null,
     };
+}
+
+function parseNewElement(response: unknown): CanvasElement {
+    const responseError = getResponseError(response);
+    if (responseError) throw new Error(responseError);
+    if (!isRecord(response) || !isCanvasElement(response.element)) {
+        throw new Error("The video wall's response did not contain the new element.");
+    }
+    return response.element;
 }
 
 function parseMatrices(response: unknown): [Size, MatrixPos[]] {
@@ -484,6 +493,27 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         return sendCommand("canvas-save", [name]);
     }, [activeConfig, sendCommand]);
 
+    const updateCanvas = useCallback((update: (current: CanvasElement[]) => CanvasElement[]) => {
+        setCanvas(update);
+        setCanvasRevision((revision) => revision + 1);
+    }, []);
+
+    const replaceCanvas = useCallback((nextCanvas: CanvasElement[]) => {
+        updateCanvas(() => nextCanvas);
+        setSelectedCanvasElementId((selectedId) =>
+            selectedId && nextCanvas.some((element) => element.id === selectedId) ? selectedId : null
+        );
+    }, [updateCanvas]);
+
+    const updateCanvasElement = useCallback((
+        id: string,
+        changes: Partial<Omit<CanvasElementBase, "id" | "type">>,
+    ) => {
+        updateCanvas((current) => current.map((element): CanvasElement =>
+            element.id === id ? {...element, ...changes} as CanvasElement : element
+        ));
+    }, [updateCanvas]);
+
     const refreshCanvas = useCallback(async (options?: RefreshCanvasOptions): Promise<CanvasElement[]> => {
         setCanvasLoading(true);
         try {
@@ -491,12 +521,8 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
             const {elements: nextCanvas, configName} = parseCanvas(response);
             if (options?.syncActiveConfig) setActiveConfig(configName);
             // Keep the server's bottom-to-top order in shared state.
-            setCanvas(nextCanvas);
-            setSelectedCanvasElementId((selectedId) =>
-                selectedId && nextCanvas.some((element) => element.id === selectedId) ? selectedId : null
-            );
+            replaceCanvas(nextCanvas);
             setCanvasError(null);
-            setCanvasRevision((revision) => revision + 1);
             return nextCanvas;
         } catch (error) {
             const message = getErrorMessage(error);
@@ -505,7 +531,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         } finally {
             setCanvasLoading(false);
         }
-    }, [sendCommand]);
+    }, [replaceCanvas, sendCommand]);
 
     const refreshMatrices = useCallback(async (): Promise<MatrixPos[]> => {
         try {
@@ -578,23 +604,26 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
 
         setActiveConfig(configName);
         setSelectedCanvasElementId(null);
-        await refreshCanvas();
-    }, [refreshCanvas, sendCommand]);
+        replaceCanvas(configName ? parseCanvas(response).elements : []);
+        setCanvasError(null);
+    }, [replaceCanvas, sendCommand]);
 
     const moveCanvasElement = useCallback(async (
         id: string,
         location: Location
     ) => {
         try {
-            const response = await sendCommand(`element-move`, [id, String(Math.trunc(location.x)), String(Math.trunc(location.y))]);
+            const nextLocation = {x: Math.trunc(location.x), y: Math.trunc(location.y)};
+            const response = await sendCommand(`element-move`, [id, String(nextLocation.x), String(nextLocation.y)]);
             const responseError = getResponseError(response);
             if (responseError) throw new Error(responseError);
+            updateCanvasElement(id, {location: nextLocation});
             await saveCanvasAfterChange();
         } catch (error) {
             setCanvasError(getErrorMessage(error));
             throw error;
         }
-    }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
+    }, [saveCanvasAfterChange, sendCommand, updateCanvasElement]);
 
     const moveCanvasElementZ = useCallback(async (
         id: string,
@@ -604,13 +633,20 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
             const response = await sendCommand(`element-move-${direction}`, [id]);
             const responseError = getResponseError(response);
             if (responseError) throw new Error(responseError);
-            await refreshCanvas();
+            updateCanvas((current) => {
+                const index = current.findIndex((element) => element.id === id);
+                const otherIndex = direction === "up" ? index - 1 : index + 1;
+                if (index < 0 || otherIndex < 0 || otherIndex >= current.length) return current;
+                const next = [...current];
+                [next[index], next[otherIndex]] = [next[otherIndex], next[index]];
+                return next;
+            });
             await saveCanvasAfterChange();
         } catch (error) {
             setCanvasError(getErrorMessage(error));
             throw error;
         }
-    }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
+    }, [saveCanvasAfterChange, sendCommand, updateCanvas]);
 
     const renameCanvasElement = useCallback(async (id: string, newName: string) => {
         const trimmedName = newName.trim();
@@ -620,27 +656,27 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
             const response = await sendCommand("element-rename", [id, trimmedName]);
             const responseError = getResponseError(response);
             if (responseError) throw new Error(responseError);
-            await refreshCanvas();
+            updateCanvasElement(id, {name: trimmedName});
             await saveCanvasAfterChange();
         } catch (error) {
             setCanvasError(getErrorMessage(error));
             throw error;
         }
-    }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
+    }, [saveCanvasAfterChange, sendCommand, updateCanvasElement]);
 
 
     const createElement = useCallback(async (commandName: string, args: unknown[]) => {
         try {
             const response = await sendCommand(commandName, args);
-            const responseError = getResponseError(response);
-            if (responseError) throw new Error(responseError);
-            await refreshCanvas();
+            const element = parseNewElement(response);
+            // New elements are added to the top of the canvas.
+            updateCanvas((current) => [element, ...current.filter((other) => other.id !== element.id)]);
             await saveCanvasAfterChange();
         } catch (error) {
             setCanvasError(getErrorMessage(error));
             throw error;
         }
-    }, [refreshCanvas, saveCanvasAfterChange, sendCommand]);
+    }, [saveCanvasAfterChange, sendCommand, updateCanvas]);
 
     const createImageElement = useCallback(async (filepath: string) => {
         const trimmedPath = filepath.trim();
@@ -673,6 +709,7 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
 
     const transformCanvasElement = useCallback(async (
         id: string,
+        location: Location,
         size: Size,
         degreesCCW: number,
     ) => {
@@ -681,27 +718,48 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
 
         const width = Math.max(1, Math.round(size.width));
         const height = Math.max(1, Math.round(size.height));
+        const nextLocation = {x: Math.round(location.x), y: Math.round(location.y)};
         const rotation = Number(degreesCCW.toFixed(3));
 
+        const changes: Partial<Omit<CanvasElementBase, "id" | "type">> = {};
+
+        const send = async (commandName: string, args: string[]) => {
+            const response = await sendCommand(commandName, args);
+            const responseError = getResponseError(response);
+            if (responseError) throw new Error(responseError);
+        };
+
         try {
-            if (width !== Math.round(element.size.width) || height !== Math.round(element.size.height)) {
-                const response = await sendCommand("element-resize", [id, String(width), String(height)]);
-                const responseError = getResponseError(response);
-                if (responseError) throw new Error(responseError);
+            const locationChanged = nextLocation.x !== element.location.x || nextLocation.y !== element.location.y;
+            // Text elements have no size property (their size comes from the font size)
+            const sizeChanged = element.type !== "text" &&
+                (width !== Math.round(element.size.width) || height !== Math.round(element.size.height));
+
+            if (sizeChanged) {
+                const args = [id, String(width), String(height)];
+                if (locationChanged) args.push(String(nextLocation.x), String(nextLocation.y));
+                await send("element-resize", args);
+                changes.size = {width, height};
+                if (locationChanged) changes.location = nextLocation;
+            } else if (locationChanged) {
+                await send("element-move", [id, String(nextLocation.x), String(nextLocation.y)]);
+                changes.location = nextLocation;
             }
 
-            if (rotation !== 0) {
-                const response = await sendCommand("element-rotate", [id, String(rotation)]);
-                const responseError = getResponseError(response);
-                if (responseError) throw new Error(responseError);
+            // element-rotate sets the absolute rotation, so compare against the current rotation
+            if (rotation !== Number(element.rotation.toFixed(3))) {
+                await send("element-rotate", [id, String(rotation)]);
+                changes.rotation = rotation;
             }
 
             await saveCanvasAfterChange();
         } catch (error) {
             setCanvasError(getErrorMessage(error));
             throw error;
+        } finally {
+            if (Object.keys(changes).length > 0) updateCanvasElement(id, changes);
         }
-    }, [canvas, saveCanvasAfterChange, sendCommand]);
+    }, [canvas, saveCanvasAfterChange, sendCommand, updateCanvasElement]);
 
     useEffect(() => {
         if (status === "connected") {

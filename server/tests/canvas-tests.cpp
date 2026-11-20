@@ -36,7 +36,9 @@ TEST(ImageElement, Gamut) {
   elem->setSize(cv::Size(64, 64));
   elemMat = elem->getPixelMatrix();
   VERIFY_CV_SIZE(elemMat.size(), 48, 64);
-  VERIFY_CV_POINT(elem->getLocation(), 32, 32);
+  // Centered horizontally within the 64x64 bounding box.
+  VERIFY_CV_POINT(elem->getLocation(), 40, 32);
+  VERIFY_CV_POINT(elem->getRawLocation(), 32, 32);
 
   inspect(elemMat, "Parrot Image - 48x64");
   saveImage(elemMat, "Parrot_48x64");
@@ -58,9 +60,10 @@ TEST(ImageElement, Gamut) {
   elem->setRotation(45);
   elemMat = elem->getPixelMatrix();
   VERIFY_CV_SIZE(elemMat.size(), 80, 80);
-  // The top-left corner position gets changed to preserve the center position
-  // on the canvas.
-  VERIFY_CV_POINT(elem->getLocation(), 16, 24);
+  // The top-left corner position gets changed so that the rotated frame stays
+  // centered within the bounding box (center at 64, 64).
+  VERIFY_CV_POINT(elem->getLocation(), 24, 24);
+  VERIFY_CV_POINT(elem->getRawLocation(), 32, 32);
 
   inspect(elemMat, "ImageElement: Parrot Image - 45 deg");
   saveImage(elemMat, "Parrot_45Deg");

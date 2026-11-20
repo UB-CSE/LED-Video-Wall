@@ -72,13 +72,17 @@ Brings an element up one level in the layer stack.
 1. __id__: The ID of the element to move
 
 Drops an element down one level in the layer stack.
-### element-resize \<id\> \<width\> \<height\>
+### element-resize \<id\> \<width\> \<height\> \[\<x\> \<y\>\]
 ##### Arguments:
 1. __id__: The ID of the element to edit
 2. __width__: The new pixel width of the element
 3. __height__: The new pixel height of the element
+4. __x__ (optional): The new x position of the element's top-left corner
+5. __y__ (optional): The new y position of the element's top-left corner
 
 Resizes an element. If the `preserve aspect ratio` property is set to true, this will only act as a "bounding box" for the element and will not stretch it.
+
+If __x__ and __y__ are given, the element is also moved so its top-left corner is at that position. This is used when resizing from the top or left side of an element, which moves its top-left corner. Both must be given together.
 ### element-rotate \<id\> \<degrees\>
 ##### Arguments:
 1. __id__: The ID of the element to edit

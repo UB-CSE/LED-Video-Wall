@@ -54,6 +54,8 @@ Element::Element(std::string_view uid, int frameRate,
       m_preserveAspectRatio(preserveAspectRatio) {}
 
 void Element::scaleFrame() {
+  m_locationOffsetScale = cv::Point(0, 0);
+
   if (m_size.empty()) {
     return;
   }
@@ -75,6 +77,12 @@ void Element::scaleFrame() {
       newWidth = static_cast<int>(newHeight * aspectRatio);
     }
     newSize = cv::Size(newWidth, newHeight);
+
+    // Center the scaled frame within the bounding box. Rotation is done about
+    // the center of the scaled frame, so this also makes rotation occur about
+    // the center of the bounding box.
+    m_locationOffsetScale = cv::Point((m_size.width - newWidth) / 2,
+                                      (m_size.height - newHeight) / 2);
   }
 
   cv::resize(m_finalPixelMatrix, m_finalPixelMatrix, newSize, 0, 0);
@@ -979,8 +987,7 @@ bool VirtualCanvas::saveElementConfig(const std::filesystem::path &path) {
   return false;
 }
 
-static void to_json(nlohmann::json &j,
-                    const std::shared_ptr<Element> &element) {
+void to_json(nlohmann::json &j, const std::shared_ptr<Element> &element) {
   if (auto imageElement = std::dynamic_pointer_cast<ImageElement>(element)) {
     j = *imageElement;
   } else if (auto carouselElement =
