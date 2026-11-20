@@ -11,7 +11,7 @@ using namespace nlohmann::json_literals;
 TEST(CommandParser, Empty) {
   std::string_view input;
 
-  std::optional<std::string_view> token = CommandParser::NextToken(input);
+  std::optional<std::string> token = CommandParser::NextToken(input);
   ASSERT_THAT(token.has_value(), IsFalse());
 
   input = "    ";
@@ -22,7 +22,7 @@ TEST(CommandParser, Empty) {
 TEST(CommandParser, Basic) {
   std::string_view input = "mycommand arg1 arg2  arg3  ";
 
-  std::optional<std::string_view> token = CommandParser::NextToken(input);
+  std::optional<std::string> token = CommandParser::NextToken(input);
   ASSERT_THAT(token.has_value(), IsTrue());
   ASSERT_THAT(token.value(), StrEq("mycommand"));
   ASSERT_THAT(input, StrEq("arg1 arg2  arg3  "));
@@ -49,7 +49,7 @@ TEST(CommandParser, Basic) {
 TEST(CommandParser, SingleQuotes) {
   std::string_view input = "mycommand arg1\t'long \"argument\"' ";
 
-  std::optional<std::string_view> token = CommandParser::NextToken(input);
+  std::optional<std::string> token = CommandParser::NextToken(input);
   ASSERT_THAT(token.has_value(), IsTrue());
   ASSERT_THAT(token.value(), StrEq("mycommand"));
   ASSERT_THAT(input, StrEq("arg1\t'long \"argument\"' "));
@@ -71,7 +71,7 @@ TEST(CommandParser, SingleQuotes) {
 TEST(CommandParser, SingleQuotesEmpty) {
   std::string_view input = "''";
 
-  std::optional<std::string_view> token = CommandParser::NextToken(input);
+  std::optional<std::string> token = CommandParser::NextToken(input);
   ASSERT_THAT(token.has_value(), IsTrue());
   ASSERT_THAT(token.value(), StrEq(""));
   ASSERT_THAT(input, StrEq(""));
@@ -83,7 +83,7 @@ TEST(CommandParser, SingleQuotesEmpty) {
 TEST(CommandParser, DoubleQuotes) {
   std::string_view input = "mycommand arg1\t\"long 'argument'\" ";
 
-  std::optional<std::string_view> token = CommandParser::NextToken(input);
+  std::optional<std::string> token = CommandParser::NextToken(input);
   ASSERT_THAT(token.has_value(), IsTrue());
   ASSERT_THAT(token.value(), StrEq("mycommand"));
   ASSERT_THAT(input, StrEq("arg1\t\"long 'argument'\" "));
@@ -105,7 +105,7 @@ TEST(CommandParser, DoubleQuotes) {
 TEST(CommandParser, DoubleQuotesEmpty) {
   std::string_view input = "\"\"";
 
-  std::optional<std::string_view> token = CommandParser::NextToken(input);
+  std::optional<std::string> token = CommandParser::NextToken(input);
   ASSERT_THAT(token.has_value(), IsTrue());
   ASSERT_THAT(token.value(), StrEq(""));
   ASSERT_THAT(input, StrEq(""));
@@ -118,7 +118,7 @@ TEST(CommandParser, BadQuotes) {
   {
     std::string_view input = "mycommand arg1\t\"long 'argument' ";
 
-    std::optional<std::string_view> token = CommandParser::NextToken(input);
+    std::optional<std::string> token = CommandParser::NextToken(input);
     ASSERT_THAT(token.has_value(), IsTrue());
     ASSERT_THAT(token.value(), StrEq("mycommand"));
     ASSERT_THAT(input, StrEq("arg1\t\"long 'argument' "));
@@ -135,15 +135,15 @@ TEST(CommandParser, BadQuotes) {
   {
     std::string_view input = "'";
 
-    std::optional<std::string_view> token = CommandParser::NextToken(input);
+    std::optional<std::string> token = CommandParser::NextToken(input);
     ASSERT_THAT(token.has_value(), IsFalse());
   }
 }
 
 TEST(CommandParser, ToArgs) {
   std::string_view input = "mycommand arg1\t\"long 'argument'\" arg3\r\n";
-  std::string_view command;
-  std::vector<std::string_view> args;
+  std::string command;
+  std::vector<std::string> args;
 
   bool result = CommandParser::ToArgs(input, command, args);
   ASSERT_THAT(result, IsTrue());
@@ -151,10 +151,68 @@ TEST(CommandParser, ToArgs) {
   ASSERT_THAT(args, ElementsAre("arg1", "long 'argument'", "arg3"));
 }
 
+TEST(CommandParser, Escapes) {
+  std::string_view input =
+      R"(a\ b "it's a \"test\"" 'don\'t' "back\\slash" "")";
+
+  std::string command;
+  std::vector<std::string> args;
+
+  bool result = CommandParser::ToArgs(input, command, args);
+  ASSERT_THAT(result, IsTrue());
+  ASSERT_THAT(command, StrEq("a b"));
+  ASSERT_THAT(args,
+              ElementsAre("it's a \"test\"", "don't", "back\\slash", ""));
+}
+
+TEST(CommandParser, WebServerEncoding) {
+  // Output of LEDVWCommand.String() in the web server for awkward arguments.
+  std::string_view input =
+      "\"element-create-text\" \"It's a \\\"test\\\"\" \"C:\\\\path\\\\\" \"\" "
+      "\"  spaced\ttab \" \"caf\xc3\xa9 \xe2\x9c\x93\" \"\\\\\\\"\"";
+
+  std::string command;
+  std::vector<std::string> args;
+
+  bool result = CommandParser::ToArgs(input, command, args);
+  ASSERT_THAT(result, IsTrue());
+  ASSERT_THAT(command, StrEq("element-create-text"));
+  ASSERT_THAT(args, ElementsAre("It's a \"test\"", "C:\\path\\", "",
+                                "  spaced\ttab ", "caf\xc3\xa9 \xe2\x9c\x93",
+                                "\\\""));
+}
+
+TEST(CommandParser, NonAscii) {
+  std::string_view input = "mycommand \"caf\xc3\xa9 \xe2\x9c\x93\" x";
+  std::string command;
+  std::vector<std::string> args;
+
+  bool result = CommandParser::ToArgs(input, command, args);
+  ASSERT_THAT(result, IsTrue());
+  ASSERT_THAT(args, ElementsAre("caf\xc3\xa9 \xe2\x9c\x93", "x"));
+}
+
+TEST(CommandParser, ToArgsMalformed) {
+  std::string command;
+  std::vector<std::string> args;
+
+  ASSERT_THAT(CommandParser::ToArgs("mycommand \"unclosed", command, args),
+              IsFalse());
+
+  args.clear();
+  ASSERT_THAT(CommandParser::ToArgs("mycommand trailing\\", command, args),
+              IsFalse());
+
+  args.clear();
+  ASSERT_THAT(CommandParser::ToArgs("mycommand \"escaped quote\\\"", command,
+                                    args),
+              IsFalse());
+}
+
 TEST(CommandParser, ToArgsNoCommand) {
   std::string_view input = "   ";
-  std::string_view command;
-  std::vector<std::string_view> args;
+  std::string command;
+  std::vector<std::string> args;
 
   bool result = CommandParser::ToArgs(input, command, args);
   ASSERT_THAT(result, IsFalse());

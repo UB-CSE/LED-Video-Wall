@@ -50,11 +50,13 @@ export default function ImageGalleryModal({open, onClose, onSelect}: ImageGaller
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [warning, setWarning] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const loadImages = useCallback(async () => {
         setLoading(true);
         setError(null);
+        setWarning(null);
         try {
             const response = await fetch("/api/list-images");
             if (!response.ok) throw new Error(`Could not load images (${response.status}).`);
@@ -89,6 +91,7 @@ export default function ImageGalleryModal({open, onClose, onSelect}: ImageGaller
     async function uploadImage(file: File) {
         setUploading(true);
         setError(null);
+        setWarning(null);
         const randomFilename = getRandomImageName(file);
         try {
             const formData = new FormData();
@@ -120,6 +123,9 @@ export default function ImageGalleryModal({open, onClose, onSelect}: ImageGaller
             });
             setImages(nextImages.includes(uploadedFilename) ? nextImages : [...nextImages, uploadedFilename]);
             setSelectedImage(uploadedFilename);
+            if (record.duplicate === true) {
+                setWarning("This image is already in the gallery, so the existing copy has been selected.");
+            }
         } catch (uploadError) {
             setError(uploadError instanceof Error ? uploadError.message : "Image upload failed.");
         } finally {
@@ -167,25 +173,25 @@ export default function ImageGalleryModal({open, onClose, onSelect}: ImageGaller
                 </div>
 
                 {error && <p className="modal-error" role="alert">{error}</p>}
+                {warning && <p className="modal-warning" role="status">{warning}</p>}
                 <div className="image-gallery-grid" aria-busy={loading || uploading}>
                     {loading ? (
                         <p className="empty-state gallery-empty">Loading images…</p>
                     ) : images.length === 0 ? (
                         <p className="empty-state gallery-empty">No images found. Upload an image to get started.</p>
-                    ) : images.map((filepath) => (
+                    ) : images.map((filepath, index) => (
                         <button
                             className={`image-gallery-item${selectedImage === filepath ? " image-gallery-item-selected" : ""}`}
                             type="button"
                             key={filepath}
                             onClick={() => setSelectedImage(filepath)}
                             aria-pressed={selectedImage === filepath}
-                            title={filepath}
+                            aria-label={`Image ${index + 1}`}
                         >
                             <span className="image-gallery-thumbnail">
                                 <img src={imageUrl(filepath)} alt="" loading="lazy"/>
                                 {selectedImage === filepath && <span className="image-gallery-check"><Check size={15}/></span>}
                             </span>
-                            <span className="image-gallery-filename">{filepath.split("/").pop()}</span>
                         </button>
                     ))}
                 </div>

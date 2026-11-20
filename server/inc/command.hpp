@@ -21,12 +21,17 @@ struct CommandParser {
    * Text between two single quotes or between two double quotes is treated as a
    * token.
    *
+   * A backslash escapes the next character, inside or outside of quotes, so
+   * that it is taken literally (e.g. \" inside a double-quoted token, or \\
+   * for a backslash).
+   *
    * @param input Input string. When successful, this gets iterated past the
    *              acquired token.
-   * @return The token string view if successful, or std::nullopt if no token
-   *         could be acquired.
+   * @return The unescaped token if successful, or std::nullopt if no token
+   *         could be acquired (only whitespace left, no closing quote, or a
+   *         trailing backslash).
    */
-  static std::optional<std::string_view> NextToken(std::string_view &input);
+  static std::optional<std::string> NextToken(std::string_view &input);
 
   /**
    * Parses a command line string into a command and arguments.
@@ -34,11 +39,11 @@ struct CommandParser {
    * @param input Command line string.
    * @param parsedCommandName First token in the string (command name).
    * @param parsedArgs The rest of the tokens (the command's arguments).
-   * @return Success
+   * @return Success. Fails if there is no command name or a token is
+   *         malformed.
    */
-  static bool ToArgs(std::string_view input,
-                     std::string_view &parsedCommandName,
-                     std::vector<std::string_view> &parsedArgs);
+  static bool ToArgs(std::string_view input, std::string &parsedCommandName,
+                     std::vector<std::string> &parsedArgs);
 };
 
 /**

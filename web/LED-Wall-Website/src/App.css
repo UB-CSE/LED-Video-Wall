@@ -957,6 +957,16 @@ input {
     line-height: 1.4;
 }
 
+.modal-warning {
+    margin: 0;
+    padding: 9px 11px;
+    border: 1px solid #ecd9a0;
+    background: #fffaeb;
+    color: #7a5600;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
 .gallery-toolbar {
     display: flex;
     align-items: center;
@@ -1027,14 +1037,6 @@ input {
     border-radius: 50%;
     background: #075bb4;
     color: #fff;
-}
-
-.image-gallery-filename {
-    overflow: hidden;
-    color: #353b42;
-    font-size: 11px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .gallery-empty {

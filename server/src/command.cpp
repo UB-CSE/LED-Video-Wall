@@ -13,63 +13,83 @@
 
 #pragma region Command Argument Parsing
 
-std::optional<std::string_view>
-CommandParser::NextToken(std::string_view &inputStr) {
-  const char *input = inputStr.data();
-  if (!input) {
+std::optional<std::string>
+CommandParser::NextToken(std::string_view &input) {
+  const size_t length = input.size();
+  size_t i = 0;
+
+  // Skip leading whitespace.
+  while (i < length && std::isspace(static_cast<unsigned char>(input[i]))) {
+    i++;
+  }
+  if (i == length) {
     return std::nullopt;
   }
 
-  ssize_t startIndex = -1;
-  char quote = false;
+  // An opening quote means the token runs until the matching closing quote.
+  char quote = 0;
+  if (input[i] == '\'' || input[i] == '"') {
+    quote = input[i];
+    i++;
+  }
 
-  ssize_t i = 0;
-  char c;
-  for (c = *input; c > 0 && i < static_cast<ssize_t>(inputStr.length());
-       c = *(++input), i++) {
-    if (startIndex >= 0) {
-      // Closing quote or whitespace ends the token.
-      if (c == quote || (!quote && std::isspace(c))) {
-        quote = 0;
-        break;
+  std::string token;
+  bool terminated = quote == 0; // Unquoted tokens may end with the input.
+
+  for (; i < length; i++) {
+    const char c = input[i];
+    if (c == '\\') {
+      // A backslash escapes the next character.
+      if (++i == length) {
+        return std::nullopt;
       }
-    } else if (c == '\'' || c == '"') {
-      // Enter quote - start of token.
-      startIndex = i + 1;
-      quote = c;
-    } else if (!std::isspace(c)) {
-      // Non-whitespace - start of token.
-      startIndex = i;
+      token += input[i];
+    } else if (quote ? c == quote
+                     : std::isspace(static_cast<unsigned char>(c)) != 0) {
+      // Closing quote or whitespace ends the token and is consumed.
+      terminated = true;
+      i++;
+      break;
+    } else {
+      token += c;
     }
   }
 
-  if (startIndex < 0 || quote) {
-    // All whitespace or no closing quote.
+  if (!terminated) {
+    // No closing quote.
     return std::nullopt;
   }
 
-  std::string_view token = inputStr.substr(startIndex, i - startIndex);
-  inputStr.remove_prefix(i + (c > 0 ? 1 : 0));
+  input.remove_prefix(i);
   return token;
 }
 
 bool CommandParser::ToArgs(std::string_view input,
-                           std::string_view &parsedCommandName,
-                           std::vector<std::string_view> &parsedArgs) {
-  std::optional<std::string_view> tokenOpt = NextToken(input);
+                           std::string &parsedCommandName,
+                           std::vector<std::string> &parsedArgs) {
+  std::optional<std::string> tokenOpt = NextToken(input);
   if (!tokenOpt.has_value()) {
     return false;
   }
 
-  parsedCommandName = tokenOpt.value();
+  parsedCommandName = std::move(tokenOpt.value());
 
   while (true) {
     tokenOpt = NextToken(input);
     if (!tokenOpt.has_value()) {
       break;
     }
-    parsedArgs.push_back(tokenOpt.value());
+    parsedArgs.push_back(std::move(tokenOpt.value()));
   }
+
+  // Anything left over is a malformed token (unclosed quote or dangling
+  // backslash), which shouldn't be silently dropped.
+  for (const char c : input) {
+    if (!std::isspace(static_cast<unsigned char>(c))) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -1211,12 +1231,13 @@ nlohmann::json ProcessCommand(VirtualCanvas &vCanvas, Controller &controller,
                               std::shared_ptr<spdlog::logger> logger) {
   spdlog::info("[Command] ProcessCommand: `{}'", line);
 
-  std::string_view commandName;
-  std::vector<std::string_view> args;
-  if (!CommandParser::ToArgs(line, commandName, args)) {
+  std::string commandName;
+  std::vector<std::string> ownedArgs;
+  if (!CommandParser::ToArgs(line, commandName, ownedArgs)) {
     logger->error("failed to parse arguments: `{}'", line);
     return BadInvocationResult;
   }
+  std::vector<std::string_view> args(ownedArgs.begin(), ownedArgs.end());
 
   // TODO: Commands to edit each element and get canvas data.
 

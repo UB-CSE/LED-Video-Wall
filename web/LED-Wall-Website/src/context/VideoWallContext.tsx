@@ -93,6 +93,10 @@ export interface VideoWallContextValue {
     saveCanvas: (configName?: string) => Promise<unknown>;
     loadCanvas: (configName: string | null) => Promise<void>;
     fontNames: string[];
+    /** Fonts whose files have finished loading and can be rendered. */
+    loadedFonts: ReadonlySet<string>;
+    /** Loads a font file from the server the first time it's needed. */
+    ensureFontLoaded: (fontName: string) => Promise<void>;
     canvas: CanvasElement[]; // bottom to top
     canvasLoading: boolean;
     canvasError: string | null;
@@ -287,6 +291,9 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
     const [activeConfig, setActiveConfig] = useState<string | null>(null);
     const [autoSave, setAutoSave] = useState(true);
     const [fontNames, setFontNames] = useState<string[]>([]);
+    const [loadedFonts, setLoadedFonts] = useState<ReadonlySet<string>>(() => new Set());
+    // In-flight or completed font loads, so each font file is fetched at most once.
+    const fontLoadsRef = useRef(new Map<string, Promise<void>>());
     const [canvas, setCanvas] = useState<CanvasElement[]>([]);
     const [canvasLoading, setCanvasLoading] = useState(false);
     const [canvasError, setCanvasError] = useState<string | null>(null);
@@ -513,33 +520,35 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         }
     }, [activeConfig, autoSave, saveCanvas]);
 
-    const loadFonts = useCallback(async () => {
+    const loadFontNames = useCallback(async () => {
         const response = await fetch("/api/list-fonts");
         if (!response.ok) throw new Error("Could not load font list");
 
-        const names = await response.json();
-        setFontNames(names);
+        const names: unknown = await response.json();
+        setFontNames(Array.isArray(names) ? names.filter(isString) : []);
+    }, []);
 
-        const results = await Promise.allSettled(
-            names.map(async (name: string) => {
-                const url = `/api/font/${encodeURIComponent(name)}`;
-                const face = new FontFace(name, `url("${url}")`);
+    const ensureFontLoaded = useCallback((fontName: string): Promise<void> => {
+        const existing = fontLoadsRef.current.get(fontName);
+        if (existing) return existing;
 
-                document.fonts.add(face);
-                await face.load();
+        const url = `/api/font/${encodeURIComponent(fontName)}`;
+        const face = new FontFace(fontName, `url("${url}")`);
 
-                return name;
-            }),
-        );
+        const load = face.load()
+            .then((loadedFace) => {
+                document.fonts.add(loadedFace);
+                setLoadedFonts((current) => new Set(current).add(fontName));
+            })
+            .catch((error: unknown) => {
+                // Forget the failed attempt so the font can be retried later.
+                fontLoadsRef.current.delete(fontName);
+                setCanvasError(`Could not load font "${fontName}"`);
+                throw error;
+            });
 
-        const failed = results.flatMap((result, i) =>
-            result.status === "rejected" ? [names[i]] : [],
-        );
-
-        if (failed.length) {
-            setCanvasError("Could not load these fonts");
-            throw new Error("Could not load fonts")
-        }
+        fontLoadsRef.current.set(fontName, load);
+        return load;
     }, []);
 
     const loadCanvas = useCallback(async (configName: string | null) => {
@@ -692,8 +701,8 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
     }, [status, refreshCanvas]);
 
     useEffect(() => {
-        void loadFonts().catch(() => undefined);
-    }, []);
+        void loadFontNames().catch(() => undefined);
+    }, [loadFontNames]);
 
     useEffect(() => () => {
         const socket = socketRef.current;
@@ -719,6 +728,8 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         saveCanvas,
         loadCanvas,
         fontNames,
+        loadedFonts,
+        ensureFontLoaded,
         canvas,
         canvasLoading,
         canvasError,
@@ -747,6 +758,8 @@ export function VideoWallProvider({children}: { children: ReactNode }) {
         saveCanvas,
         loadCanvas,
         fontNames,
+        loadedFonts,
+        ensureFontLoaded,
         canvas,
         canvasLoading,
         canvasError,

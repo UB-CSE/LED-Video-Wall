@@ -11,7 +11,12 @@ Commands are invoked the same as you would in bash, with the format
 ```
 command-name arg1 "arg 2" ...
 ```
-Arguments with spaces can be surrounded with quotes.
+Arguments with spaces can be surrounded with single or double quotes. A backslash
+escapes the next character, inside or outside of quotes, so it's taken literally:
+```
+element-rename 1 "It's a \"test\""
+canvas-load "path\\with\\backslashes.yaml"
+```
 
 ## Commands
 ### quit/exit

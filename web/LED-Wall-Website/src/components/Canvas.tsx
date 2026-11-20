@@ -195,6 +195,8 @@ export default function Canvas() {
         selectCanvasElement,
         moveCanvasElement,
         transformCanvasElement,
+        loadedFonts,
+        ensureFontLoaded,
     } = useVideoWall();
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -206,6 +208,16 @@ export default function Canvas() {
     const elementNodesRef = useRef<Map<string, KonvaNode>>(new Map());
 
     const layers = [...canvas].reverse();
+
+    // Load only the fonts that text elements on the canvas actually use.
+    useEffect(() => {
+        const usedFonts = new Set(
+            canvas.flatMap((element) => element.type === "text" && element.fontPath ? [element.fontPath] : []),
+        );
+        for (const fontName of usedFonts) {
+            void ensureFontLoaded(fontName).catch(() => undefined);
+        }
+    }, [canvas, ensureFontLoaded]);
 
     const registerNode = useCallback((element: CanvasElement, node: KonvaNode | null) => {
         if (node) elementNodesRef.current.set(element.id, node);
@@ -449,7 +461,9 @@ export default function Canvas() {
                                             fill={hexColor}
                                             align="left"
                                             verticalAlign="top"
-                                            fontFamily={`"${element.fontPath}"`}
+                                            // Fall back until the font file arrives; switching the
+                                            // family afterwards makes Konva re-measure and redraw.
+                                            fontFamily={loadedFonts.has(element.fontPath) ? `"${element.fontPath}"` : "sans-serif"}
                                             wrap="none"
                                             padding={0}
                                             draggable

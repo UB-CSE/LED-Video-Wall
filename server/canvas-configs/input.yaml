@@ -4,7 +4,7 @@ elements:
   elem1:
     order: 0
     type: image
-    filepath: horse.jpg
+    filepath: 3caa067bba108b80f26f0f7f912bd5b7bd5f8053191ccd3a00780da5fdf365ab.jpg
     name: Horse
     location:
       - 14
@@ -16,7 +16,7 @@ elements:
   elem2:
     order: 1
     type: image
-    filepath: butterfly.jpg
+    filepath: c0a7a30d78b23cf5f60d393d601dfc823ce2650118978aa01bcf4e5dedbd1e28.jpg
     name: Butterfly
     location:
       - -1
@@ -27,7 +27,7 @@ elements:
   elem3:
     order: 2
     type: image
-    filepath: parrot.jpg
+    filepath: 84d6da9b5559a803213bac93a03a9bc82465b64b558fd61866acc550b3ba697f.jpg
     name: Parrot
     location:
       - 5
@@ -38,7 +38,7 @@ elements:
   elem4:
     order: 3
     type: image
-    filepath: clownfish.jpg
+    filepath: a111747b6838846ced2b1c8d1618d3a8ba3b0fe366eabd9f6c15fce6c4bc0842.jpg
     name: Clownfish
     location:
       - 0
@@ -49,7 +49,7 @@ elements:
   elem5:
     order: 4
     type: image
-    filepath: treefrog.jpg
+    filepath: e56da368b3a426ecc849075c4cbaa4e5ebda6fd6ee62cf2510fa37b2c7f99cdd.jpg
     name: Tree frog
     location:
       - 0
@@ -60,7 +60,7 @@ elements:
   elem6:
     order: 5
     type: image
-    filepath: rainbow.png
+    filepath: 223924eb4e7f1b971ecc1466c0f3030ebfa20eb7e73e56ee30fd9d00caf62421.png
     name: Rainbow
     location:
       - 0

@@ -1,39 +1,60 @@
 package main
 
 import (
-	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{}
-var vwServerManager = NewLEDVWServerManager()
 
-func newUUID() (string, error) {
-	var b [16]byte
+const (
+	wsWriteWait  = 10 * time.Second
+	wsPongWait   = 20 * time.Second
+	wsPingPeriod = (wsPongWait * 9) / 10
+)
 
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", err
-	}
+func startWebsocketKeepalive(wsConn *websocket.Conn) func() {
+	_ = wsConn.SetReadDeadline(time.Now().Add(wsPongWait))
+	wsConn.SetPongHandler(func(string) error {
+		return wsConn.SetReadDeadline(time.Now().Add(wsPongWait))
+	})
 
-	// Set UUID version (4) and variant bits.
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(wsPingPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				err := wsConn.WriteControl(websocket.PingMessage, nil, time.Now().Add(wsWriteWait))
+				if err != nil {
+					log.Println("ping:", err)
+					_ = wsConn.Close()
+					return
+				}
+			}
+		}
+	}()
 
-	return hex.EncodeToString(b[0:4]) + "-" +
-		hex.EncodeToString(b[4:6]) + "-" +
-		hex.EncodeToString(b[6:8]) + "-" +
-		hex.EncodeToString(b[8:10]) + "-" +
-		hex.EncodeToString(b[10:16]), nil
+	return func() { close(done) }
 }
+
+var vwServerManager = NewLEDVWServerManager()
 
 func getFileNames(dir string, extensions []string) []string {
 	entries, err := os.ReadDir(dir)
@@ -175,18 +196,6 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 			return
 		}
 
-		// Generate a unique filename.
-		id, err := newUUID()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": "Failed to generate filename",
-			})
-			return
-		}
-
-		filename := id + ext
-		dstPath := filepath.Join(serverConfig.UserResourceUploadsDir, filename)
-
 		// Ensure the upload directory exists.
 		if err = os.MkdirAll(serverConfig.UserResourceUploadsDir, 0755); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -195,29 +204,60 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 			return
 		}
 
-		// O_EXCL prevents accidentally overwriting an existing file.
-		dst, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+		// Save to a temporary file in the upload directory while hashing the
+		// contents. The temporary name's extension keeps it out of the image list.
+		tmp, err := os.CreateTemp(serverConfig.UserResourceUploadsDir, ".upload-*.tmp")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Failed to save image",
 			})
 			return
 		}
+		tmpPath := tmp.Name()
+		defer func() { _ = os.Remove(tmpPath) }()
 
-		written, copyErr := io.Copy(dst, io.LimitReader(src, maxUploadSize+1))
-		closeErr := dst.Close()
+		hasher := sha256.New()
+		written, copyErr := io.Copy(io.MultiWriter(tmp, hasher), io.LimitReader(src, maxUploadSize+1))
+		closeErr := tmp.Close()
 
 		if copyErr != nil || closeErr != nil || written > maxUploadSize {
-			os.Remove(dstPath)
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": "Failed to save image",
 			})
 			return
 		}
 
-		// Return the generated filename to the frontend.
+		// Name the image after its contents so identical images share one file.
+		// The extension comes from the detected type, so the same JPEG uploaded
+		// as .jpg and .jpeg is still recognized as a duplicate.
+		canonicalExt := ".png"
+		if contentType == "image/jpeg" {
+			canonicalExt = ".jpg"
+		}
+		filename := hex.EncodeToString(hasher.Sum(nil)) + canonicalExt
+		dstPath := filepath.Join(serverConfig.UserResourceUploadsDir, filename)
+
+		// Linking fails if the destination exists, so this is an atomic
+		// "create unless a duplicate already exists", even for concurrent uploads.
+		if err := os.Link(tmpPath, dstPath); err != nil {
+			if errors.Is(err, fs.ErrExist) {
+				c.JSON(http.StatusOK, gin.H{
+					"filename":  filename,
+					"duplicate": true,
+				})
+				return
+			}
+
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to save image",
+			})
+			return
+		}
+
+		// Return the image's filename to the frontend.
 		c.JSON(http.StatusCreated, gin.H{
-			"filename": filename,
+			"filename":  filename,
+			"duplicate": false,
 		})
 	})
 
@@ -260,6 +300,9 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 			return
 		}
 
+		stopKeepalive := startWebsocketKeepalive(wsConn)
+		defer stopKeepalive()
+
 		for {
 			command := &LEDVWCommand{}
 			err := wsConn.ReadJSON(command)
@@ -268,15 +311,31 @@ func setupRouter(serverConfig *ServerConfig) *gin.Engine {
 				break
 			}
 
-			response, ok := vwServerManager.RunCommand(command, wallName)
-			if !ok {
-				log.Println("failed to run command on wall", wallName)
-				break
+			response, err := vwServerManager.RunCommand(command, wallName)
+			serverStopped := errors.Is(err, ErrServerNotRunning)
+			if err != nil {
+				log.Printf("failed to run command %q on wall %s: %v", command.Name, wallName, err)
+
+				// Still send exactly one response per command so the client doesn't
+				// mismatch later responses.
+				errorResponse, _ := json.Marshal(map[string]any{
+					"success": false,
+					"error":   err.Error(),
+				})
+				response = string(errorResponse)
 			}
+
+			// Pongs aren't processed while blocked on a command, so give the client a
+			// fresh window once the command completes.
+			_ = wsConn.SetReadDeadline(time.Now().Add(wsPongWait))
 
 			err = wsConn.WriteMessage(websocket.TextMessage, []byte(response))
 			if err != nil {
 				log.Println("write:", err)
+				break
+			}
+
+			if serverStopped {
 				break
 			}
 		}
@@ -289,6 +348,12 @@ func main() {
 	log.SetPrefix("[LEDVW-Web-Server] ")
 
 	serverConfig := GetServerConfig()
+	if serverConfig.DebugMode {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	r := setupRouter(serverConfig)
 
 	_ = r.Run(":5000")
